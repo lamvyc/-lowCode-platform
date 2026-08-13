@@ -26,7 +26,7 @@
     "sortablejs": "^1.15.3",
     "vue": "^3.5.13",
     "vuedraggable": "^4.1.0",
-    "vue3-grid-layout": "^0.3.0"
+    "vue3-grid-layout": "^1.0.0"
   },
   "devDependencies": {
     "@types/sortablejs": "^1.15.8",

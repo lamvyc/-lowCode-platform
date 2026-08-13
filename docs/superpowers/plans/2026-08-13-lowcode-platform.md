@@ -8,6 +8,8 @@
 
 **Tech Stack:** TypeScript strict, pnpm workspace, Vitest, Vue 3, Pinia, Element Plus, Vite, Immer, Jexl, Zod, SortableJS/vuedraggable, Monaco Editor, Prettier.
 
+> **写作规范（强制）：** 本项目生成的**所有文档**（`docs/**`、README 等）与**所有代码注释**一律使用**中文**撰写。英文仅允许出现在代码标识符、技术名词、外部库名称与命令行输出中。实施过程中新增/修改的任何文档和注释都必须遵守该规范。
+
 ---
 
 ## File Structure
