@@ -1,0 +1,106 @@
+export { DataBus, type BusListener } from './data-bus'
+export {
+  NodeTree,
+  type MoveOptions,
+  type MoveCheckResult,
+} from './node-tree'
+export {
+  MaterialRegistry,
+  NodeFactory,
+  createNodeId,
+} from './material/registry'
+export {
+  JexlExpressionEngine,
+  FunctionRegistryImpl,
+  type IExpressionEngine,
+  type ExpressionContext,
+  type ExpressionResult,
+  type FunctionRegistry,
+} from './expression/engine'
+export {
+  DragDropManager,
+  type DragPayload,
+  type DropTarget,
+  type DropPosition,
+  type Rect,
+  type DropValidationResult,
+} from './drag-drop/manager'
+export {
+  ActionRegistry,
+  type Action,
+} from './action/registry'
+export {
+  ActionChainRunner,
+} from './action/chain'
+export {
+  createBuiltinActions,
+} from './action/builtin'
+export type {
+  ActionContext,
+  ActionResult,
+  ActionChainControl,
+} from './action/context'
+export {
+  EventEngine,
+  type IEventEngine,
+} from './event/engine'
+export {
+  DataSourceManager,
+  MemoryStorage,
+  type HttpClient,
+  type HttpRequestConfig,
+  type StorageLike,
+  type DataSourceState,
+  type DataSourceManagerOptions,
+} from './datasource/manager'
+export {
+  RuleEngine,
+  type RuleEngineOptions,
+  type RuleRunResult,
+} from './rule/engine'
+export {
+  HistoryManager,
+  type HistoryEntry,
+  type HistoryOptions,
+} from './history/manager'
+export {
+  HookBus,
+  type PluginHookName,
+  type HookHandler,
+} from './plugin/hooks'
+export {
+  PluginManager,
+  createPluginAPI,
+  type Plugin,
+  type PluginAPI,
+} from './plugin/manager'
+export {
+  findDropPosition,
+  compactLayout,
+  isOverlap,
+  type GridConfig,
+} from './layout/grid'
+
+/** 便捷类型再导出：让使用方只依赖 @lowcode/core */
+export type {
+  ActionKind,
+  Binding,
+  DataSource,
+  DataSourceType,
+  EventAction,
+  EventDispatchPayload,
+  LayoutPosition,
+  Material,
+  MaterialRef,
+  NodeBindings,
+  NodeEvents,
+  NodeMeta,
+  PageNode,
+  PageSchema,
+  PageVariable,
+  PropConfig,
+  PropOption,
+  Rule,
+  RuleTrigger,
+  StyleConfig,
+} from '@lowcode/schema'
