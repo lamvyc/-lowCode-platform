@@ -81,6 +81,32 @@ MaterialPanel dragstart
   → RuntimeRenderer 重新渲染 → 画布出现 Button
 ```
 
+## 六·补、后续扩展能力
+
+### 远程物料
+
+```text
+Remote Material Manifest
+  → RemoteMaterialLoader
+  → 缓存（同类型同版本命中不重复请求）
+  → ESM：import(url) / UMD：script 注入全局对象
+  → 提取 default / component 导出
+  → 注册进 MaterialRegistry
+  → Runtime 正常渲染
+```
+
+支持版本缓存、失败重试（retries / retryDelayMs）与 fallback 占位组件。物料面板提供「载入演示 / 载入 manifest URL」入口。
+
+### 模板管理
+
+页面可保存为模板（localStorage 持久化），支持模板导入 / 导出 / 删除 / 一键生成新页面。
+
+### 编辑器框选与组合
+
+- 画布空白处按住左键拖出选框，可批量选中节点（Shift 追加选择）。
+- Ctrl/Cmd+G 组合选中节点为容器，Ctrl/Cmd+Shift+G 或右键菜单取消组合。
+- 底层由 `NodeTree.groupAs / ungroup` 提供，移动根级节点进容器的历史 bug 已一并修复并有回归测试。
+
 ## 七、运行方式
 
 ```bash

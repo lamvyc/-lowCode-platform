@@ -149,6 +149,11 @@ export const useEditorStore = defineStore('editor', {
       this.contextMenu = null
     },
 
+    selectNodes(nodeIds: string[]) {
+      this.selectedNodeIds = nodeIds
+      this.contextMenu = null
+    },
+
     hoverNode(nodeId: string | null) {
       this.hoverNodeId = nodeId
     },
@@ -239,6 +244,40 @@ export const useEditorStore = defineStore('editor', {
 
     removeSelected() {
       if (this.selectedNodeIds.length > 0) this.removeNodes([...this.selectedNodeIds])
+    },
+
+    /** 组合：把选中节点包进一个容器 */
+    groupSelection() {
+      if (!this.schema || this.selectedNodeIds.length < 2) return
+      const container: PageNode = {
+        id: createNodeId('group'),
+        type: 'container',
+        props: { direction: 'column', gap: 8, padding: 12, backgroundColor: '' },
+        children: [],
+      }
+      const ids = [...this.selectedNodeIds]
+      this.commit(
+        (draft) => {
+          new NodeTree(draft.nodes).groupAs(ids, container)
+        },
+        'group',
+      )
+      this.selectedNodeIds = [container.id]
+    },
+
+    /** 取消组合：展开选中的容器 */
+    ungroupSelection() {
+      const id = this.selectedNodeIds[0]
+      if (!id) return
+      this.commit(
+        (draft) => {
+          const tree = new NodeTree(draft.nodes)
+          const node = tree.find(id)
+          if (node && node.children?.length) tree.ungroup(id)
+        },
+        'ungroup',
+      )
+      this.selectedNodeIds = []
     },
 
     copySelected() {

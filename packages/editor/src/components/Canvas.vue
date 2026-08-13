@@ -18,6 +18,72 @@ const rectStore = reactive<NodeRectRegistry>({
 })
 const canvasRect = ref<DOMRect | null>(null)
 
+// 框选（lasso）
+const lassoStart = ref<{ x: number; y: number } | null>(null)
+const lassoClient = ref<{ left: number; top: number; width: number; height: number } | null>(null)
+
+const lassoLocal = computed(() => {
+  if (!lassoClient.value || !canvasEl.value) return null
+  const rect = canvasEl.value.getBoundingClientRect()
+  return {
+    left: (lassoClient.value.left - rect.left) / store.zoom,
+    top: (lassoClient.value.top - rect.top) / store.zoom,
+    width: lassoClient.value.width / store.zoom,
+    height: lassoClient.value.height / store.zoom,
+  }
+})
+
+function intersects(
+  a: { left: number; top: number; width: number; height: number },
+  b: { left: number; top: number; width: number; height: number },
+): boolean {
+  return (
+    a.left < b.left + b.width &&
+    a.left + a.width > b.left &&
+    a.top < b.top + b.height &&
+    a.top + a.height > b.top
+  )
+}
+
+function onMouseDown(event: MouseEvent) {
+  // 只在画布空白处开始框选
+  if (event.button !== 0 || event.target !== canvasEl.value) return
+  lassoStart.value = { x: event.clientX, y: event.clientY }
+  lassoClient.value = {
+    left: event.clientX,
+    top: event.clientY,
+    width: 0,
+    height: 0,
+  }
+}
+
+function onMouseMove(event: MouseEvent) {
+  if (!lassoStart.value) return
+  const start = lassoStart.value
+  lassoClient.value = {
+    left: Math.min(start.x, event.clientX),
+    top: Math.min(start.y, event.clientY),
+    width: Math.abs(event.clientX - start.x),
+    height: Math.abs(event.clientY - start.y),
+  }
+}
+
+function onMouseUp(event: MouseEvent) {
+  const lasso = lassoClient.value
+  lassoStart.value = null
+  lassoClient.value = null
+  if (!lasso || lasso.width < 4 || lasso.height < 4) return
+  const hits = [...rectStore.rects.entries()]
+    .filter(([, rect]) => intersects(rect, lasso))
+    .map(([id]) => id)
+  if (hits.length === 0) return
+  if (event.shiftKey || event.metaKey) {
+    store.selectNodes([...new Set([...store.selectedNodeIds, ...hits])])
+  } else {
+    store.selectNodes(hits)
+  }
+}
+
 provide(REGISTER_RECT_KEY, rectStore)
 
 const canvasStyle = computed(() => ({
@@ -85,6 +151,9 @@ const runtime = computed(() => store.runtimeContext)
       ref="canvasEl"
       class="lc-canvas"
       :style="canvasStyle"
+      @mousedown.left.prevent="onMouseDown"
+      @mousemove="onMouseMove"
+      @mouseup="onMouseUp"
       @dragover.prevent="onRootDragOver"
       @drop.prevent="onDrop"
       @dragleave="onDragLeave"
@@ -99,6 +168,7 @@ const runtime = computed(() => store.runtimeContext)
         :wrap-node="wrapNode"
       />
       <DropIndicator :target="store.dropTarget" :canvas-rect="canvasRect" />
+      <div v-if="lassoLocal" class="lc-lasso" :style="lassoLocal" />
     </div>
   </main>
 </template>

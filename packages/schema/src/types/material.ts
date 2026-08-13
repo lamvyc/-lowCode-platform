@@ -37,6 +37,22 @@ export interface RemoteMaterialMeta {
   cache?: boolean
 }
 
+/** 远程物料清单：声明如何加载并注册一个远程物料 */
+export interface RemoteMaterialManifest extends RemoteMaterialMeta {
+  type: string
+  name: string
+  category: string
+  icon?: string
+  description?: string
+  defaultProps: Record<string, unknown>
+  propConfigs: PropConfig[]
+  slots?: string[]
+  droppable?: boolean
+  groupable?: boolean
+  /** UMD 导出到 window 上的全局名 */
+  umdGlobalName?: string
+}
+
 /** 物料声明：组件 + 默认属性 + 属性配置 + 插槽 */
 export interface Material {
   type: string

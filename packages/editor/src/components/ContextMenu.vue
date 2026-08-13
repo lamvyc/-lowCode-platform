@@ -23,6 +23,13 @@ onBeforeUnmount(() => {
 })
 
 const menu = computed(() => store.contextMenu)
+const multiSelected = computed(() => store.selectedNodeIds.length >= 2)
+const selectedIsGroup = computed(() => {
+  const id = store.selectedNodeIds[0]
+  if (!id || store.selectedNodeIds.length !== 1) return false
+  const node = store.schema?.nodes.find((n) => n.id === id)
+  return Boolean(node && (node.children?.length ?? 0) > 0)
+})
 
 function copyNode() {
   const id = menu.value?.nodeId
@@ -48,6 +55,16 @@ function toggleLock() {
   }
   store.closeContextMenu()
 }
+
+function group() {
+  store.groupSelection()
+  store.closeContextMenu()
+}
+
+function ungroup() {
+  store.ungroupSelection()
+  store.closeContextMenu()
+}
 </script>
 
 <template>
@@ -60,5 +77,9 @@ function toggleLock() {
     <div class="lc-context-menu__item" @click="copyNode">复制</div>
     <div class="lc-context-menu__item" @click="deleteNode">删除</div>
     <div class="lc-context-menu__item" @click="toggleLock">锁定 / 解锁</div>
+    <div v-if="multiSelected" class="lc-context-menu__item" @click="group">组合</div>
+    <div v-if="selectedIsGroup" class="lc-context-menu__item" @click="ungroup">
+      取消组合
+    </div>
   </div>
 </template>

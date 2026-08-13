@@ -124,3 +124,9 @@
 
 - Spec coverage: all 10 core scenarios implemented; remote materials loader lives in core (ESM loader + cache/retry/fallback) but is not wired into editor UI (spec says implement later); editor UX subset implemented (keyboard, multi-select, lock, zoom, hover, context menu, drop indicator; lasso/auto-scroll/combine documented as future).
 - Dependency direction enforced: core has no vue/pinia/element-plus imports; runtime has no editor imports; editor imports runtime+core.
+
+> **更新（2026-08-14）：** 三个「后续能力」尾巴已补齐：
+> - 远程物料加载器已实现并接入物料面板（演示 ESM 远程组件 + manifest URL 加载）；
+> - 模板管理器已实现（保存/导入/导出/删除/一键建页）；
+> - 编辑器框选批量选择与组合/取消组合已实现（Ctrl/Cmd+G）。
+> 尚余规格书中未要求立即实现的部分：自动滚动、多选框选后的拖拽整体移动等纯体验项。

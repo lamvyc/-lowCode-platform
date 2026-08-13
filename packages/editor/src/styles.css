@@ -232,3 +232,17 @@
   padding: 24px;
   text-align: center;
 }
+
+.lc-lasso {
+  position: absolute;
+  border: 1px solid #3370ff;
+  background: rgb(51 112 255 / 10%);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.lc-remote-row {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+}

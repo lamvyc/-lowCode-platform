@@ -80,6 +80,11 @@ export {
   isOverlap,
   type GridConfig,
 } from './layout/grid'
+export {
+  RemoteMaterialLoader,
+  type RemoteMaterialLoaderOptions,
+  type RemoteLoadResult,
+} from './remote-material/loader'
 
 /** 便捷类型再导出：让使用方只依赖 @lowcode/core */
 export type {
@@ -100,6 +105,7 @@ export type {
   PageVariable,
   PropConfig,
   PropOption,
+  RemoteMaterialManifest,
   Rule,
   RuleTrigger,
   StyleConfig,

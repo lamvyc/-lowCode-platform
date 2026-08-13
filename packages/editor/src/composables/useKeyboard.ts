@@ -40,6 +40,12 @@ export function useKeyboardShortcuts(): void {
     } else if (mod && key === '0') {
       event.preventDefault()
       store.setZoom(1)
+    } else if (mod && key === 'g' && !event.shiftKey) {
+      event.preventDefault()
+      store.groupSelection()
+    } else if (mod && key === 'g' && event.shiftKey) {
+      event.preventDefault()
+      store.ungroupSelection()
     }
   }
 

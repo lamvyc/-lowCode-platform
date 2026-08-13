@@ -70,4 +70,50 @@ describe('NodeTree 节点树', () => {
     expect(tree.isDescendant('c', 'b')).toBe(true)
     expect(tree.isDescendant('b', 'c')).toBe(false)
   })
+
+  it('move 支持把根级节点移入容器', () => {
+    const nodes: PageNode[] = [
+      { id: 'root', type: 'container', props: {}, children: ['a'] },
+      { id: 'a', type: 'button', props: {} },
+      { id: 'b', type: 'button', props: {} },
+    ]
+    const tree = new NodeTree(nodes)
+    tree.move('b', { parentId: 'root', index: 0 })
+    expect(tree.find('b')).toBeDefined()
+    expect(tree.get('root').children).toEqual(['b', 'a'])
+  })
+
+  it('groupAs 把多个根级节点组合进容器', () => {
+    const tree = new NodeTree(makeNodes())
+    const container: PageNode = {
+      id: 'group1',
+      type: 'container',
+      props: {},
+      children: [],
+    }
+    tree.groupAs(['a', 'b'], container)
+    expect(tree.get('group1').children).toEqual(['a', 'b'])
+    expect(tree.getParent('a')?.node.id).toBe('group1')
+    expect(tree.getRoot().some((n) => n.id === 'group1')).toBe(true)
+    expect(tree.getParent('a')).toBeDefined()
+  })
+
+  it('ungroup 把容器子节点移回根并移除容器', () => {
+    const tree = new NodeTree(makeNodes())
+    const container: PageNode = {
+      id: 'group1',
+      type: 'container',
+      props: {},
+      children: [],
+    }
+    tree.groupAs(['a', 'b'], container)
+    tree.ungroup('group1')
+    expect(tree.find('group1')).toBeUndefined()
+    expect(tree.getParent('a')).toBeUndefined()
+    expect(tree.getParent('b')).toBeUndefined()
+    const ids = tree.getRoot().map((n) => n.id)
+    expect(ids).not.toContain('group1')
+    expect(ids).toContain('a')
+    expect(ids).toContain('b')
+  })
 })

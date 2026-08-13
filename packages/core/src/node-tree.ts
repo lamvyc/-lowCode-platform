@@ -178,6 +178,10 @@ export class NodeTree {
       const index = this.resolveIndex(options, original, this.nodes)
       this.nodes.splice(Math.min(index, this.nodes.length), 0, node)
     } else {
+      // 根级节点被 detach 移出 nodes 后需要重新加入
+      if (!this.nodes.some((n) => n.id === id)) {
+        this.nodes.push(node)
+      }
       const parent = this.get(options.parentId)
       const slot = options.slot ?? 'default'
       const list = this.getSlotList(parent, slot)
@@ -185,6 +189,40 @@ export class NodeTree {
       list.splice(Math.min(index, list.length), 0, id)
     }
     return node
+  }
+
+  /** 组合：把多个节点移入一个新容器 */
+  groupAs(ids: string[], container: PageNode): PageNode {
+    const validIds = ids.filter((id) => this.find(id))
+    if (validIds.length === 0) {
+      throw new Error('没有可组合的节点')
+    }
+    this.nodes.push(container)
+    container.children = []
+    for (const id of validIds) {
+      this.move(id, { parentId: container.id, index: container.children.length })
+    }
+    return container
+  }
+
+  /** 取消组合：把容器子节点移回容器原父级并删除容器 */
+  ungroup(containerId: string): PageNode[] {
+    const container = this.get(containerId)
+    const parent = this.getParent(containerId)
+    const ids = [...(container.children ?? [])]
+    for (const id of ids) {
+      if (parent) {
+        this.move(id, {
+          parentId: parent.node.id,
+          slot: parent.slot,
+          index: (parent.node.children ?? []).length,
+        })
+      } else {
+        this.move(id, { parentId: null, index: this.nodes.length })
+      }
+    }
+    this.remove(containerId)
+    return ids.map((id) => this.get(id))
   }
 
   /** 定位节点：返回其在父级列表中的位置信息 */
