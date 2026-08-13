@@ -1,0 +1,28 @@
+{
+  "name": "@lowcode/playground",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@lowcode/editor": "workspace:*",
+    "@lowcode/materials": "workspace:*",
+    "@lowcode/runtime": "workspace:*",
+    "@lowcode/schema": "workspace:*",
+    "element-plus": "^2.9.1",
+    "monaco-editor": "^0.52.0",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.0",
+    "vue-tsc": "^2.1.10"
+  }
+}

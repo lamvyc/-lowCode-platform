@@ -1,0 +1,25 @@
+{
+  "name": "@lowcode/core",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lowcode/schema": "workspace:*",
+    "immer": "^10.1.1",
+    "jexl": "^2.3.0",
+    "zod": "^3.23.8"
+  }
+}

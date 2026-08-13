@@ -1,0 +1,35 @@
+{
+  "name": "@lowcode/editor",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@lowcode/core": "workspace:*",
+    "@lowcode/materials": "workspace:*",
+    "@lowcode/runtime": "workspace:*",
+    "@lowcode/schema": "workspace:*",
+    "element-plus": "^2.9.1",
+    "immer": "^10.1.1",
+    "monaco-editor": "^0.52.0",
+    "pinia": "^2.2.6",
+    "sortablejs": "^1.15.3",
+    "vue": "^3.5.13",
+    "vuedraggable": "^4.1.0",
+    "vue3-grid-layout": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/sortablejs": "^1.15.8",
+    "vue-tsc": "^2.1.10"
+  }
+}
