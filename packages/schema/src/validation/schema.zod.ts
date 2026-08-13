@@ -37,6 +37,7 @@ const eventActionSchema: z.ZodType<EventAction> = z.lazy(() =>
     id: z.string(),
     kind: z.enum([
       'setProp',
+      'setVariable',
       'openDialog',
       'closeDialog',
       'emitEvent',

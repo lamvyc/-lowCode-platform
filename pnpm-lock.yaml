@@ -48,6 +48,9 @@ importers:
 
   packages/editor:
     dependencies:
+      '@lowcode/codegen':
+        specifier: workspace:*
+        version: link:../codegen
       '@lowcode/core':
         specifier: workspace:*
         version: link:../core

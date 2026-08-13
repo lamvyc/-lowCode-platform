@@ -2,7 +2,8 @@ import type { Material, PageNode } from '@lowcode/schema'
 
 /** 物料注册表：动态注册/查询物料，避免 Renderer 写死组件 */
 export class MaterialRegistry {
-  private materials = new Map<string, Material>()
+  /** 已注册物料表 */
+  readonly materials = new Map<string, Material>()
 
   register(material: Material): void {
     if (this.materials.has(material.type)) {

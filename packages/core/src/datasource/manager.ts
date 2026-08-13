@@ -56,12 +56,20 @@ export interface DataSourceManagerOptions {
  * Runtime 订阅状态变化驱动 UI 更新。
  */
 export class DataSourceManager {
-  private sources = new Map<string, DataSource>()
-  private states = new Map<string, DataSourceState>()
-  private listeners = new Set<(id: string, state: DataSourceState) => void>()
-  private timers = new Map<string, ReturnType<typeof setInterval>>()
+  /** 已注册数据源 */
+  readonly sources = new Map<string, DataSource>()
+  /** 数据源状态表 */
+  readonly states = new Map<string, DataSourceState>()
+  /** 状态变更监听器 */
+  readonly listeners = new Set<(id: string, state: DataSourceState) => void>()
+  /** 轮询定时器 */
+  readonly timers = new Map<string, ReturnType<typeof setInterval>>()
 
-  constructor(private options: DataSourceManagerOptions = {}) {
+  /** 构造选项 */
+  readonly options: DataSourceManagerOptions
+
+  constructor(options: DataSourceManagerOptions = {}) {
+    this.options = options
     if (options.onStateChange) this.listeners.add(options.onStateChange)
   }
 
@@ -137,7 +145,8 @@ export class DataSourceManager {
     this.states.delete(id)
   }
 
-  private async fetch(
+  /** 按数据源类型执行实际获取逻辑 */
+  async fetch(
     source: DataSource,
     params?: Record<string, unknown>,
   ): Promise<unknown> {
@@ -170,14 +179,16 @@ export class DataSourceManager {
     }
   }
 
-  private setState(id: string, state: DataSourceState): void {
+  /** 更新状态并通知监听器 */
+  setState(id: string, state: DataSourceState): void {
     this.states.set(id, state)
     for (const listener of this.listeners) {
       listener(id, state)
     }
   }
 
-  private setupPolling(source: DataSource): void {
+  /** 启动轮询（配置了 pollInterval 时） */
+  setupPolling(source: DataSource): void {
     const interval = source.config.pollInterval
     if (!interval || interval <= 0 || this.timers.has(source.id)) return
     const timer = setInterval(() => {
@@ -186,7 +197,8 @@ export class DataSourceManager {
     this.timers.set(source.id, timer)
   }
 
-  private stopPolling(id: string): void {
+  /** 停止轮询 */
+  stopPolling(id: string): void {
     const timer = this.timers.get(id)
     if (timer) {
       clearInterval(timer)

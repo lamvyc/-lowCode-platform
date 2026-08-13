@@ -26,6 +26,25 @@ export function createBuiltinActions(): Action[] {
       },
     },
     {
+      kind: 'setVariable',
+      label: '设置页面变量',
+      execute: (ctx, config) => {
+        const name = String(config.name ?? '')
+        if (!name) return { ok: false, error: '缺少变量名' }
+        let value: unknown = config.value
+        if (typeof config.expression === 'string') {
+          const result = ctx.expression.tryEvaluate(
+            config.expression,
+            ctx.expressionContext ?? {},
+          )
+          if (!result.ok) return { ok: false, error: `表达式求值失败: ${result.error}` }
+          value = result.value
+        }
+        ctx.setVariable?.(name, value)
+        return { ok: true }
+      },
+    },
+    {
       kind: 'openDialog',
       label: '打开弹窗',
       execute: (ctx, config) => {

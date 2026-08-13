@@ -1,6 +1,7 @@
 /** 动作类型：平台内置的最小动作集合 */
 export type ActionKind =
   | 'setProp'
+  | 'setVariable'
   | 'openDialog'
   | 'closeDialog'
   | 'emitEvent'

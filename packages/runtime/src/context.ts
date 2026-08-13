@@ -67,8 +67,10 @@ export class RuntimeContext {
   /** 属性覆盖（预览模式下的本地状态，可响应式驱动 UI） */
   readonly overrides: Record<string, Record<string, unknown>> = reactive({})
 
-  private state: Record<string, unknown> = reactive({})
-  private options: RuntimeContextOptions
+  /** 运行时局部状态（动作读写） */
+  readonly state: Record<string, unknown> = reactive({})
+  /** 构造选项（保留引用以便扩展） */
+  readonly options: RuntimeContextOptions
 
   constructor(options: RuntimeContextOptions) {
     this.options = options
@@ -226,13 +228,16 @@ export class RuntimeContext {
   /** 派发节点事件：交给 EventEngine 执行动作链 */
   dispatchNodeEvent(node: PageNode, eventName: string, _payload: unknown): void {
     const actions: EventAction[] = node.events?.[eventName] ?? []
+    const expressionContext = this.buildExpressionContext()
+    expressionContext.local = { ...(expressionContext.local ?? {}), event: _payload }
     void this.eventEngine.execute(
       actions,
-      this.createActionContext({ nodeId: node.id }),
+      this.createActionContext({ nodeId: node.id, expressionContext }),
     )
   }
 
-  private resolveBinding(
+  /** 求值绑定：静态值 / 表达式 / 原始值 */
+  resolveBinding(
     raw: unknown,
     loop?: { itemName: string; indexName?: string; item: unknown; index: number },
   ): unknown {

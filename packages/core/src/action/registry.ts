@@ -13,7 +13,8 @@ export interface Action {
 
 /** 动作注册表：Core 不写死动作集合，插件可扩展 */
 export class ActionRegistry {
-  private actions = new Map<string, Action>()
+  /** 已注册动作表 */
+  readonly actions = new Map<string, Action>()
 
   register(action: Action): void {
     if (this.actions.has(action.kind)) {

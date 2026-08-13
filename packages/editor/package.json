@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@lowcode/core": "workspace:*",
+    "@lowcode/codegen": "workspace:*",
     "@lowcode/materials": "workspace:*",
     "@lowcode/runtime": "workspace:*",
     "@lowcode/schema": "workspace:*",
