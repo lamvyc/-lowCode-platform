@@ -119,6 +119,9 @@ importers:
 
   packages/playground:
     dependencies:
+      '@lowcode/core':
+        specifier: workspace:*
+        version: link:../core
       '@lowcode/editor':
         specifier: workspace:*
         version: link:../editor
