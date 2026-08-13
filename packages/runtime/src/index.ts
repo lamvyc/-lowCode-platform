@@ -1,5 +1,6 @@
 export {
   RuntimeContext,
+  RUNTIME_CONTEXT_KEY,
   type RuntimeContextOptions,
   type LoopResolution,
 } from './context'

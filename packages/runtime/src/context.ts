@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { reactive, type InjectionKey } from 'vue'
 import {
   ActionRegistry,
   DataSourceManager,
@@ -22,6 +22,9 @@ import {
   type PageSchema,
 } from '@lowcode/schema'
 import type { IComponentResolver } from './resolver'
+
+/** RuntimeRenderer provide 的运行时上下文 key（物料组件通过它读取弹窗等状态） */
+export const RUNTIME_CONTEXT_KEY: InjectionKey<RuntimeContext> = Symbol('lc.runtimeContext')
 
 export interface RuntimeContextOptions {
   schema: PageSchema

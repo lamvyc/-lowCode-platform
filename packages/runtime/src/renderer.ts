@@ -1,6 +1,14 @@
-import { Fragment, defineComponent, h, type Component, type PropType, type VNode } from 'vue'
+import {
+  Fragment,
+  defineComponent,
+  h,
+  provide,
+  type Component,
+  type PropType,
+  type VNode,
+} from 'vue'
 import type { PageNode, PageSchema } from '@lowcode/schema'
-import type { RuntimeContext } from './context'
+import { RUNTIME_CONTEXT_KEY, type RuntimeContext } from './context'
 
 type LoopCtx = { itemName: string; indexName?: string; item: unknown; index: number }
 
@@ -120,6 +128,7 @@ export const RuntimeRenderer = defineComponent({
     },
   },
   setup(props) {
+    provide(RUNTIME_CONTEXT_KEY, props.context)
     return () => {
       const wrap = props.wrapNode ?? ((_node: PageNode, inner: VNode) => inner)
       const children = props.schema.nodes
