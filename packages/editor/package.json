@@ -21,16 +21,12 @@
     "@lowcode/runtime": "workspace:*",
     "@lowcode/schema": "workspace:*",
     "element-plus": "^2.9.1",
-    "immer": "^10.1.1",
     "monaco-editor": "^0.52.0",
     "pinia": "^2.2.6",
-    "sortablejs": "^1.15.3",
     "vue": "^3.5.13",
-    "vuedraggable": "^4.1.0",
-    "vue3-grid-layout": "^1.0.0"
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
-    "@types/sortablejs": "^1.15.8",
     "vue-tsc": "^2.1.10"
   }
 }
