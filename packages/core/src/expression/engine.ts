@@ -1,3 +1,5 @@
+/// <reference path="../types/jexl.d.ts" />
+
 import { Jexl } from 'jexl'
 
 /** 表达式求值上下文：多级作用域 */
