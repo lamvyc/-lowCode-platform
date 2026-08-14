@@ -24,6 +24,7 @@ packages/schema/src/
 │   ├── datamodel.ts            #   数据模型层 spec（字段/关联/权限）
 │   ├── process.ts              #   流程层 spec（节点/边）
 │   ├── api.ts                  #   API 层 spec（端点/入参/出参）
+│   ├── connector.ts            #   连接器 spec（外部系统接入）
 │   ├── plugin.ts               #   插件层 spec（JSON Schema 属性面板）
 │   └── ...（node/event/material 等旧版类型）
 ├── validation/
@@ -76,7 +77,7 @@ export const semverSchema = z
 
 翻译：`version` 必须是“数字.数字.数字”。写 `'2.0'` 或 `'v2.0.0'` 都会被拒。
 
-### 3.2 五层分发（第 469–482 行）
+### 3.2 五层分发（第 484–503 行）
 
 ```ts
 const envelopeBase = {
@@ -180,9 +181,9 @@ pnpm --filter @lowcode/schema test
 
 ```text
 ✓ src/schema.test.ts (6 tests)
-✓ src/normalize.test.ts (4 tests)
-✓ src/unified.test.ts (16 tests)
-Tests  26 passed (26)
+✓ src/normalize.test.ts (6 tests)
+✓ src/unified.test.ts (18 tests)
+Tests  30 passed (30)
 ```
 
 `✓` 绿勾 = 该文件所有用例断言通过。如果断言失败，会打印红叉，并给出“期望值 vs 实际值”和具体行号，照着改即可。
