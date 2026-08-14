@@ -185,7 +185,160 @@ pnpm --filter @lowcode/playground test     # 仓储对统一结构的存取往�
 pnpm --filter @lowcode/core test           # 表达式命名空间（$state/$api）回归
 ```
 
-## 6. 注意事项
+## 6. Schema 示例参考（快速认识结构）
+
+下面的示例均来自仓库真实代码：旧版页面取自 `packages/playground/src/demo-schema.ts`，统一 2.x 结构由 `migrateToUnified` 实测转换生成。
+
+### 6.1 旧版扁平 PageSchema（1.x，demo 页面精简）
+
+```jsonc
+{
+  "version": "1.0.0",
+  "meta": { "id": "demo", "name": "用户管理示例", "route": "/demo" },
+  "nodes": [
+    {
+      "id": "n_select",
+      "type": "select",
+      "props": { "modelValue": "option1", "placeholder": "请选择筛选条件" },
+      "events": {
+        "change": [
+          {
+            "id": "a_select",
+            "kind": "setVariable",                          // 旧动作枚举
+            "config": { "name": "selectValue", "expression": "event" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "n_table",
+      "type": "table",
+      "props": {
+        "data": { "type": "expression", "value": "$datasource.userList.data" }
+      }
+    }
+  ],
+  "dataSources": [
+    {
+      "id": "userList",
+      "type": "static",
+      "config": { "staticData": { "data": [ /* 张三 / 李四 / 王五 */ ] } }
+    }
+  ],
+  "variables": [{ "id": "v_select", "name": "selectValue", "value": "option1" }],
+  "rules": []
+}
+```
+
+读法：`nodes` = 组件树，`events` = 组件事件触发动作，`dataSources` = 数据来源，`variables` = 页面状态，`rules` = 联动规则。
+
+### 6.2 统一五层 PageSchema（2.x，同一 demo 的真实迁移结果）
+
+```jsonc
+{
+  "version": "2.0.0",
+  "kind": "Page",                                             // 新增：类型标识
+  "metadata": { "id": "demo", "name": "用户管理示例" },       // meta → metadata
+  "migrations": [                                             // 结构变更记录（P5）
+    { "from": "1.0.0", "to": "2.0.0", "changes": [ /* 废弃字段与替代方案 */ ] }
+  ],
+  "spec": {                                                   // 内容全部收进 spec
+    "route": "/demo",
+    "nodes": [
+      {
+        "id": "n_select",
+        "type": "select",
+        "props": { /* 不变 */ },
+        "events": {
+          "change": [
+            {
+              "id": "a_select",
+              "type": "setState",                             // kind:setVariable → type:setState
+              "params": { "name": "selectValue", "expression": "event" }  // config → params
+            }
+          ]
+        }
+      }
+    ],
+    "dataSources": [
+      {
+        "id": "userList",
+        "type": "static",
+        "value": { "data": [ /* 数据平铺，不再套 config.staticData */ ] }
+      }
+    ],
+    "variables": [ /* 不变 */ ],
+    "interactions": []                                        // rules → interactions
+  }
+}
+```
+
+改动规律就三条：**顶层加 `kind`、内容收进 `spec`、旧字段换标准名**（`kind→type`、`config→params`、`rules→interactions`、`condition→expression`）。
+
+### 6.3 五层骨架速览
+
+```jsonc
+// 数据模型：字段 + 关联 + 三级权限（P2）
+{ "kind": "DataModel", "spec": {
+    "fields": [{ "name": "salary", "type": "number", "validation": { "min": 0 } }],
+    "permissions": { "operation": [{ "role": "editor", "actions": ["create", "update"] }] } } }
+
+// 流程：声明式节点 + 边（分支用沙箱表达式，P1/P3）
+{ "kind": "Process", "spec": {
+    "nodes": [
+      { "id": "start", "type": "start" },
+      { "id": "decide", "type": "condition", "expression": "$output.amount > 1000" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "decide", "to": "end", "expression": "$output.amount > 1000" }
+    ] } }
+
+// API：只声明端点契约，不含处理逻辑（P6）
+{ "kind": "API", "spec": {
+    "endpoint": "/api/users", "method": "GET",
+    "request": { "query": { "keyword": { "type": "string" } } },
+    "auth": "bearer" } }
+
+// 插件：JSON Schema 属性面板 + 插件接口（P4）
+{ "kind": "Plugin", "spec": { "componentRegistry": { "custom": [
+    { "identifier": "MyCustomChart", "pluginInterface": "chart-plugin",
+      "propertySchema": { "type": "object", "properties": { "title": { "type": "string" } } } } ] } } }
+```
+
+### 6.4 新旧字段对照
+
+| 旧版（1.x） | 统一（2.x） | 说明 |
+| --- | --- | --- |
+| `meta` | `metadata` | 元信息，新增 `kind` 顶层字段 |
+| `nodes[].events[].kind` | `nodes[].events[].type` | 标准 Action 枚举（P1） |
+| `events[].config` | `events[].params` | 动作参数 |
+| `events[].when` | `events[].expression` | 条件统一用 expression（P3） |
+| `dataSources[].config.staticData` | `dataSources[].value` | 静态数据平铺 |
+| `dataSources[].config.url/method` | `type:"API"` + `ref` | 引用外部 ApiSchema（P6） |
+| `rules` | `spec.interactions` | 声明式交互 |
+| `rules[].condition` | `interactions[].expression` | 条件字段统一 |
+| （无） | `migrations[]` | 版本迁移记录（P5） |
+
+### 6.5 想自己重新生成示例
+
+把下面探针放进 `packages/playground/src/demo-print.test.ts`，运行后即可看到本仓库 demo 页面的完整统一 2.x 输出（用完删除）：
+
+```ts
+import { it } from 'vitest'
+import { migrateToUnified } from '@lowcode/schema'
+import { createDemoSchema } from './demo-schema'
+
+it('打印 demo 的统一 2.x 结构', () => {
+  console.log(JSON.stringify(migrateToUnified(createDemoSchema()), null, 2))
+})
+```
+
+```bash
+cd packages/playground
+pnpm exec vitest run src/demo-print.test.ts
+```
+
+## 7. 注意事项
 
 1. **探针文件用完即删**：`tsconfig` 的 include 是 `src`，探针 `.test.ts` 会被纳入 typecheck 并编译进 `dist`；忘记删除会导致全仓测试计数变化（+7）且发布产物含探针。
 2. 验证前先跑第 2 节的自动化基线；手动探针只用于解释“为什么通过”，不能替代自动化回归。
