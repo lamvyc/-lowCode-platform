@@ -1,39 +1,11 @@
 <script setup lang="ts">
-import { inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { PageNode } from '@lowcode/schema'
-import { REGISTER_RECT_KEY, type NodeRectInfo } from '../editor-keys'
+import { useNodeGeometry } from '../composables/useNodeGeometry'
 import { useEditorStore } from '../store/editor'
 
 const props = defineProps<{ node: PageNode; depth: number }>()
 const store = useEditorStore()
-const rectRegistry = inject(REGISTER_RECT_KEY, undefined)
-const el = ref<HTMLElement | null>(null)
-let observer: ResizeObserver | null = null
-
-function report() {
-  if (!el.value || !rectRegistry) return
-  const rect = el.value.getBoundingClientRect()
-  const info: NodeRectInfo = {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height,
-    depth: props.depth,
-  }
-  rectRegistry.register(props.node.id, info)
-}
-
-onMounted(() => {
-  report()
-  if (typeof ResizeObserver !== 'undefined') {
-    observer = new ResizeObserver(report)
-    if (el.value) observer.observe(el.value)
-  }
-})
-
-onBeforeUnmount(() => observer?.disconnect())
-
-watch(() => store.zoom, report)
+const { el } = useNodeGeometry(props.node.id, props.depth)
 
 function onNodeDragOver(event: DragEvent) {
   if (!el.value || !store.dragState) return

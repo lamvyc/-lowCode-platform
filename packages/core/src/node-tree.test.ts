@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PageNode } from '@lowcode/schema'
 import { NodeTree } from '@lowcode/core'
+import { produceWithPatches } from 'immer'
 
 function makeNodes(): PageNode[] {
   return [
@@ -115,5 +116,53 @@ describe('NodeTree 节点树', () => {
     expect(ids).not.toContain('group1')
     expect(ids).toContain('a')
     expect(ids).toContain('b')
+  })
+
+  it('remove 通过 Immer draft 删除根级节点时产生补丁并真正移除节点', () => {
+    const nodes: PageNode[] = [
+      { id: 'root', type: 'container', props: {}, children: [] },
+      { id: 'a', type: 'button', props: {} },
+    ]
+
+    const [next, patches] = produceWithPatches(nodes, (draft) => {
+      new NodeTree(draft).remove('a')
+    })
+
+    expect(patches.length).toBeGreaterThan(0)
+    expect(next.find((node) => node.id === 'a')).toBeUndefined()
+  })
+
+  it('move 通过 Immer draft 调整根级节点顺序时产生补丁并保留顺序', () => {
+    const nodes: PageNode[] = [
+      { id: 'root', type: 'container', props: {}, children: [] },
+      { id: 'a', type: 'button', props: {} },
+      { id: 'b', type: 'button', props: {} },
+    ]
+
+    const [next, patches] = produceWithPatches(nodes, (draft) => {
+      new NodeTree(draft).move('a', { parentId: null, index: 2 })
+    })
+
+    expect(patches.length).toBeGreaterThan(0)
+    expect(next.map((node) => node.id)).toEqual(['root', 'b', 'a'])
+  })
+
+  it('ungroup 通过 Immer draft 移除容器并恢复子节点为根级', () => {
+    const nodes: PageNode[] = [
+      { id: 'group1', type: 'container', props: {}, children: ['a', 'b'] },
+      { id: 'a', type: 'button', props: {} },
+      { id: 'b', type: 'button', props: {} },
+    ]
+
+    const [next, patches] = produceWithPatches(nodes, (draft) => {
+      new NodeTree(draft).ungroup('group1')
+    })
+
+    expect(patches.length).toBeGreaterThan(0)
+    expect(next.find((node) => node.id === 'group1')).toBeUndefined()
+    expect(next.find((node) => node.id === 'a')).toBeDefined()
+    expect(next.find((node) => node.id === 'b')).toBeDefined()
+    expect(new NodeTree(next).getParent('a')).toBeUndefined()
+    expect(new NodeTree(next).getParent('b')).toBeUndefined()
   })
 })

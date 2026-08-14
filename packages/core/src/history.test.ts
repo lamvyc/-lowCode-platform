@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PageSchema } from '@lowcode/schema'
 import { cloneSchema, SCHEMA_VERSION } from '@lowcode/schema'
-import { HistoryManager } from '@lowcode/core'
+import { HistoryManager, NodeTree } from '@lowcode/core'
 
 function makeSchema(): PageSchema {
   return cloneSchema({
@@ -87,5 +87,23 @@ describe('HistoryManager 撤销重做', () => {
       // 无任何修改
     })
     expect(history.canUndo).toBe(false)
+  })
+
+  it('通过 NodeTree.remove 删除根级节点会入栈并可撤销重做', () => {
+    const history = new HistoryManager(makeSchema())
+
+    history.record((draft) => {
+      new NodeTree(draft.nodes).remove('n1')
+    })
+
+    expect(history.canUndo).toBe(true)
+    expect(history.current.nodes).toHaveLength(0)
+
+    history.undo()
+    expect(history.current.nodes).toHaveLength(1)
+    expect(history.current.nodes[0].id).toBe('n1')
+
+    history.redo()
+    expect(history.current.nodes).toHaveLength(0)
   })
 })

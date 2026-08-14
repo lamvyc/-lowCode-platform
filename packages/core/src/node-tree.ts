@@ -147,7 +147,14 @@ export class NodeTree {
     if (!removed) throw new Error(`节点不存在: ${id}`)
     const descendants = this.getDescendantIds(id)
     this.detachFromParent(id)
-    this.nodes = this.nodes.filter((node) => node.id !== id && !descendants.includes(node.id))
+    const removedIds = new Set([id, ...descendants])
+    const indices = this.nodes
+      .map((node, index) => (removedIds.has(node.id) ? index : -1))
+      .filter((index) => index >= 0)
+      .sort((a, b) => b - a)
+    for (const index of indices) {
+      this.nodes.splice(index, 1)
+    }
     return removed
   }
 
@@ -174,7 +181,8 @@ export class NodeTree {
 
     if (options.parentId === null) {
       // 从根级列表移除旧位置（若节点原本就在根级）
-      this.nodes = this.nodes.filter((n) => n.id !== id)
+      const indexInRoot = this.nodes.findIndex((n) => n.id === id)
+      if (indexInRoot >= 0) this.nodes.splice(indexInRoot, 1)
       const index = this.resolveIndex(options, original, this.nodes)
       this.nodes.splice(Math.min(index, this.nodes.length), 0, node)
     } else {
@@ -238,7 +246,7 @@ export class NodeTree {
   /** 解析目标下标：同容器移动时需要修正删除带来的偏移 */
   private resolveIndex(
     options: MoveOptions,
-    original: { parentId: string | null; slot?: string; index: number },
+    _original: { parentId: string | null; slot?: string; index: number },
     list: unknown[],
   ): number {
     if (options.beforeId !== undefined) {
@@ -246,18 +254,14 @@ export class NodeTree {
       return index < 0 ? list.length : index
     }
     let index = options.index ?? list.length
-    const sameParent =
-      original.parentId === options.parentId && original.slot === (options.slot ?? 'default')
-    if (sameParent && original.index < index) {
-      index -= 1
-    }
     return Math.max(0, index)
   }
 
   private detachFromParent(id: string): void {
     const parent = this.getParent(id)
     if (!parent) {
-      this.nodes = this.nodes.filter((node) => node.id !== id)
+      const index = this.nodes.findIndex((node) => node.id === id)
+      if (index >= 0) this.nodes.splice(index, 1)
       return
     }
     const list = this.getSlotList(parent.node, parent.slot ?? 'default')

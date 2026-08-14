@@ -4,6 +4,7 @@ import { RuntimeRenderer } from '@lowcode/runtime'
 import type { PageNode } from '@lowcode/schema'
 import { h, type VNode } from 'vue'
 import { REGISTER_RECT_KEY, type NodeRectInfo, type NodeRectRegistry } from '../editor-keys'
+import { collectLassoHits } from '../engine/lasso'
 import { useEditorStore } from '../store/editor'
 import CanvasNode from './CanvasNode.vue'
 import DropIndicator from './DropIndicator.vue'
@@ -33,18 +34,6 @@ const lassoLocal = computed(() => {
   }
 })
 
-function intersects(
-  a: { left: number; top: number; width: number; height: number },
-  b: { left: number; top: number; width: number; height: number },
-): boolean {
-  return (
-    a.left < b.left + b.width &&
-    a.left + a.width > b.left &&
-    a.top < b.top + b.height &&
-    a.top + a.height > b.top
-  )
-}
-
 function onMouseDown(event: MouseEvent) {
   // 只在画布空白处开始框选
   if (event.button !== 0 || event.target !== canvasEl.value) return
@@ -73,9 +62,7 @@ function onMouseUp(event: MouseEvent) {
   lassoStart.value = null
   lassoClient.value = null
   if (!lasso || lasso.width < 4 || lasso.height < 4) return
-  const hits = [...rectStore.rects.entries()]
-    .filter(([, rect]) => intersects(rect, lasso))
-    .map(([id]) => id)
+  const hits = collectLassoHits([...rectStore.rects.entries()], lasso)
   if (hits.length === 0) return
   if (event.shiftKey || event.metaKey) {
     store.selectNodes([...new Set([...store.selectedNodeIds, ...hits])])

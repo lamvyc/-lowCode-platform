@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
+import { markRaw } from 'vue'
 import {
   DragDropManager,
-  HistoryManager,
   NodeFactory,
-  NodeTree,
   createNodeId,
   type DropTarget,
   type HttpClient,
@@ -12,12 +11,10 @@ import type { Binding, PageNode, PageSchema } from '@lowcode/schema'
 import { cloneSchema } from '@lowcode/schema'
 import { MaterialRegistryResolver, RuntimeContext } from '@lowcode/runtime'
 import { actionRegistry, expressionEngine, materialRegistry, pluginManager } from '../platform'
+import { EditorEngine } from '../engine/editor-engine'
+import type { DragState } from '../engine/types'
 
-export interface DragState {
-  source: 'material' | 'canvas'
-  materialType?: string
-  nodeId?: string
-}
+export type { DragState } from '../engine/types'
 
 export interface ContextMenuState {
   x: number
@@ -28,10 +25,6 @@ export interface ContextMenuState {
 const nodeFactory = new NodeFactory(materialRegistry)
 const dragDropManager = new DragDropManager()
 const resolver = new MaterialRegistryResolver(materialRegistry)
-
-/** 历史与运行时上下文放在响应式状态之外，避免 Immer / 类实例被 Proxy 干扰 */
-let editorHistory: HistoryManager | null = null
-let editorRuntime: RuntimeContext | null = null
 
 function createFetchHttpClient(): HttpClient {
   return {
@@ -55,6 +48,7 @@ function createFetchHttpClient(): HttpClient {
 
 export interface EditorState {
   schema: PageSchema | null
+  engine: EditorEngine | null
   selectedNodeIds: string[]
   hoverNodeId: string | null
   dragState: DragState | null
@@ -71,6 +65,7 @@ export interface EditorState {
 export const useEditorStore = defineStore('editor', {
   state: (): EditorState => ({
     schema: null,
+    engine: null,
     selectedNodeIds: [],
     hoverNodeId: null,
     dragState: null,
@@ -93,13 +88,13 @@ export const useEditorStore = defineStore('editor', {
       return (nodeId) => this.selectedNodeIds.includes(nodeId)
     },
     canUndo(): boolean {
-      return editorHistory?.canUndo ?? false
+      return this.engine?.canUndo ?? false
     },
     canRedo(): boolean {
-      return editorHistory?.canRedo ?? false
+      return this.engine?.canRedo ?? false
     },
     runtimeContext(): RuntimeContext | null {
-      return editorRuntime
+      return this.engine?.runtime ?? null
     },
   },
 
@@ -112,29 +107,34 @@ export const useEditorStore = defineStore('editor', {
       this.dropTarget = null
       this.dirty = false
       this.preview = false
-      editorHistory = new HistoryManager(this.schema)
-      editorRuntime = new RuntimeContext({
-        schema: this.schema,
-        resolver,
-        actionRegistry,
-        expression: expressionEngine,
-        http: createFetchHttpClient(),
-        storage: window.localStorage,
-        onSetNodeProp: (nodeId, prop, value) => {
-          this.updateProps(nodeId, { [prop]: value })
-        },
-        navigate: (route) => {
-          window.location.hash = route
-        },
-        request: (config) => createFetchHttpClient().request(config),
-      })
-      void editorRuntime.init()
+      this.engine = markRaw(
+        new EditorEngine({
+          schema: this.schema,
+          nodeFactory,
+          dragDropManager,
+          runtime: {
+            resolver,
+            actionRegistry,
+            expression: expressionEngine,
+            http: createFetchHttpClient(),
+            storage: window.localStorage,
+            onSetNodeProp: (nodeId, prop, value) => {
+              this.updateProps(nodeId, { [prop]: value })
+            },
+            navigate: (route) => {
+              window.location.hash = route
+            },
+            request: (config) => createFetchHttpClient().request(config),
+          },
+        }),
+      )
+      void this.engine.init()
     },
 
     /** 所有 schema 修改都通过这里进入历史 */
     commit(recipe: (draft: PageSchema) => void, op?: string, mergeKey?: string): void {
-      if (!this.schema || !editorHistory) return
-      this.schema = editorHistory.record(recipe, op, mergeKey)
+      if (!this.schema || !this.engine) return
+      this.schema = this.engine.record(recipe, op, mergeKey)
       this.dirty = true
     },
 
@@ -168,77 +168,52 @@ export const useEditorStore = defineStore('editor', {
 
     /** 场景 1：物料拖入画布 */
     insertMaterial(type: string, target: DropTarget) {
-      const node = nodeFactory.create(type)
-      this.commit(
-        (draft) => {
-          new NodeTree(draft.nodes).insert(node, target.parentId, target.slot, target.index)
-        },
-        'insert',
-      )
+      if (!this.engine) return
+      const node = this.engine.insertMaterial(type, target)
+      this.schema = this.engine.current
       this.selectedNodeIds = [node.id]
     },
 
     /** 场景 2：画布内移动节点 */
     moveNode(nodeId: string, target: DropTarget) {
-      this.commit(
-        (draft) => {
-          new NodeTree(draft.nodes).move(nodeId, {
-            parentId: target.parentId,
-            slot: target.slot,
-            index: target.index,
-          })
-        },
-        'move',
-      )
+      if (!this.engine) return
+      this.engine.moveNode(nodeId, target)
+      this.schema = this.engine.current
       this.selectedNodeIds = [nodeId]
     },
 
     /** 场景 3：修改节点属性 */
     updateProps(nodeId: string, patch: Record<string, unknown>) {
-      this.commit(
-        (draft) => {
-          new NodeTree(draft.nodes).updateProps(nodeId, patch)
-        },
-        'props',
-        `props:${nodeId}`,
-      )
+      if (!this.engine) return
+      this.engine.updateProps(nodeId, patch)
+      this.schema = this.engine.current
     },
 
     updateNode(nodeId: string, updater: (node: PageNode) => PageNode) {
-      this.commit(
-        (draft) => {
-          new NodeTree(draft.nodes).update(nodeId, updater)
-        },
-        'props',
-        `props:${nodeId}`,
-      )
+      if (!this.engine) return
+      this.engine.updateNode(nodeId, updater)
+      this.schema = this.engine.current
     },
 
     updateBinding(nodeId: string, key: 'visible' | 'loop', binding: Binding<unknown> | undefined) {
-      this.updateNode(nodeId, (node) => ({
-        ...node,
-        bindings: { ...(node.bindings ?? {}), [key]: binding },
-      }))
+      this.engine?.updateBinding(nodeId, key, binding)
+      if (this.engine) this.schema = this.engine.current
     },
 
     updateStyle(nodeId: string, style: Record<string, Binding<string | number>>) {
-      this.updateNode(nodeId, (node) => ({ ...node, style }))
+      this.engine?.updateStyle(nodeId, style)
+      if (this.engine) this.schema = this.engine.current
     },
 
     updateEvents(nodeId: string, events: PageNode['events']) {
-      this.updateNode(nodeId, (node) => ({ ...node, events }))
+      this.engine?.updateEvents(nodeId, events)
+      if (this.engine) this.schema = this.engine.current
     },
 
     removeNodes(ids: string[]) {
-      this.commit(
-        (draft) => {
-          const tree = new NodeTree(draft.nodes)
-          for (const id of ids) {
-            if (tree.find(id)) tree.remove(id)
-          }
-        },
-        'remove',
-      )
+      if (!this.engine) return
+      this.engine.removeNodes(ids)
+      this.schema = this.engine.current
       this.selectedNodeIds = this.selectedNodeIds.filter((id) => !ids.includes(id))
     },
 
@@ -248,7 +223,7 @@ export const useEditorStore = defineStore('editor', {
 
     /** 组合：把选中节点包进一个容器 */
     groupSelection() {
-      if (!this.schema || this.selectedNodeIds.length < 2) return
+      if (!this.schema || !this.engine || this.selectedNodeIds.length < 2) return
       const container: PageNode = {
         id: createNodeId('group'),
         type: 'container',
@@ -256,27 +231,17 @@ export const useEditorStore = defineStore('editor', {
         children: [],
       }
       const ids = [...this.selectedNodeIds]
-      this.commit(
-        (draft) => {
-          new NodeTree(draft.nodes).groupAs(ids, container)
-        },
-        'group',
-      )
+      this.engine.group(ids, container)
+      this.schema = this.engine.current
       this.selectedNodeIds = [container.id]
     },
 
     /** 取消组合：展开选中的容器 */
     ungroupSelection() {
       const id = this.selectedNodeIds[0]
-      if (!id) return
-      this.commit(
-        (draft) => {
-          const tree = new NodeTree(draft.nodes)
-          const node = tree.find(id)
-          if (node && node.children?.length) tree.ungroup(id)
-        },
-        'ungroup',
-      )
+      if (!id || !this.engine) return
+      this.engine.ungroup(id)
+      this.schema = this.engine.current
       this.selectedNodeIds = []
     },
 
@@ -290,55 +255,15 @@ export const useEditorStore = defineStore('editor', {
     },
 
     paste() {
-      if (!this.clipboard || this.clipboard.length === 0 || !this.schema) return
+      if (!this.clipboard || this.clipboard.length === 0 || !this.schema || !this.engine) return
       const source = this.clipboard
-      const idMap = new Map<string, string>()
-      const buildMap = (node: PageNode) => {
-        idMap.set(node.id, createNodeId())
-        for (const childId of node.children ?? []) {
-          const child = source.find((n) => n.id === childId)
-          if (child) buildMap(child)
-        }
-      }
-      for (const node of source) buildMap(node)
-
-      const plan: { source: PageNode; newParentId: string | null }[] = []
-      const collect = (node: PageNode, newParentId: string | null) => {
-        plan.push({ source: node, newParentId })
-        for (const childId of node.children ?? []) {
-          const child = source.find((n) => n.id === childId)
-          if (child) collect(child, idMap.get(node.id) ?? '')
-        }
-      }
-      for (const node of source) collect(node, null)
-
-      this.commit(
-        (draft) => {
-          const tree = new NodeTree(draft.nodes)
-          for (const item of plan) {
-            const newNode: PageNode = {
-              ...(JSON.parse(JSON.stringify(item.source)) as PageNode),
-              id: idMap.get(item.source.id) ?? createNodeId(),
-              children: item.source.children?.map((id) => idMap.get(id) ?? id),
-              slots: item.source.slots
-                ? Object.fromEntries(
-                    Object.entries(item.source.slots).map(([slot, ids]) => [
-                      slot,
-                      ids.map((id) => idMap.get(id) ?? id),
-                    ]),
-                  )
-                : undefined,
-            }
-            tree.insert(newNode, item.newParentId)
-          }
-        },
-        'paste',
-      )
-      this.selectedNodeIds = [...idMap.values()].slice(-source.length)
+      const inserted = this.engine.paste(source)
+      this.schema = this.engine.current
+      this.selectedNodeIds = inserted.map((node) => node.id)
     },
 
     undo() {
-      const next = editorHistory?.undo()
+      const next = this.engine?.undo()
       if (next) {
         this.schema = next
         this.dirty = true
@@ -346,7 +271,7 @@ export const useEditorStore = defineStore('editor', {
     },
 
     redo() {
-      const next = editorHistory?.redo()
+      const next = this.engine?.redo()
       if (next) {
         this.schema = next
         this.dirty = true
@@ -388,11 +313,8 @@ export const useEditorStore = defineStore('editor', {
       pointer: { x: number; y: number },
       rootRect?: { left: number; top: number; width: number; height: number },
     ): DropTarget | null {
-      if (!this.dragState || !this.schema) return null
-      const tree = new NodeTree(this.schema.nodes)
-      const target = dragDropManager.computeDropTarget(tree, this.dragState, over, pointer, rootRect)
-      const validation = dragDropManager.validateDrop(tree, this.dragState, target)
-      return validation.ok ? target : null
+      if (!this.dragState || !this.schema || !this.engine) return null
+      return this.engine.computeDropTarget(this.dragState, over, pointer, rootRect)
     },
   },
 })
