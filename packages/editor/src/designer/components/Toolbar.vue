@@ -1,11 +1,23 @@
 <script setup lang="ts">
-import { inject, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { ElButton, ElButtonGroup, ElDialog, ElInput, ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Download, RefreshLeft, RefreshRight, Upload, View } from '@element-plus/icons-vue'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
 import type { DeviceType } from '../types'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
+
+const zoomPercent = computed(() => Math.round(ctx.state.zoom * 100))
+
+function zoomIn(): void {
+  ctx.setZoom(Number((ctx.state.zoom + 0.1).toFixed(1)))
+}
+function zoomOut(): void {
+  ctx.setZoom(Number((ctx.state.zoom - 0.1).toFixed(1)))
+}
+function resetZoom(): void {
+  ctx.setZoom(1)
+}
 
 const DEVICES: Array<{ label: string; value: DeviceType }> = [
   { label: 'PC', value: 'pc' },
@@ -87,6 +99,13 @@ function handleClear(): void {
         </el-button>
       </el-button-group>
 
+      <div class="lc-toolbar__zoom">
+        <el-button @click="zoomOut">－</el-button>
+        <span class="lc-toolbar__zoom-value">{{ zoomPercent }}%</span>
+        <el-button @click="zoomIn">＋</el-button>
+        <el-button @click="resetZoom">100%</el-button>
+      </div>
+
       <el-button :icon="Delete" @click="handleClear">清空</el-button>
     </div>
 
@@ -162,5 +181,16 @@ function handleClear(): void {
 }
 .lc-toolbar__devices {
   margin: 0 8px;
+}
+.lc-toolbar__zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.lc-toolbar__zoom-value {
+  min-width: 44px;
+  text-align: center;
+  font-size: 13px;
+  color: #4e5969;
 }
 </style>

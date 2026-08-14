@@ -157,11 +157,15 @@ onMounted(() => {
 onBeforeUnmount(() => observer?.disconnect())
 watch(() => state.device, updateScale)
 
-/** 缩放容器布局尺寸（= 设备总尺寸 × scale） */
+/** 缩放容器布局尺寸（= 设备总尺寸 × scale），并叠加用户缩放 */
 const viewportStyle = computed(() => {
   const total = totalSize.value
   if (!total) return {}
-  return { width: `${total.width * scale.value}px`, height: `${total.height * scale.value}px` }
+  return {
+    width: `${total.width * scale.value}px`,
+    height: `${total.height * scale.value}px`,
+    zoom: state.zoom,
+  }
 })
 
 /** 设备画布样式（固定尺寸 + 等比缩放） */
@@ -257,6 +261,7 @@ function onDragEnd(): void {
       v-if="state.device === 'pc'"
       class="lc-canvas lc-canvas--pc"
       :class="{ 'lc-canvas--empty': isEmpty, 'lc-canvas--drop-root': state.dropTarget?.position === 'root' }"
+      :style="{ zoom: state.zoom }"
       @click="selectNode(null)"
       @drop="onDrop"
       @dragover="onDragOver"
@@ -304,7 +309,7 @@ function onDragEnd(): void {
   min-width: 0;
   min-height: 0;
   display: flex;
-  overflow: hidden;
+  overflow: auto;
   box-sizing: border-box;
 }
 

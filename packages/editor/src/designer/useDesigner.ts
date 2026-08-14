@@ -118,7 +118,7 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     state.device = device
   }
   function setZoom(zoom: number): void {
-    state.zoom = zoom
+    state.zoom = Math.max(0.3, Math.min(3, zoom))
   }
   function togglePreview(): void {
     state.preview = !state.preview
