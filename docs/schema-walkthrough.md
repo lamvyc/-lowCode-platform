@@ -113,7 +113,7 @@ export const STANDARD_ACTION_TYPES = [
 ] as const
 ```
 
-页面节点的事件里写 `type: 'setState'` 就是从这个枚举里取。写成枚举的好处：写错一个字母（比如 `'setstate'`），校验阶段直接报错，而不是运行到一半才发现。
+页面节点的事件里写 `type: 'setState'` 就是从这个枚举里取。写成枚举的好处：IDE 有自动补全、写错能尽早发现；同时 `type` 也接受插件自定义的动作类型字符串（`UnifiedActionType = ActionType | (string & {})`），自定义动作由 ActionRegistry 按 type 查找实现。运行时校验只要求 type 非空（`z.string().min(1)`），标准类型的防呆由设计器在编辑态对枚举做提示。
 
 ## 4. 入口层：安检通道
 

@@ -1,4 +1,5 @@
 import type { DataSource } from '@lowcode/schema'
+import type { SchemaRefResolver } from '../schema-registry/registry'
 
 /** HTTP 请求配置 */
 export interface HttpRequestConfig {
@@ -56,6 +57,8 @@ export interface DataSourceManagerOptions {
   onStateChange?: (id: string, state: DataSourceState) => void
   /** 单个数据源加载失败的回调（loadAll 失败隔离时使用） */
   onLoadError?: (id: string, error: unknown) => void
+  /** DataModel/API 数据源的引用解析器（解析 modelRef/apiRef → Schema） */
+  schemaResolver?: SchemaRefResolver
 }
 
 /**
@@ -188,6 +191,54 @@ export class DataSourceManager {
           ? this.options.getVariables()
           : this.options.variables
         return variables?.[variableId]
+      }
+      case 'DataModel': {
+        const model = this.options.schemaResolver?.resolveDataModel(
+          source.config.modelRef ?? '',
+        )
+        if (!model) {
+          throw new Error(`数据模型未注册: ${source.config.modelRef ?? ''}`)
+        }
+        const http = this.options.http
+        if (!http) throw new Error('DataModel 数据源需要注入 HttpClient')
+        const collection = model.spec.collection ?? model.metadata.id
+        const operation = source.config.operation ?? 'query'
+        const base = `/api/entities/${collection}`
+        switch (operation) {
+          case 'create':
+            return http.request({ url: base, method: 'POST', body: params })
+          case 'update':
+            return http.request({
+              url: `${base}/${String((params ?? {}).id ?? '')}`,
+              method: 'PUT',
+              body: params,
+            })
+          case 'delete':
+            return http.request({
+              url: `${base}/${String((params ?? {}).id ?? '')}`,
+              method: 'DELETE',
+            })
+          case 'query':
+          default:
+            return http.request({
+              url: base,
+              method: 'GET',
+              params: { filter: source.config.filter, ...(params ?? {}) },
+            })
+        }
+      }
+      case 'API': {
+        const api = this.options.schemaResolver?.resolveApi(source.config.apiRef ?? '')
+        if (!api) throw new Error(`API 未注册: ${source.config.apiRef ?? ''}`)
+        const http = this.options.http
+        if (!http) throw new Error('API 数据源需要注入 HttpClient')
+        const spec = api.spec
+        return http.request({
+          url: spec.endpoint,
+          method: spec.method,
+          params: { ...(source.config.params ?? {}), ...(params ?? {}) },
+          headers: spec.request?.headers,
+        })
       }
       default:
         throw new Error(`不支持的数据源类型: ${source.type}`)

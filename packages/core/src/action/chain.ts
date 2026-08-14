@@ -1,6 +1,7 @@
 import type { EventAction } from '@lowcode/schema'
 import type { ActionContext, ActionResult, ActionChainControl } from './context'
 import type { ActionRegistry } from './registry'
+import { formatActionSuggestion } from './suggest'
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -61,7 +62,10 @@ export class ActionChainRunner {
           : eventAction.kind
       const action = this.registry.get(actionKey)
       if (!action) {
-        const failure: ActionResult = { ok: false, error: `未知动作: ${eventAction.kind}` }
+        const failure: ActionResult = {
+          ok: false,
+          error: `未知动作: ${actionKey}${formatActionSuggestion(actionKey, this.registry)}`,
+        }
         results.push(failure)
         if (!eventAction.continueOnError) control.abort()
         continue

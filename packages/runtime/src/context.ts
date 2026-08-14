@@ -9,9 +9,11 @@ import {
   type ActionContext,
   type EventAction,
   type ExpressionContext,
+  type FormEngine,
   type HttpClient,
   type IEventEngine,
   type IExpressionEngine,
+  type SchemaRefResolver,
   type StorageLike,
 } from '@lowcode/core'
 import {
@@ -83,6 +85,10 @@ export interface RuntimeContextOptions {
   onSetNodeProp?: (nodeId: string, prop: string, value: unknown) => void
   navigate?: (route: string) => void
   request?: ActionContext['request']
+  /** DataModel/API 数据源的引用解析器 */
+  schemaResolver?: SchemaRefResolver
+  /** 表单提交能力（submit 动作依赖，由表单引擎提供） */
+  submitForm?: ActionContext['submitForm']
   /** 运行时错误回调（ErrorBoundary / 监控上报入口） */
   onError?: (error: RuntimeError) => void
 }
@@ -114,6 +120,8 @@ export class RuntimeContext {
 
   /** 运行时局部状态（动作读写） */
   readonly state: Record<string, unknown> = reactive({})
+  /** 表单注册表：formId → FormEngine（submit 动作默认从这取表单） */
+  readonly forms = new Map<string, FormEngine>()
   /** 构造选项（保留引用以便扩展） */
   readonly options: RuntimeContextOptions
   /** 节点索引：nodeId → PageNode，把渲染查找从 O(n) 降到 O(1) */
@@ -135,6 +143,7 @@ export class RuntimeContext {
       storage: options.storage ?? new MemoryStorage(),
       // pageVariable 数据源读取实时变量，而非构造时的快照
       getVariables: () => this.variables,
+      schemaResolver: options.schemaResolver,
       onLoadError: (id, error) => {
         this.errors.add(
           {
@@ -175,6 +184,15 @@ export class RuntimeContext {
   /** O(1) 查找节点（渲染热点路径） */
   getNode(nodeId: string): PageNode | undefined {
     return this.nodeMap.get(nodeId)
+  }
+
+  /** 注册表单，返回取消注册函数（submit 动作按 formId 查找并提交） */
+  registerForm(formId: string, engine: FormEngine): () => void {
+    if (this.forms.has(formId)) throw new Error(`表单已注册: ${formId}`)
+    this.forms.set(formId, engine)
+    return () => {
+      this.forms.delete(formId)
+    }
   }
 
   /** 执行指定触发类型的规则（重入保护，规则动作再触发规则时安全跳过） */
@@ -240,6 +258,15 @@ export class RuntimeContext {
       setVariable: (name, value) => {
         this.variables[name] = value
       },
+      submitForm:
+        this.options.submitForm ??
+        ((formId) => {
+          const form = this.forms.get(formId)
+          if (!form) return Promise.resolve({ ok: false, error: `表单未注册: ${formId}` })
+          return form.submit().then((ok) =>
+            ok ? { ok: true } : { ok: false, error: '表单校验未通过' },
+          )
+        }),
       emit: (event, payload) => {
         void this.eventEngine.dispatch(
           event,

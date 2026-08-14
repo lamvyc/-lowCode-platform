@@ -20,3 +20,24 @@ export {
 } from './renderer'
 export { MaterialRegistryResolver, CompositeResolver } from './resolver'
 export type { IComponentResolver } from './resolver'
+export {
+  FormRenderer,
+  defaultFormWidgetResolver,
+  LcFormInput,
+  LcFormTextarea,
+  LcFormSelect,
+  LcFormSwitch,
+  LcFormNumber,
+  LcFormDate,
+} from './form'
+export type { IFormWidgetResolver, WidgetOption } from './form'
+export { ProcessViewer, topologicalLayers } from './process'
+export type { ProcessLayer } from './process'
+export {
+  PERMISSION_SERVICE_KEY,
+  usePermission,
+  hasPermission,
+  createPermissionDirective,
+  installPermission,
+  type PermissionBindingValue,
+} from './permission'

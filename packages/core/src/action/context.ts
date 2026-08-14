@@ -23,6 +23,8 @@ export interface ActionContext {
   closeDialog?(id: string): void
   setNodeProp?(nodeId: string, prop: string, value: unknown): void
   setVariable?(name: string, value: unknown): void
+  /** 提交表单（submit 动作依赖；由表单引擎/运行时提供） */
+  submitForm?(formId: string, payload?: unknown): ActionResult | Promise<ActionResult>
   emit?(event: string, payload?: unknown): void
   /** 触发事件的节点 */
   nodeId?: string

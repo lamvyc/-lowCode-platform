@@ -1,8 +1,10 @@
 import type { ActionContext, ActionResult } from './context'
 
-/** 动作定义：kind 为注册键，execute 实现具体行为 */
+/** 动作定义：kind 为注册键（标准 ActionType），aliases 为兼容旧版 kind 的别名 */
 export interface Action {
   kind: string
+  /** 旧版 kind 别名（如 setProp/setVariable → setState、request → invokeAPI） */
+  aliases?: string[]
   label?: string
   execute(
     ctx: ActionContext,
@@ -17,10 +19,15 @@ export class ActionRegistry {
   readonly actions = new Map<string, Action>()
 
   register(action: Action): void {
-    if (this.actions.has(action.kind)) {
-      throw new Error(`动作已注册: ${action.kind}`)
+    const keys = [action.kind, ...(action.aliases ?? [])]
+    for (const key of keys) {
+      if (this.actions.has(key)) {
+        throw new Error(`动作已注册: ${key}`)
+      }
     }
-    this.actions.set(action.kind, action)
+    for (const key of keys) {
+      this.actions.set(key, action)
+    }
   }
 
   registerMany(actions: Action[]): void {

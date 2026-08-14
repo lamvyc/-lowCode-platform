@@ -2,6 +2,7 @@ import type { MaterialRegistry } from '@lowcode/core'
 import { LOCAL_MATERIALS } from './materials'
 
 export { LOCAL_MATERIALS } from './materials'
+export { createFormWidgetResolver } from './form'
 export { useRuntimeContext } from './use-runtime'
 export { default as LcText } from './components/Text.vue'
 export { default as LcButton } from './components/Button.vue'

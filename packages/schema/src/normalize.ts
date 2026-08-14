@@ -33,30 +33,26 @@ function toLegacyDataSource(source: UnifiedDataSource): DataSource {
         type: 'pageVariable',
         config: { variableId: source.variableId },
       }
-    case 'API': {
-      const params = (source.params ?? {}) as Record<string, unknown>
+    case 'API':
       return {
         id: source.id,
         name,
-        type: 'rest',
+        type: 'API',
         config: {
-          url: typeof params.url === 'string' ? params.url : '',
-          method: typeof params.method === 'string' ? params.method : 'GET',
-          params: params.params as Record<string, unknown> | undefined,
-          headers: params.headers as Record<string, string> | undefined,
+          apiRef: source.ref,
+          params: source.params,
           pollInterval: source.pollInterval,
         },
       }
-    }
     case 'DataModel':
       return {
         id: source.id,
         name,
-        type: 'rest',
+        type: 'DataModel',
         config: {
-          url: '',
-          method: 'POST',
-          params: { modelRef: source.ref, operation: source.operation, filter: source.filter },
+          modelRef: source.ref,
+          operation: source.operation,
+          filter: source.filter,
         },
       }
   }

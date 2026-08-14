@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { DataSource, HttpClient } from '@lowcode/core'
-import { DataSourceManager, MemoryStorage } from '@lowcode/core'
+import { DataSourceManager, MemoryStorage, SchemaRegistry } from '@lowcode/core'
+import { createApiSchema, createDataModelSchema } from '@lowcode/schema'
 
 function makeRestSource(): DataSource {
   return {
@@ -124,5 +125,105 @@ describe('DataSourceManager 数据源管理器', () => {
     await expect(manager.loadAll()).resolves.toBeUndefined()
     expect(onLoadError).toHaveBeenCalledTimes(2)
     expect(manager.getData('static1')).toBe('ok')
+  })
+})
+
+describe('DataSourceManager DataModel / API 引用取数', () => {
+  it('DataModel 数据源按 modelRef 解析并生成 query 请求', async () => {
+    const http: HttpClient = {
+      request: vi.fn().mockResolvedValue([{ id: 'o1' }]),
+    }
+    const registry = new SchemaRegistry()
+    registry.register(createDataModelSchema({ id: 'Order', name: '订单' }, {
+      collection: 't_order',
+      fields: [{ name: 'id', type: 'string' }],
+    }))
+    const manager = new DataSourceManager({
+      http,
+      storage: new MemoryStorage(),
+      schemaResolver: registry,
+    })
+    manager.register({
+      id: 'orders',
+      name: '订单列表',
+      type: 'DataModel',
+      config: { modelRef: 'Order', operation: 'query', filter: 'status == "PAID"' },
+    })
+    await manager.load('orders')
+    expect(http.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/api/entities/t_order',
+        method: 'GET',
+        params: { filter: 'status == "PAID"' },
+      }),
+    )
+    expect(manager.getData('orders')).toEqual([{ id: 'o1' }])
+  })
+
+  it('API 数据源按 apiRef 解析 endpoint/method', async () => {
+    const http: HttpClient = {
+      request: vi.fn().mockResolvedValue([{ name: '张三' }]),
+    }
+    const registry = new SchemaRegistry()
+    registry.register(createApiSchema({ id: 'get_users', name: '用户列表' }, {
+      endpoint: '/api/users',
+      method: 'GET',
+    }))
+    const manager = new DataSourceManager({
+      http,
+      storage: new MemoryStorage(),
+      schemaResolver: registry,
+    })
+    manager.register({
+      id: 'users',
+      name: '用户',
+      type: 'API',
+      config: { apiRef: 'get_users' },
+    })
+    await manager.load('users')
+    expect(http.request).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/api/users', method: 'GET' }),
+    )
+  })
+
+  it('DataModel 引用未注册时抛错', async () => {
+    const manager = new DataSourceManager({
+      http: { request: vi.fn() },
+      storage: new MemoryStorage(),
+      schemaResolver: new SchemaRegistry(),
+    })
+    manager.register({
+      id: 'orders',
+      name: '订单',
+      type: 'DataModel',
+      config: { modelRef: 'Missing' },
+    })
+    await expect(manager.load('orders')).rejects.toThrow('数据模型未注册')
+  })
+
+  it('DataModel create 操作生成 POST 请求', async () => {
+    const http: HttpClient = {
+      request: vi.fn().mockResolvedValue({ ok: true }),
+    }
+    const registry = new SchemaRegistry()
+    registry.register(createDataModelSchema({ id: 'Order', name: '订单' }, {
+      collection: 't_order',
+      fields: [{ name: 'id', type: 'string' }],
+    }))
+    const manager = new DataSourceManager({
+      http,
+      storage: new MemoryStorage(),
+      schemaResolver: registry,
+    })
+    manager.register({
+      id: 'createOrder',
+      name: '新建订单',
+      type: 'DataModel',
+      config: { modelRef: 'Order', operation: 'create' },
+    })
+    await manager.load('createOrder', { amount: 100 })
+    expect(http.request).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/api/entities/t_order', method: 'POST', body: { amount: 100 } }),
+    )
   })
 })

@@ -3,10 +3,13 @@ import {
   SCHEMA_VERSION,
   UNIFIED_SCHEMA_VERSION,
   createUnifiedPageSchema,
+  isStandardActionType,
   migrateToUnified,
+  normalizeEventAction,
   normalizePageSchema,
   parsePageSchema,
   unifiedEventToLegacy,
+  type LegacyEventAction,
   type UnifiedEventAction,
 } from '@lowcode/schema'
 
@@ -88,6 +91,11 @@ describe('统一 Page → 旧版运行时视图适配', () => {
         kind: 'custom',
         config: { actionId: 'refresh', dataSourceId: 'ds1' },
       },
+      {
+        action: { id: 'a', type: 'myPluginAction', params: { a: 1 } },
+        kind: 'custom',
+        config: { actionId: 'myPluginAction', a: 1 },
+      },
     ]
     for (const { action, kind, config } of cases) {
       const legacy = unifiedEventToLegacy(action)
@@ -133,7 +141,7 @@ describe('统一 Page → 旧版运行时视图适配', () => {
       when: '$state.ok',
     })
     expect(parsed.dataSources[0]).toMatchObject({ id: 'ds1', type: 'static' })
-    expect(parsed.dataSources[1]).toMatchObject({ id: 'ds2', type: 'rest' })
+    expect(parsed.dataSources[1]).toMatchObject({ id: 'ds2', type: 'API', config: { apiRef: 'get_users' } })
     expect(parsed.rules[0]?.condition).toBe('$state.ok')
     expect(parsed.settings).toBeUndefined()
   })
@@ -158,5 +166,23 @@ describe('统一 Page → 旧版运行时视图适配', () => {
     const round = normalizePageSchema(unified)
     expect(round.nodes[0]?.events?.click[0]?.kind).toBe('setVariable')
     expect(round.nodes[0]?.events?.click[0]?.config).toEqual({ name: 'x', value: 1 })
+  })
+
+  it('normalizeEventAction 把旧版 custom 映射为自定义 type（保留 actionId）', () => {
+    const legacy: LegacyEventAction = {
+      id: 'a',
+      kind: 'custom',
+      config: { actionId: 'myAction', x: 1 },
+    }
+    const unified = normalizeEventAction(legacy)
+    expect(unified.type).toBe('myAction')
+    expect(unified.params).toEqual({ actionId: 'myAction', x: 1 })
+  })
+
+  it('isStandardActionType 区分标准动作与自定义动作', () => {
+    expect(isStandardActionType('setState')).toBe(true)
+    expect(isStandardActionType('refresh')).toBe(true)
+    expect(isStandardActionType('myPluginAction')).toBe(false)
+    expect(isStandardActionType('')).toBe(false)
   })
 })

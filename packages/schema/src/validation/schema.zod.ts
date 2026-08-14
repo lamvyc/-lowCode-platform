@@ -3,7 +3,6 @@ import {
   API_AUTH_TYPES,
   HTTP_METHODS,
 } from '../types/api'
-import { STANDARD_ACTION_TYPES } from '../types/action'
 import {
   CRUD_ACTIONS,
   FIELD_PERMISSION_ACTIONS,
@@ -102,10 +101,14 @@ export const pageNodeSchema = z.object({
   meta: nodeMetaSchema.optional(),
 })
 
-/** 统一事件动作（标准 Action 枚举，P1） */
+/**
+ * 统一事件动作（P1）：type 为标准 ActionType 或插件自定义字符串。
+ * 标准类型由 TypeScript 枚举提供 IDE 自动补全；运行时校验放宽为任意非空字符串，
+ * 以允许插件注册的自定义动作类型（防呆由设计器在编辑态对标准枚举做提示）。
+ */
 const unifiedEventActionSchema = z.object({
   id: z.string(),
-  type: z.enum(STANDARD_ACTION_TYPES),
+  type: z.string().min(1, '动作类型不能为空'),
   label: z.string().optional(),
   target: z.string().optional(),
   params: z.record(z.string(), z.unknown()).optional(),
@@ -142,13 +145,25 @@ const dataSourceConfigSchema = z
     storageKey: z.string().optional(),
     variableId: z.string().optional(),
     pollInterval: z.number().optional(),
+    modelRef: z.string().optional(),
+    operation: z.enum(DATA_MODEL_OPERATIONS).optional(),
+    filter: z.string().optional(),
+    apiRef: z.string().optional(),
   })
   .passthrough()
 
 const dataSourceSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(['rest', 'static', 'localStorage', 'sessionStorage', 'pageVariable']),
+  type: z.enum([
+    'rest',
+    'static',
+    'localStorage',
+    'sessionStorage',
+    'pageVariable',
+    'DataModel',
+    'API',
+  ]),
   config: dataSourceConfigSchema,
   autoLoad: z.boolean().optional(),
   enabled: z.boolean().optional(),

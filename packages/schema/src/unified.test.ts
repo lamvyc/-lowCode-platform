@@ -65,6 +65,34 @@ describe('标准 Action 枚举（P1）', () => {
       'refresh',
     ])
   })
+
+  it('parseSchema 接受插件自定义动作类型', () => {
+    const schema = createUnifiedPageSchema(makeMeta('p1', '自定义动作'), {
+      nodes: [
+        {
+          id: 'n1',
+          type: 'button',
+          props: {},
+          events: { click: [{ id: 'a1', type: 'myPluginAction', params: { x: 1 } }] },
+        },
+      ],
+    })
+    expect(parseSchema(schema).kind).toBe('Page')
+  })
+
+  it('parseSchema 拒绝空动作类型', () => {
+    const schema = createUnifiedPageSchema(makeMeta('p1', '空类型'), {
+      nodes: [
+        {
+          id: 'n1',
+          type: 'button',
+          props: {},
+          events: { click: [{ id: 'a1', type: '' }] },
+        },
+      ],
+    })
+    expect(() => parseSchema(schema)).toThrow()
+  })
 })
 
 describe('表达式沙箱（P3）', () => {

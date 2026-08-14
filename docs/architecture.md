@@ -21,7 +21,7 @@ packages/
 ┌──────────────────────────────────────────────────────────────┐
 │ 用户交互层                                                     │
 │  playground（预览挂载、应用管理仓储）  editor（设计器引擎）        │
-│  可视化设计器△ | 页面预览○ | 应用管理○ | 权限管理✗              │
+│  可视化设计器△ | 页面预览○ | 应用管理○ | 权限管理●              │
 ├──────────────────────────────────────────────────────────────┤
 │ Schema驱动层                                                   │
 │  schema                                                        │
@@ -29,16 +29,16 @@ packages/
 │  插件Schema ●（统一骨架：version/kind/metadata/spec/migrations） │
 ├──────────────────────────────────────────────────────────────┤
 │ 引擎层                                                         │
-│  core（规则/API/事件/表达式/动作）  runtime（渲染）  codegen（编译）│
-│  渲染引擎● | 表单引擎✗ | 流程引擎✗ | 规则引擎● | API引擎○         │
+│  core（规则/API/事件/表达式/动作/表单/流程）  runtime（渲染）  codegen（编译）│
+│  渲染引擎● | 表单引擎● | 流程引擎● | 规则引擎● | API引擎○         │
 ├──────────────────────────────────────────────────────────────┤
 │ 插件层                                                         │
-│  materials（组件实体）  core（插件机制/远程加载器）                │
-│  自定义组件● | 自定义连接器✗ | 自定义函数● | 扩展面板△            │
+│  materials（组件实体）  core（插件机制/远程加载器/连接器）          │
+│  自定义组件● | 自定义连接器● | 自定义函数● | 扩展面板△            │
 ├──────────────────────────────────────────────────────────────┤
 │ 基础设施层（前端等价物）                                        │
-│  core（DataBus/MemoryStorage）  playground（localStorage 仓储）  │
-│  数据库△ | 文件存储○ | 消息队列△ | 缓存○ | 身份认证✗            │
+│  core（DataBus/MemoryStorage/Auth）  playground（localStorage 仓储）│
+│  数据库△ | 文件存储○ | 消息队列△ | 缓存○ | 身份认证●            │
 └──────────────────────────────────────────────────────────────┘
 ● 完整  ○ 部分  △ 只有机制/引擎无界面  ✗ 缺失
 ```
@@ -48,8 +48,8 @@ packages/
 | 包 | 所属层 | 对应图中的能力 | 现状说明 |
 | --- | --- | --- | --- |
 | `schema` | Schema 驱动层 | 页面 / 数据模型 / 流程 / API / 插件 Schema 全 ● | 五层协议完整：统一骨架（version/kind/metadata/spec/migrations）+ semver 校验；标准 Action 枚举（P1）；三级权限模型（P2）；表达式沙箱（P3）；JSON Schema 属性面板与插件接口（P4）；旧版扁平 PageSchema 1.x 保留并支持迁移到统一 2.x（P5）。runtime/editor/playground 已可通过 `normalizePageSchema` 消费统一页面 |
-| `core` | 引擎层为主，兼插件机制与基础设施 | 规则引擎 ●、API 引擎 ○、自定义函数 ●、连接器 ✗ | `RuleEngine` / `EventEngine` / `ActionChainRunner` / `JexlExpressionEngine` 是引擎主体；`DataSourceManager` 是 API 引擎雏形（无编排）；`PluginManager + HookBus` 是插件机制而非插件本身；`DataBus` / `MemoryStorage` 是消息队列 / 缓存的抽象层 |
-| `runtime` | 引擎层 | 渲染引擎 ● | `RuntimeRenderer` / `RuntimeContext` / `IComponentResolver` 就是完整的解释执行渲染引擎 |
+| `core` | 引擎层为主，兼插件机制与基础设施 | 规则引擎 ●、API 引擎 ○、表单引擎 ●、流程引擎 △、自定义函数 ●、连接器 ●、权限 ●、认证 ● | `RuleEngine` / `EventEngine` / `ActionChainRunner` / `UnifiedActionRunner` / `JexlExpressionEngine` 是引擎主体；内置动作按标准 `ActionType` 注册（含 `submit`/`refresh` 一等实现，旧 `kind` 走别名兼容）；`FormEngine`（值/错误/touched/dirty 状态机 + validate/submit/reset + 表达式联动）与 `dataModelToFormSchema`（DataModel → 表单字段）构成表单引擎；`ProcessEngine`（解释执行 ProcessSchema：start/end/task/apiCall/dataModel/delay/condition + 实例状态机 run/completeTask/terminate）构成流程引擎；`ConnectorRegistry`（声明式连接器：baseUrl/path/auth 组装请求）+ `registerConnectorActions`（连接器动作注册进 ActionRegistry）构成连接器；`PermissionService` + 三级权限纯函数（表/字段/操作）消费 `DataModelPermissions`；`authenticatedHttpClient` + `AuthProvider` 提供会话令牌注入与 401 刷新重试；`DataSourceManager` 支持 `DataModel`/`API` ref 取数（`SchemaRegistry` 解析引用）；`PluginManager + HookBus` 是插件机制而非插件本身；`DataBus` / `MemoryStorage` 是消息队列 / 缓存的抽象层 |
+| `runtime` | 引擎层 | 渲染引擎 ●、表单引擎 ●（渲染器）、流程引擎 ●（视图）、权限 ●（指令） | `RuntimeRenderer` / `RuntimeContext` / `IComponentResolver` 就是完整的解释执行渲染引擎；`FormRenderer` + `IFormWidgetResolver` + 内置纯 render 控件构成表单渲染器，`RuntimeContext.forms` 注册表把 `submit` 动作接到 `FormEngine.submit()`；`ProcessViewer` + `topologicalLayers` 把 ProcessSchema 按拓扑层级渲染并高亮当前节点；`createPermissionDirective`（v-permission）+ `usePermission`/`installPermission` 是权限的 Vue 消费端 |
 | `codegen` | 引擎层（图里未单列） | 「编译引擎」 | schema → 模板 AST → Vue SFC，属于第二执行路径，本质是引擎 |
 | `materials` | 插件层 | 自定义组件 ● | 本地物料 + Element Plus，是插件层的实体实现；远程组件机制在 core |
 | `editor` | 用户交互层 | 可视化设计器 △ | 只有 `EditorEngine` / 节点操作 / 框选，是设计器的引擎基建，画布 / 面板 UI 已移除 |
@@ -58,7 +58,7 @@ packages/
 ### 两点观察
 
 1. **`core` 是唯一横跨三层的包**：既是引擎层主体，又承载插件机制（插件层的基础设施），还提供 `DataBus` / `MemoryStorage`（基础设施层抽象）。这是刻意的分层设计——core 是纯 TS 的「能力底座」，各层都通过它。
-2. **按图看，缺口是「产品形态」而非「架构形态」**：表单引擎、流程引擎、权限管理、连接器仍是纵向空白；而每层横向骨架（Schema 契约、引擎抽象、插件注册、存储抽象）已在位。五层 Schema 协议已在 `schema` 包落地；下一步落点：`core` 加表单 / 流程引擎与 DataModel/API 引用解析器（统一数据源取数），`editor` 把设计器 UI 接回 `EditorEngine`，`playground` 把应用管理做成界面。
+2. **按图看，缺口是「产品形态」而非「架构形态」**：五层横向骨架（Schema 契约、引擎抽象、插件注册、存储抽象、权限/认证）已在位；纵向空白仅剩「产品形态」——设计器/应用管理的界面。五层 Schema 协议已在 `schema` 包落地；统一 Action 引擎（标准 type 注册 + submit/refresh）与 DataModel/API 引用解析器（`SchemaRegistry` + `DataSourceManager` ref 取数）在 P0 落地，表单引擎（`FormEngine` + `dataModelToFormSchema`）在 P1 落地、表单渲染器（`FormRenderer` + 控件解析器 + `submit` 接线）在 P1.5 落地，流程引擎（`ProcessEngine` 解释执行 + 实例状态机）在 P2 落地、流程视图（`ProcessViewer` + 拓扑分层）在 P2.5 落地，连接器（`ConnectorDefinition` + `ConnectorRegistry` + `registerConnectorActions`）在 P3 落地，权限 + 认证（`PermissionService` + 三级权限纯函数 + `AuthProvider` + `authenticatedHttpClient`）在 P4 落地，权限的 Vue 消费端（`v-permission` 指令 + `usePermission`/`installPermission`）在 P4.5 落地；下一步落点：`materials` 补 Element Plus 表单控件（switch/number/date/textarea）、`editor` 把设计器 UI 接回 `EditorEngine`、`playground` 把应用管理做成界面。
 
 ## 二、依赖方向（强制）
 

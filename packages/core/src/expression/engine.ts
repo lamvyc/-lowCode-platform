@@ -9,6 +9,10 @@ export interface ExpressionContext {
   page?: Record<string, unknown>
   datasource?: Record<string, unknown>
   global?: Record<string, unknown>
+  /** 表单值作用域（$form / form） */
+  form?: Record<string, unknown>
+  /** 正在编辑的记录（$record / record，DataModel 自定义校验兼容） */
+  record?: Record<string, unknown>
   [key: string]: unknown
 }
 
@@ -206,6 +210,8 @@ export class JexlExpressionEngine implements IExpressionEngine {
       global: context?.global,
       state: context?.state,
       api: context?.api,
+      form: context?.form,
+      record: context?.record,
     }
     // 直接变量（如 inputValue）展开到顶层
     for (const [key, value] of Object.entries(context ?? {})) {

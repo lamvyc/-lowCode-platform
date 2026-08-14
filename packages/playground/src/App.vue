@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, shallowRef } from 'vue'
 import { MaterialRegistryResolver, RuntimeContext, RuntimeRenderer } from '@lowcode/runtime'
 import {
   actionRegistry,
@@ -12,7 +12,8 @@ import { createDemoSchema } from './demo-schema'
 initPlatform()
 
 const schema = createDemoSchema()
-const runtime = ref<RuntimeContext | null>(null)
+// shallowRef：RuntimeContext 自持内部 reactive 状态，无需深度代理（避免类私有字段被 UnwrapRef 破坏类型）
+const runtime = shallowRef<RuntimeContext | null>(null)
 
 onMounted(() => {
   runtime.value = new RuntimeContext({
@@ -34,5 +35,15 @@ onMounted(() => {
       旧页面构建器交互层已移除。
     </p>
     <RuntimeRenderer v-if="runtime" :schema="runtime.schema" :context="runtime" />
+
+    <section style="margin-top: 24px">
+      <h2>权限消费端演示（当前用户：demo-admin，角色 admin）</h2>
+      <p v-permission="{ resource: 'Order', action: 'update' }" style="color: green">
+        ✅ 有 Order 的 update 权限，此内容可见
+      </p>
+      <p v-permission="{ resource: 'Order', action: 'delete' }" style="color: red">
+        ❌ 没有 Order 的 delete 权限，此内容应被移除
+      </p>
+    </section>
   </main>
 </template>

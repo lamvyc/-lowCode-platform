@@ -27,6 +27,16 @@ describe('JexlExpressionEngine 表达式引擎', () => {
     expect(length).toBe(3)
   })
 
+  it('支持 $form / $record 命名空间', () => {
+    const engine = new JexlExpressionEngine()
+    const result = engine.evaluate<boolean>('$form.amount > 10 && $record.status == "A"', {
+      form: { amount: 20 },
+      record: { status: 'A' },
+    })
+    expect(result).toBe(true)
+    expect(engine.evaluate<number>('$form.amount', { form: { amount: 7 } })).toBe(7)
+  })
+
   it('内置 count / contains 函数可用', () => {
     const engine = new JexlExpressionEngine()
     expect(engine.evaluate<boolean>('contains(["a", "b"], "a")')).toBe(true)

@@ -87,6 +87,24 @@ function mapLegacyDataSource(ds: DataSource): UnifiedDataSource {
       return { id: ds.id, name: ds.name, type: ds.type, storageKey: ds.config.storageKey }
     case 'pageVariable':
       return { id: ds.id, name: ds.name, type: 'pageVariable', variableId: ds.config.variableId }
+    case 'DataModel':
+      return {
+        id: ds.id,
+        name: ds.name,
+        type: 'DataModel',
+        ref: ds.config.modelRef ?? '',
+        operation: ds.config.operation ?? 'query',
+        filter: ds.config.filter,
+      }
+    case 'API':
+      return {
+        id: ds.id,
+        name: ds.name,
+        type: 'API',
+        ref: ds.config.apiRef ?? '',
+        params: ds.config.params,
+        pollInterval: ds.config.pollInterval,
+      }
   }
 }
 

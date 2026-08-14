@@ -33,8 +33,17 @@ export {
   ActionChainRunner,
 } from './action/chain'
 export {
+  UnifiedActionRunner,
+} from './action/unified'
+export {
   createBuiltinActions,
 } from './action/builtin'
+export {
+  levenshteinDistance,
+  suggestActionType,
+  collectActionCandidates,
+  formatActionSuggestion,
+} from './action/suggest'
 export type {
   ActionContext,
   ActionResult,
@@ -85,6 +94,61 @@ export {
   type RemoteMaterialLoaderOptions,
   type RemoteLoadResult,
 } from './remote-material/loader'
+export {
+  SchemaRegistry,
+  type SchemaRefResolver,
+} from './schema-registry/registry'
+export {
+  FormEngine,
+  type FormEngineOptions,
+} from './form/engine'
+export {
+  dataModelToFormSchema,
+} from './form/schema'
+export type {
+  FormField,
+  FormSchema,
+  FormStatus,
+} from './form/types'
+export {
+  ProcessEngine,
+  type ProcessEngineOptions,
+} from './process/engine'
+export type {
+  ProcessStatus,
+  ProcessSnapshot,
+} from './process/types'
+export {
+  ConnectorRegistry,
+  type ConnectorInvokeOptions,
+  type ConnectorCredentialProvider,
+} from './connector/registry'
+export {
+  registerConnectorActions,
+  type RegisterConnectorActionsOptions,
+} from './connector/actions'
+export type {
+  ConnectorAuth,
+  ConnectorAction,
+  ConnectorDefinition,
+} from '@lowcode/schema'
+export {
+  PermissionService,
+  evaluateTableAccess,
+  evaluateOperations,
+  canOperation,
+  evaluateFieldAccess,
+  type TablePermissionAction,
+  type FieldPermissionAction,
+} from './permission/service'
+export type { UserContext } from './permission/types'
+export type { AuthProvider } from './auth/provider'
+export {
+  HttpError,
+  isUnauthorizedError,
+  authenticatedHttpClient,
+  type AuthenticatedHttpClientOptions,
+} from './auth/http-client'
 
 /** 便捷类型再导出：让使用方只依赖 @lowcode/core */
 export type {

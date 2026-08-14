@@ -15,12 +15,24 @@ export const STANDARD_ACTION_TYPES = [
 export type ActionType = (typeof STANDARD_ACTION_TYPES)[number]
 
 /**
+ * 动作 type 的可接受值：标准枚举 + 插件自定义字符串。
+ * `string & {}` 保留标准枚举成员的 IDE 自动补全，同时放行任意自定义动作类型，
+ * 使插件注册的动作也能在统一 Schema 中表达（由 ActionRegistry 按 type 查找实现）。
+ */
+export type UnifiedActionType = ActionType | (string & {})
+
+/** 类型守卫：是否为平台标准动作（用于区分内置与插件自定义动作） */
+export function isStandardActionType(type: string): type is ActionType {
+  return (STANDARD_ACTION_TYPES as readonly string[]).includes(type)
+}
+
+/**
  * 统一事件动作：type + target + params（P1）
  * 交互行为由引擎按 type 解释执行，不在 Schema 中嵌入命令式逻辑。
  */
 export interface UnifiedEventAction {
   id: string
-  type: ActionType
+  type: UnifiedActionType
   label?: string
   /** 动作目标：节点 id / 数据源 id / 弹窗 id / 路由 */
   target?: string
@@ -30,8 +42,11 @@ export interface UnifiedEventAction {
   expression?: string
 }
 
-/** 旧版 ActionKind → 标准 ActionType 映射（P5 废弃迁移） */
-export const LEGACY_ACTION_TYPE_MAP: Record<LegacyEventAction['kind'], ActionType> = {
+/** 旧版 ActionKind → 标准 ActionType 映射（P5 废弃迁移）；custom 由 actionId 直接映射为自定义 type */
+export const LEGACY_ACTION_TYPE_MAP: Record<
+  Exclude<LegacyEventAction['kind'], 'custom'>,
+  ActionType
+> = {
   setProp: 'setState',
   setVariable: 'setState',
   openDialog: 'openDialog',
@@ -39,16 +54,24 @@ export const LEGACY_ACTION_TYPE_MAP: Record<LegacyEventAction['kind'], ActionTyp
   emitEvent: 'dispatchEvent',
   request: 'invokeAPI',
   navigate: 'navigate',
-  custom: 'dispatchEvent',
 }
 
 /** 旧版事件动作 → 统一事件动作（用于 1.x → 2.x 迁移） */
 export function normalizeEventAction(action: LegacyEventAction): UnifiedEventAction {
+  // 旧版 custom 动作：config.actionId 即自定义动作类型，直接作为统一 type（不再降级为 dispatchEvent）
+  if (action.kind === 'custom') {
+    return {
+      id: action.id,
+      type: String(action.config.actionId ?? 'custom'),
+      label: action.label,
+      params: action.config,
+      expression: action.when,
+    }
+  }
   return {
     id: action.id,
     type: LEGACY_ACTION_TYPE_MAP[action.kind],
     label: action.label,
-    target: action.kind === 'custom' ? String(action.config.actionId ?? 'custom') : undefined,
     params: action.config,
     expression: action.when,
   }
@@ -135,6 +158,13 @@ export function unifiedEventToLegacy(action: UnifiedEventAction): LegacyEventAct
           actionId: 'refresh',
           dataSourceId: params.dataSourceId ?? action.target,
         },
+      }
+    default:
+      // 插件自定义动作：映射为旧版 custom，由 ActionRegistry 按 actionId（= type）查找实现
+      return {
+        ...base,
+        kind: 'custom',
+        config: { ...params, actionId: action.type },
       }
   }
 }
