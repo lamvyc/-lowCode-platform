@@ -7,7 +7,7 @@ import {
   type PropType,
   type VNode,
 } from 'vue'
-import type { PageNode, PageSchema } from '@lowcode/schema'
+import type { AnyPageSchema, PageNode } from '@lowcode/schema'
 import { RUNTIME_CONTEXT_KEY, type RuntimeContext } from './context'
 
 type LoopCtx = { itemName: string; indexName?: string; item: unknown; index: number }
@@ -110,7 +110,7 @@ function buildNode(
 }
 
 export interface RuntimeRendererProps {
-  schema: PageSchema
+  schema: AnyPageSchema
   context: RuntimeContext
   /** 编辑器用 wrapNode 包一层选择/悬停/落点覆盖层 */
   wrapNode?: (node: PageNode, inner: VNode) => VNode
@@ -120,7 +120,7 @@ export interface RuntimeRendererProps {
 export const RuntimeRenderer = defineComponent({
   name: 'RuntimeRenderer',
   props: {
-    schema: { type: Object as PropType<PageSchema>, required: true },
+    schema: { type: Object as PropType<AnyPageSchema>, required: true },
     context: { type: Object as PropType<RuntimeContext>, required: true },
     wrapNode: {
       type: Function as PropType<RuntimeRendererProps['wrapNode']>,
@@ -131,7 +131,7 @@ export const RuntimeRenderer = defineComponent({
     provide(RUNTIME_CONTEXT_KEY, props.context)
     return () => {
       const wrap = props.wrapNode ?? ((_node: PageNode, inner: VNode) => inner)
-      const children = props.schema.nodes
+      const children = props.context.schema.nodes
         .map((node) => renderNode(node.id, props.context, wrap))
         .filter(Boolean) as VNode[]
       return h('div', { class: 'lc-runtime-root' }, children)

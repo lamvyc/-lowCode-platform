@@ -28,6 +28,14 @@ export interface PropConfig {
   placeholder?: string
 }
 
+/** JSON Schema 格式的属性面板定义（P4 推荐） */
+export interface PropertySchema {
+  type?: string
+  properties?: Record<string, unknown>
+  required?: string[]
+  [key: string]: unknown
+}
+
 /** 远程物料元信息（扩展能力，暂不参与默认注册） */
 export interface RemoteMaterialMeta {
   url: string
@@ -45,7 +53,12 @@ export interface RemoteMaterialManifest extends RemoteMaterialMeta {
   icon?: string
   description?: string
   defaultProps: Record<string, unknown>
+  /** @deprecated 使用 propertySchema（JSON Schema 格式，P4） */
   propConfigs: PropConfig[]
+  /** JSON Schema 属性面板定义 */
+  propertySchema?: PropertySchema
+  /** 插件接口标识（如 chart-plugin） */
+  pluginInterface?: string
   slots?: string[]
   droppable?: boolean
   groupable?: boolean
@@ -62,14 +75,19 @@ export interface Material {
   description?: string
   version: string
   defaultProps: Record<string, unknown>
+  /** @deprecated 使用 propertySchema（JSON Schema 格式，P4） */
   propConfigs: PropConfig[]
+  /** JSON Schema 属性面板定义（驱动右侧属性面板动态渲染） */
+  propertySchema?: PropertySchema
+  /** 插件接口标识（如 chart-plugin） */
+  pluginInterface?: string
   /** 支持的具名插槽 */
   slots?: string[]
   /** 是否可作为容器接收子节点 */
   droppable?: boolean
   /** 是否支持被拖动（编辑器拖拽移动） */
   groupable?: boolean
-  /** Vue 组件（运行时由 MaterialRegistry 注入） */
+  /** @deprecated 组件实现不应写入 Schema（P4），运行时由 MaterialRegistry 注入 */
   component?: unknown
   remote?: RemoteMaterialMeta
 }

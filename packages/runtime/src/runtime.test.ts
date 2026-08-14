@@ -2,7 +2,7 @@ import { createSSRApp, defineComponent, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, it } from 'vitest'
 import { ActionRegistry } from '@lowcode/core'
-import type { PageSchema } from '@lowcode/schema'
+import { createUnifiedPageSchema, type PageSchema } from '@lowcode/schema'
 import { SCHEMA_VERSION } from '@lowcode/schema'
 import { RuntimeContext, RuntimeRenderer } from '@lowcode/runtime'
 import type { IComponentResolver } from './resolver'
@@ -145,5 +145,37 @@ describe('Runtime Renderer', () => {
       makeSchema([{ id: 'n1', type: 'unknown-widget', props: {} }]),
     )
     expect(html).toContain('未注册物料')
+  })
+
+  it('渲染统一 Page Schema（自动归一化为运行时视图）', async () => {
+    const unified = createUnifiedPageSchema({ id: 'up1', name: '统一页面' }, {
+      nodes: [{ id: 'n1', type: 'text', props: { text: '统一 Schema 渲染' } }],
+    })
+    const context = new RuntimeContext({
+      schema: unified,
+      resolver,
+      actionRegistry: new ActionRegistry(),
+    })
+    expect(context.schema.meta.id).toBe('up1')
+    const app = createSSRApp({
+      render: () => h(RuntimeRenderer, { schema: context.schema, context }),
+    })
+    const html = await renderToString(app)
+    expect(html).toContain('统一 Schema 渲染')
+  })
+
+  it('表达式上下文支持 $state / $api（P3）', () => {
+    const context = new RuntimeContext({
+      schema: makeSchema([{ id: 'n1', type: 'text', props: { text: '' } }]),
+      resolver,
+      actionRegistry: new ActionRegistry(),
+    })
+    context.state.visible = true
+    context.datasource.setData('users', [{ name: '张三' }])
+    const exprContext = context.buildExpressionContext()
+    const stateResult = context.expression.tryEvaluate('$state.visible == true', exprContext)
+    expect(stateResult).toEqual({ ok: true, value: true })
+    const apiResult = context.expression.tryEvaluate('$api.users[0].name', exprContext)
+    expect(apiResult).toEqual({ ok: true, value: '张三' })
   })
 })

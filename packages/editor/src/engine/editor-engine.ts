@@ -6,14 +6,20 @@ import {
   type DropTarget,
   type HistoryOptions,
 } from '@lowcode/core'
-import type { Binding, PageNode, PageSchema } from '@lowcode/schema'
-import { cloneSchema } from '@lowcode/schema'
+import {
+  cloneSchema,
+  normalizePageSchema,
+  type AnyPageSchema,
+  type Binding,
+  type PageNode,
+  type PageSchema,
+} from '@lowcode/schema'
 import { RuntimeContext, type RuntimeContextOptions } from '@lowcode/runtime'
 import { applyGroup, applyPaste, applyUngroup } from './node-ops'
 import type { DragState } from './types'
 
 export interface EditorEngineOptions {
-  schema: PageSchema
+  schema: AnyPageSchema
   nodeFactory: NodeFactory
   dragDropManager: DragDropManager
   runtime: Omit<RuntimeContextOptions, 'schema'>
@@ -27,6 +33,8 @@ export interface DropOver {
 }
 
 export class EditorEngine {
+  /** 原始输入（统一或旧版），保存时保留原结构 */
+  private sourceSchema: AnyPageSchema
   private currentSchema: PageSchema
   private readonly history: HistoryManager
   private readonly runtimeOptions: Omit<RuntimeContextOptions, 'schema'>
@@ -35,7 +43,8 @@ export class EditorEngine {
   private runtimeContext: RuntimeContext
 
   constructor(options: EditorEngineOptions) {
-    this.currentSchema = cloneSchema(options.schema)
+    this.sourceSchema = options.schema
+    this.currentSchema = normalizePageSchema(cloneSchema(options.schema))
     this.history = new HistoryManager(this.currentSchema, options.history)
     this.runtimeOptions = options.runtime
     this.nodeFactory = options.nodeFactory
@@ -45,6 +54,11 @@ export class EditorEngine {
 
   get current(): PageSchema {
     return this.currentSchema
+  }
+
+  /** 编辑器接收的原始页面 Schema（可能是统一结构） */
+  get source(): AnyPageSchema {
+    return this.sourceSchema
   }
 
   get runtime(): RuntimeContext {
@@ -59,8 +73,9 @@ export class EditorEngine {
     return this.history.canRedo
   }
 
-  load(schema: PageSchema): void {
-    this.currentSchema = cloneSchema(schema)
+  load(schema: AnyPageSchema): void {
+    this.sourceSchema = schema
+    this.currentSchema = normalizePageSchema(cloneSchema(schema))
     this.history.reset(this.currentSchema)
     this.runtimeContext = this.createRuntime()
   }

@@ -5,7 +5,10 @@ import type { PageNode } from './node'
 import type { Rule } from './rule'
 import type { PageVariable } from './variable'
 
-/** 页面元信息 */
+/**
+ * 页面元信息
+ * @deprecated 旧版扁平 PageSchema（1.x）已废弃，迁移到 UnifiedPageSchema（2.x）
+ */
 export interface PageMeta {
   id: string
   name: string
@@ -30,7 +33,11 @@ export interface PageSettings {
   width?: number
 }
 
-/** 页面协议：整个低代码平台的数据根 */
+/**
+ * 页面协议：整个低代码平台的数据根（旧版扁平结构）
+ * @deprecated 使用 UnifiedPageSchema（统一骨架 version/kind/metadata/spec/migrations，P5）
+ * 通过 migrateToUnified 自动迁移。
+ */
 export interface PageSchema {
   version: string
   meta: PageMeta

@@ -16,7 +16,9 @@ import {
 import {
   isExpressionBinding,
   isStaticBinding,
+  normalizePageSchema,
   type Binding,
+  type AnyPageSchema,
   type LoopConfig,
   type PageNode,
   type PageSchema,
@@ -27,7 +29,7 @@ import type { IComponentResolver } from './resolver'
 export const RUNTIME_CONTEXT_KEY: InjectionKey<RuntimeContext> = Symbol('lc.runtimeContext')
 
 export interface RuntimeContextOptions {
-  schema: PageSchema
+  schema: AnyPageSchema
   resolver: IComponentResolver
   actionRegistry: ActionRegistry
   expression?: IExpressionEngine
@@ -74,7 +76,7 @@ export class RuntimeContext {
 
   constructor(options: RuntimeContextOptions) {
     this.options = options
-    this.schema = options.schema
+    this.schema = normalizePageSchema(options.schema)
     this.resolver = options.resolver
     this.expression = options.expression ?? new JexlExpressionEngine()
     this.datasource = new DataSourceManager({
@@ -82,10 +84,10 @@ export class RuntimeContext {
       storage: options.storage ?? new MemoryStorage(),
       variables: options.variables,
     })
-    for (const source of options.schema.dataSources) {
+    for (const source of this.schema.dataSources) {
       this.datasource.register(source)
     }
-    for (const variable of options.schema.variables) {
+    for (const variable of this.schema.variables) {
       this.variables[variable.name] = variable.value
     }
     this.eventEngine = new EventEngine({ registry: options.actionRegistry })
@@ -107,6 +109,8 @@ export class RuntimeContext {
       local,
       page: this.variables,
       datasource: this.datasource.getAllData(),
+      state: this.state,
+      api: this.datasource.getAllData(),
       global: this.options.globalContext ?? {},
     }
   }

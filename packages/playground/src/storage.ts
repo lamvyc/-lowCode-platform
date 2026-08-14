@@ -1,17 +1,26 @@
 import { MemoryStorage } from '@lowcode/core'
-import { parsePageSchema, type PageSchema } from '@lowcode/schema'
+import {
+  isSchemaEnvelope,
+  parsePageSchema,
+  parseSchema,
+  type PageSchema,
+  type UnifiedPageSchema,
+} from '@lowcode/schema'
+
+/** 页面 Schema：旧版扁平或统一结构（kind: Page） */
+export type AnyPageSchema = PageSchema | UnifiedPageSchema
 
 export interface StoredPage {
   id: string
   name: string
   updatedAt: string
-  schema: PageSchema
+  schema: AnyPageSchema
 }
 
 export interface PageVersion {
   id: string
   at: string
-  schema: PageSchema
+  schema: AnyPageSchema
 }
 
 export interface StoredTemplate {
@@ -19,7 +28,7 @@ export interface StoredTemplate {
   name: string
   description?: string
   createdAt: string
-  schema: PageSchema
+  schema: AnyPageSchema
 }
 
 export interface StorageLike {
@@ -57,6 +66,24 @@ function isStoredTemplate(value: unknown): value is StoredTemplate {
   )
 }
 
+function isUnified(schema: AnyPageSchema): schema is UnifiedPageSchema {
+  return isSchemaEnvelope(schema)
+}
+
+function pageId(schema: AnyPageSchema): string {
+  return isUnified(schema) ? schema.metadata.id : schema.meta.id
+}
+
+function pageName(schema: AnyPageSchema): string {
+  return isUnified(schema) ? schema.metadata.name : schema.meta.name
+}
+
+/** 校验并返回任意形式的页面 Schema（旧版或统一） */
+function parseAnyPageSchema(input: unknown): AnyPageSchema {
+  if (isSchemaEnvelope(input)) return parseSchema(input) as UnifiedPageSchema
+  return parsePageSchema(input)
+}
+
 /** 统一仓储：所有本地存储都通过可替换的 StorageLike 后端读写，并校验 PageSchema */
 export class StorageRepository {
   constructor(private readonly storage: StorageLike) {}
@@ -71,7 +98,7 @@ export class StorageRepository {
           id: item.id,
           name: item.name,
           updatedAt: item.updatedAt,
-          schema: parsePageSchema(item.schema),
+          schema: parseAnyPageSchema(item.schema),
         }]
       } catch {
         return []
@@ -83,13 +110,13 @@ export class StorageRepository {
     return this.loadPages().find((page) => page.id === id)
   }
 
-  savePage(schema: PageSchema): StoredPage {
-    const validSchema = parsePageSchema(schema)
+  savePage(schema: AnyPageSchema): StoredPage {
+    const validSchema = parseAnyPageSchema(schema)
     const pages = this.loadPages()
     const now = new Date().toISOString()
     const stored: StoredPage = {
-      id: validSchema.meta.id,
-      name: validSchema.meta.name,
+      id: pageId(validSchema),
+      name: pageName(validSchema),
       updatedAt: now,
       schema: validSchema,
     }
@@ -111,15 +138,15 @@ export class StorageRepository {
     this.storage.removeItem(`${VERSION_PREFIX}${id}`)
   }
 
-  addVersion(pageId: string, schema: PageSchema): void {
-    const validSchema = parsePageSchema(schema)
-    const versions = this.listVersions(pageId)
+  addVersion(pageIdKey: string, schema: AnyPageSchema): void {
+    const validSchema = parseAnyPageSchema(schema)
+    const versions = this.listVersions(pageIdKey)
     versions.unshift({
       id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       at: new Date().toISOString(),
       schema: validSchema,
     })
-    this.writeJson(`${VERSION_PREFIX}${pageId}`, versions.slice(0, MAX_VERSIONS))
+    this.writeJson(`${VERSION_PREFIX}${pageIdKey}`, versions.slice(0, MAX_VERSIONS))
   }
 
   listVersions(pageId: string): PageVersion[] {
@@ -135,16 +162,16 @@ export class StorageRepository {
         return []
       }
       try {
-        return [{ id: item.id, at: item.at, schema: parsePageSchema(item.schema) }]
+        return [{ id: item.id, at: item.at, schema: parseAnyPageSchema(item.schema) }]
       } catch {
         return []
       }
     })
   }
 
-  rollback(pageId: string, versionId: string): PageSchema | undefined {
+  rollback(pageId: string, versionId: string): AnyPageSchema | undefined {
     const version = this.listVersions(pageId).find((item) => item.id === versionId)
-    return version ? (JSON.parse(JSON.stringify(version.schema)) as PageSchema) : undefined
+    return version ? (JSON.parse(JSON.stringify(version.schema)) as AnyPageSchema) : undefined
   }
 
   listTemplates(): StoredTemplate[] {
@@ -155,7 +182,7 @@ export class StorageRepository {
       try {
         return [{
           ...item,
-          schema: parsePageSchema(item.schema),
+          schema: parseAnyPageSchema(item.schema),
         }]
       } catch {
         return []
@@ -164,18 +191,18 @@ export class StorageRepository {
   }
 
   saveTemplate(
-    schema: PageSchema,
+    schema: AnyPageSchema,
     name?: string,
     description?: string,
   ): StoredTemplate {
-    const validSchema = parsePageSchema(schema)
+    const validSchema = parseAnyPageSchema(schema)
     const templates = this.listTemplates()
     const template: StoredTemplate = {
       id: `template_${Date.now().toString(36)}`,
-      name: name ?? `${validSchema.meta.name}模板`,
+      name: name ?? `${pageName(validSchema)}模板`,
       description,
       createdAt: new Date().toISOString(),
-      schema: JSON.parse(JSON.stringify(validSchema)) as PageSchema,
+      schema: JSON.parse(JSON.stringify(validSchema)) as AnyPageSchema,
     }
     templates.unshift(template)
     this.writeJson(TEMPLATES_KEY, templates)
@@ -189,15 +216,25 @@ export class StorageRepository {
     )
   }
 
-  templateToPage(template: StoredTemplate): PageSchema {
-    const schema = JSON.parse(JSON.stringify(template.schema)) as PageSchema
+  templateToPage(template: StoredTemplate): AnyPageSchema {
+    const schema = JSON.parse(JSON.stringify(template.schema)) as AnyPageSchema
     const now = new Date().toISOString()
-    schema.meta = {
-      ...schema.meta,
-      id: `page_${Date.now().toString(36)}`,
-      name: `${template.name} 副本`,
-      createdAt: now,
-      updatedAt: now,
+    if (isUnified(schema)) {
+      schema.metadata = {
+        ...schema.metadata,
+        id: `page_${Date.now().toString(36)}`,
+        name: `${template.name} 副本`,
+        createdAt: now,
+        updatedAt: now,
+      }
+    } else {
+      schema.meta = {
+        ...schema.meta,
+        id: `page_${Date.now().toString(36)}`,
+        name: `${template.name} 副本`,
+        createdAt: now,
+        updatedAt: now,
+      }
     }
     return schema
   }
@@ -232,7 +269,7 @@ export function getPage(id: string): StoredPage | undefined {
   return repository.getPage(id)
 }
 
-export function savePage(schema: PageSchema): StoredPage {
+export function savePage(schema: AnyPageSchema): StoredPage {
   return repository.savePage(schema)
 }
 
@@ -240,7 +277,7 @@ export function deletePage(id: string): void {
   repository.deletePage(id)
 }
 
-export function addVersion(pageId: string, schema: PageSchema): void {
+export function addVersion(pageId: string, schema: AnyPageSchema): void {
   repository.addVersion(pageId, schema)
 }
 
@@ -248,7 +285,7 @@ export function listVersions(pageId: string): PageVersion[] {
   return repository.listVersions(pageId)
 }
 
-export function rollback(pageId: string, versionId: string): PageSchema | undefined {
+export function rollback(pageId: string, versionId: string): AnyPageSchema | undefined {
   return repository.rollback(pageId, versionId)
 }
 
@@ -257,7 +294,7 @@ export function listTemplates(): StoredTemplate[] {
 }
 
 export function saveTemplate(
-  schema: PageSchema,
+  schema: AnyPageSchema,
   name?: string,
   description?: string,
 ): StoredTemplate {
@@ -268,6 +305,6 @@ export function deleteTemplate(id: string): void {
   repository.deleteTemplate(id)
 }
 
-export function templateToPage(template: StoredTemplate): PageSchema {
+export function templateToPage(template: StoredTemplate): AnyPageSchema {
   return repository.templateToPage(template)
 }

@@ -10,7 +10,10 @@ export interface Rule {
   enabled: boolean
   trigger: RuleTrigger
   /** Jexl 条件表达式，例如 `$datasource.userList.data.length > 0` */
+  /** @deprecated 统一字段名为 expression（P3），旧名保留兼容 */
   condition: string
+  /** 条件表达式（沙箱，Page 上下文） */
+  expression?: string
   actions: EventAction[]
   /** 防抖间隔（毫秒） */
   debounceMs?: number

@@ -173,6 +173,8 @@ export class JexlExpressionEngine implements IExpressionEngine {
       page: context?.page,
       datasource: context?.datasource,
       global: context?.global,
+      state: context?.state,
+      api: context?.api,
     }
     // 直接变量（如 inputValue）展开到顶层
     for (const [key, value] of Object.entries(context ?? {})) {

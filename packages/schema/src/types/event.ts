@@ -1,4 +1,9 @@
-/** 动作类型：平台内置的最小动作集合 */
+/**
+ * 动作类型：平台内置的最小动作集合
+ * @deprecated 使用 STANDARD_ACTION_TYPES（P1 标准 Action 枚举）中的 ActionType。
+ * 旧枚举通过 LEGACY_ACTION_TYPE_MAP 迁移：setProp/setVariable → setState、
+ * emitEvent → dispatchEvent、request → invokeAPI、custom → dispatchEvent。
+ */
 export type ActionKind =
   | 'setProp'
   | 'setVariable'
@@ -15,18 +20,28 @@ export type ActionKind =
  */
 export interface EventAction {
   id: string
+  /** @deprecated 迁移到 UnifiedEventAction.type */
   kind: ActionKind
   label?: string
-  /** 动作参数，由具体 Action 实现解释 */
+  /** @deprecated 迁移到 UnifiedEventAction.params */
   config: Record<string, unknown>
-  /** 可选条件表达式，为假时跳过本动作（串行继续） */
+  /** @deprecated 迁移到 UnifiedEventAction.expression */
   when?: string
-  /** 子动作：条件为真时进入子链 */
+  /**
+   * @deprecated 动作链中的分支控制流（children/catch）移出声明层（P1），
+   * 流程编排由 Process Schema 承担，错误处理由引擎统一兜底。
+   */
   children?: EventAction[]
-  /** 出错时执行的动作 */
+  /** @deprecated 见 children */
   catch?: EventAction[]
-  /** 出错后是否继续后续动作 */
+  /** @deprecated 见 children */
   continueOnError?: boolean
   /** 执行前延迟（毫秒） */
   delay?: number
 }
+
+/** @deprecated 旧版动作类型别名，迁移到 ActionType */
+export type LegacyActionKind = ActionKind
+
+/** @deprecated 旧版事件动作别名，迁移到 UnifiedEventAction */
+export type LegacyEventAction = EventAction
