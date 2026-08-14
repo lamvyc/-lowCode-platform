@@ -13,14 +13,9 @@
   "dependencies": {
     "@lowcode/editor": "workspace:*",
     "@lowcode/core": "workspace:*",
-    "@lowcode/materials": "workspace:*",
     "@lowcode/runtime": "workspace:*",
     "@lowcode/schema": "workspace:*",
-    "element-plus": "^2.9.1",
-    "monaco-editor": "^0.52.0",
-    "pinia": "^2.2.6",
-    "vue": "^3.5.13",
-    "vue-router": "^4.4.5"
+    "vue": "^3.5.13"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",

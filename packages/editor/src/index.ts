@@ -1,7 +1,3 @@
-import './styles.css'
-
-export { default as EditorShell } from './components/EditorShell.vue'
-export { useEditorStore, type DragState, type ContextMenuState } from './store/editor'
 export {
   initPlatform,
   registerPlugin,
@@ -9,4 +5,21 @@ export {
   actionRegistry,
   expressionEngine,
   pluginManager,
+  remoteMaterialLoader,
 } from './platform'
+export {
+  EditorEngine,
+  type EditorEngineOptions,
+  type DropOver,
+} from './engine/editor-engine'
+export {
+  applyGroup,
+  applyPaste,
+  applyUngroup,
+} from './engine/node-ops'
+export {
+  collectLassoHits,
+  rectsIntersect,
+  type RectLike,
+} from './engine/lasso'
+export type { DragState } from './engine/types'
