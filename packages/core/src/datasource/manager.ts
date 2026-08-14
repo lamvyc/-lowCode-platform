@@ -46,9 +46,16 @@ export interface DataSourceState {
 export interface DataSourceManagerOptions {
   http?: HttpClient
   storage?: StorageLike
-  /** 页面变量快照（pageVariable 类型数据源读取） */
+  /**
+   * 页面变量快照（pageVariable 类型数据源读取）。
+   * @deprecated 使用 getVariables 获取实时变量，避免读到过期快照。
+   */
   variables?: Record<string, unknown>
+  /** 实时读取页面变量（pageVariable 数据源优先使用，变量变更后重新 load 可得新值） */
+  getVariables?: () => Record<string, unknown>
   onStateChange?: (id: string, state: DataSourceState) => void
+  /** 单个数据源加载失败的回调（loadAll 失败隔离时使用） */
+  onLoadError?: (id: string, error: unknown) => void
 }
 
 /**
@@ -112,7 +119,12 @@ export class DataSourceManager {
   async loadAll(): Promise<void> {
     for (const source of this.sources.values()) {
       if (source.autoLoad !== false) {
-        await this.load(source.id)
+        try {
+          await this.load(source.id)
+        } catch (error) {
+          // 失败隔离：单个数据源报错不阻断其余数据源，也不向上抛异常
+          this.options.onLoadError?.(source.id, error)
+        }
       }
     }
   }
@@ -172,7 +184,10 @@ export class DataSourceManager {
       }
       case 'pageVariable': {
         const variableId = source.config.variableId ?? ''
-        return this.options.variables?.[variableId]
+        const variables = this.options.getVariables
+          ? this.options.getVariables()
+          : this.options.variables
+        return variables?.[variableId]
       }
       default:
         throw new Error(`不支持的数据源类型: ${source.type}`)

@@ -2,7 +2,7 @@ import { parse } from '@vue/compiler-sfc'
 import { describe, expect, it } from 'vitest'
 import type { PageSchema } from '@lowcode/schema'
 import { SCHEMA_VERSION } from '@lowcode/schema'
-import { generateVueSfc, rewriteExpression } from '@lowcode/codegen'
+import { VueSfcGenerator, generateVueSfc, rewriteExpression } from '@lowcode/codegen'
 
 function makeSchema(): PageSchema {
   return {
@@ -86,5 +86,38 @@ describe('Codegen 代码生成', () => {
       'userList[0].name',
     )
     expect(rewriteExpression('$page.status', [], ['status'])).toBe('status')
+  })
+
+  it('表达式重写不污染前缀冲突的数据源 id', () => {
+    const ids = ['users', 'users2']
+    expect(rewriteExpression('$datasource.users2.data + $datasource.users.data', ids, [])).toBe(
+      'users2 + users',
+    )
+    expect(rewriteExpression('$datasource.users2.status', ids, [])).toBe('users2State.status')
+    expect(rewriteExpression('$datasource.users.status', ids, [])).toBe('usersState.status')
+  })
+
+  it('未知物料生成注释占位而非损坏标签', async () => {
+    const schema = makeSchema()
+    schema.nodes.push({ id: 'n_unknown', type: 'my-custom-card', props: {} })
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('未注册物料')
+    expect(code).not.toContain('<LcMyCustomCard')
+  })
+
+  it('注入自定义物料映射可生成对应组件导入', async () => {
+    const schema = makeSchema()
+    schema.nodes.push({
+      id: 'n_custom',
+      type: 'my-card',
+      props: { title: '自定义卡片' },
+    })
+    const { code } = await new VueSfcGenerator({
+      materials: {
+        'my-card': { importName: 'MyCard', from: '@my-pkg/cards' },
+      },
+    }).generate(schema)
+    expect(code).toMatch(/import \{ MyCard \} from ['"]@my-pkg\/cards['"]/)
+    expect(code).toContain('<MyCard')
   })
 })

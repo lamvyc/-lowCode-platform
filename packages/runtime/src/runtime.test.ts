@@ -1,7 +1,7 @@
 import { createSSRApp, defineComponent, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, it } from 'vitest'
-import { ActionRegistry } from '@lowcode/core'
+import { ActionRegistry, createBuiltinActions } from '@lowcode/core'
 import { createUnifiedPageSchema, type PageSchema } from '@lowcode/schema'
 import { SCHEMA_VERSION } from '@lowcode/schema'
 import { RuntimeContext, RuntimeRenderer } from '@lowcode/runtime'
@@ -177,5 +177,101 @@ describe('Runtime Renderer', () => {
     expect(stateResult).toEqual({ ok: true, value: true })
     const apiResult = context.expression.tryEvaluate('$api.users[0].name', exprContext)
     expect(apiResult).toEqual({ ok: true, value: '张三' })
+  })
+
+  it('节点索引 getNode O(1) 查找全部节点', () => {
+    const context = new RuntimeContext({
+      schema: makeSchema([
+        { id: 'n1', type: 'text', props: { text: 'a' } },
+        { id: 'n2', type: 'text', props: { text: 'b' } },
+      ]),
+      resolver,
+      actionRegistry: new ActionRegistry(),
+    })
+    expect(context.getNode('n1')?.props.text).toBe('a')
+    expect(context.getNode('n2')?.props.text).toBe('b')
+    expect(context.getNode('missing')).toBeUndefined()
+  })
+
+  it('mount 规则在 init 时执行', async () => {
+    const registry = new ActionRegistry()
+    registry.registerMany(createBuiltinActions())
+    const context = new RuntimeContext({
+      schema: makeSchema([
+        {
+          id: 'n1',
+          type: 'text',
+          props: { text: 'x' },
+          events: {
+            mount: [],
+          },
+        },
+      ]),
+      resolver,
+      actionRegistry: registry,
+    })
+    context.schema.rules.push({
+      id: 'r_mount',
+      name: '挂载规则',
+      enabled: true,
+      trigger: 'mount',
+      condition: 'true',
+      actions: [
+        {
+          id: 'a1',
+          kind: 'setVariable',
+          config: { name: 'mounted', value: true },
+        },
+      ],
+    })
+    await context.init()
+    expect(context.variables.mounted).toBe(true)
+  })
+
+  it('单节点渲染失败降级为占位并记录错误，不阻断整页', async () => {
+    const boomResolver: IComponentResolver = {
+      resolve: (type) => {
+        if (type === 'boom') throw new Error('组件爆炸')
+        return makeTextComponent()
+      },
+      has: () => true,
+    }
+    const context = new RuntimeContext({
+      schema: makeSchema([
+        { id: 'bad', type: 'boom', props: {} },
+        { id: 'ok', type: 'text', props: { text: '正常节点' } },
+      ]),
+      resolver: boomResolver,
+      actionRegistry: new ActionRegistry(),
+    })
+    const app = createSSRApp({
+      render: () => h(RuntimeRenderer, { schema: context.schema, context }),
+    })
+    const html = await renderToString(app)
+    expect(html).toContain('渲染失败')
+    expect(html).toContain('正常节点')
+    expect(context.errors.items.some((e) => e.scope === 'render' && e.nodeId === 'bad')).toBe(true)
+  })
+
+  it('渲染耗时与表达式错误被采集到 metrics / errors', async () => {
+    const context = new RuntimeContext({
+      schema: makeSchema([
+        {
+          id: 'n1',
+          type: 'text',
+          props: { text: { type: 'expression', value: '???' } },
+        },
+      ]),
+      resolver,
+      actionRegistry: new ActionRegistry(),
+    })
+    const app = createSSRApp({
+      render: () => h(RuntimeRenderer, { schema: context.schema, context }),
+    })
+    await renderToString(app)
+    const metrics = context.metrics.snapshot()
+    expect(metrics['render'].count).toBeGreaterThanOrEqual(1)
+    expect(metrics['render.nodes'].count).toBeGreaterThanOrEqual(1)
+    expect(context.errors.items.some((e) => e.scope === 'expression' && e.nodeId === 'n1')).toBe(true)
   })
 })

@@ -111,4 +111,24 @@ describe('RuleEngine 规则引擎', () => {
     await engine.run([rule], { inputValue: '其他' }, ctx)
     expect(execute).toHaveBeenCalledTimes(1)
   })
+
+  it('统一 Schema 的 expression 字段优先于旧 condition', async () => {
+    const registry = new ActionRegistry()
+    registry.registerMany(createBuiltinActions())
+    const engine = new RuleEngine({
+      expression: new JexlExpressionEngine(),
+      actionRegistry: registry,
+    })
+    const rule = makeRule({ expression: 'inputValue === "新条件"', condition: 'false' })
+    const results = await engine.run(
+      [rule],
+      { inputValue: '新条件' },
+      {
+        expression: new JexlExpressionEngine(),
+        getState: () => ({ inputValue: '新条件' }),
+        setState: () => {},
+      },
+    )
+    expect(results[0]?.matched).toBe(true)
+  })
 })

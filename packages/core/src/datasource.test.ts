@@ -89,4 +89,40 @@ describe('DataSourceManager 数据源管理器', () => {
     manager.register(makeRestSource())
     await expect(manager.load('users')).rejects.toThrow('HttpClient')
   })
+
+  it('pageVariable 数据源通过 getVariables 读取实时变量', async () => {
+    const variables: Record<string, unknown> = { keyword: '初始值' }
+    const manager = new DataSourceManager({
+      storage: new MemoryStorage(),
+      getVariables: () => variables,
+    })
+    manager.register({
+      id: 'varSrc',
+      name: '变量源',
+      type: 'pageVariable',
+      config: { variableId: 'keyword' },
+    })
+    expect(await manager.load('varSrc')).toBe('初始值')
+    variables.keyword = '新值'
+    expect(await manager.load('varSrc')).toBe('新值')
+  })
+
+  it('loadAll 单数据源失败不阻断其余数据源', async () => {
+    const http: HttpClient = {
+      request: vi.fn().mockRejectedValue(new Error('网络错误')),
+    }
+    const onLoadError = vi.fn()
+    const manager = new DataSourceManager({ http, storage: new MemoryStorage(), onLoadError })
+    manager.register(makeRestSource())
+    manager.register({ ...makeRestSource(), id: 'orders', name: '订单' })
+    manager.register({
+      id: 'static1',
+      name: '静态',
+      type: 'static',
+      config: { staticData: 'ok' },
+    })
+    await expect(manager.loadAll()).resolves.toBeUndefined()
+    expect(onLoadError).toHaveBeenCalledTimes(2)
+    expect(manager.getData('static1')).toBe('ok')
+  })
 })

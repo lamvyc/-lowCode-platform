@@ -5,6 +5,15 @@ export {
   type LoopResolution,
 } from './context'
 export {
+  ErrorCollector,
+  type RuntimeError,
+  type RuntimeErrorScope,
+} from './errors'
+export {
+  EngineMetrics,
+  type MetricSample,
+} from './metrics'
+export {
   RuntimeRenderer,
   renderNode,
   type RuntimeRendererProps,

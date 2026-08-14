@@ -58,4 +58,33 @@ describe('JexlExpressionEngine 表达式引擎', () => {
     const result = engine.tryEvaluate('eval("1+1")', {})
     expect(result.ok).toBe(false)
   })
+
+  it('循环变量优先级高于页面变量（loop > local > page > global）', () => {
+    const engine = new JexlExpressionEngine()
+    const result = engine.evaluate('item + ":" + prefix', {
+      local: { item: 'LOOP_ITEM' },
+      page: { item: 'PAGE_ITEM', prefix: 'PAGE' },
+      global: { prefix: 'GLOBAL' },
+    })
+    // item 取 loop/local，prefix 取 page（页面变量遮蔽全局变量）
+    expect(result).toBe('LOOP_ITEM:PAGE')
+  })
+
+  it('重复表达式只编译一次，后续命中缓存', () => {
+    const engine = new JexlExpressionEngine()
+    for (let i = 0; i < 100; i += 1) {
+      engine.evaluate('$page.a + 1', { page: { a: 1 } })
+    }
+    expect(engine.stats.compileCount).toBe(1)
+    expect(engine.stats.cacheHitCount).toBe(99)
+    expect(engine.stats.evalCount).toBe(100)
+  })
+
+  it('注册新函数后编译缓存失效', () => {
+    const engine = new JexlExpressionEngine()
+    engine.evaluate('1 + 1', {})
+    engine.addFunction('fn', (n: unknown) => Number(n) + 1)
+    engine.evaluate('fn(1)', {})
+    expect(engine.stats.compileCount).toBe(2)
+  })
 })

@@ -16,6 +16,26 @@ export interface GeneratedCode {
   style: string
 }
 
+/** 物料组件映射：schema type → 生成代码中的组件导入（E1：新物料不修改引擎源码） */
+export interface CodegenMaterialEntry {
+  importName: string
+  from: string
+}
+
+export type CodegenMaterialMap = Record<string, CodegenMaterialEntry>
+
+/** 默认内置物料映射：与 @lowcode/materials 导出一一对应 */
+const DEFAULT_MATERIALS: CodegenMaterialMap = {
+  container: { importName: 'LcContainer', from: '@lowcode/materials' },
+  text: { importName: 'LcText', from: '@lowcode/materials' },
+  button: { importName: 'LcButton', from: '@lowcode/materials' },
+  input: { importName: 'LcInput', from: '@lowcode/materials' },
+  select: { importName: 'LcSelect', from: '@lowcode/materials' },
+  image: { importName: 'LcImage', from: '@lowcode/materials' },
+  table: { importName: 'LcTable', from: '@lowcode/materials' },
+  dialog: { importName: 'LcDialog', from: '@lowcode/materials' },
+}
+
 function pascalCase(type: string): string {
   return type
     .split(/[-_]/)
@@ -28,19 +48,36 @@ function camelCase(value: string): string {
   return cleaned.charAt(0).toLowerCase() + cleaned.slice(1).replace(/[-_]([a-zA-Z0-9])/g, (_, c: string) => c.toUpperCase())
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 按 token 边界替换：$datasource.<id> 的 id 必须以非标识符字符结尾，
+ * 防止 id 为前缀（users / users2）时互相污染。
+ */
+function replaceToken(result: string, prefix: string, token: string, replacement: string): string {
+  return result.replace(
+    new RegExp(`${prefix}${escapeRegExp(token)}(?![\\w$])`, 'g'),
+    replacement,
+  )
+}
+
 /**
  * 表达式重写：把低代码表达式映射为生成代码中的响应式标识符。
  * - $datasource.<id>.data → <id 的驼峰 ref>（模板中自动解包）
+ * - $datasource.<id> → <id 的驼峰 ref>State（状态对象）
  * - $page.<name> → <name>
+ * 长 id 优先替换，避免 users 污染 users2。
  */
 export function rewriteExpression(expr: string, datasourceIds: string[], variableNames: string[]): string {
   let result = expr
-  for (const id of datasourceIds) {
-    result = result.replaceAll(`$datasource.${id}.data`, camelCase(id))
-    result = result.replaceAll(`$datasource.${id}`, `${camelCase(id)}State`)
+  for (const id of [...datasourceIds].sort((a, b) => b.length - a.length)) {
+    result = replaceToken(result, '\\$datasource\\.', `${id}.data`, camelCase(id))
+    result = replaceToken(result, '\\$datasource\\.', id, `${camelCase(id)}State`)
   }
-  for (const name of variableNames) {
-    result = result.replaceAll(`$page.${name}`, name)
+  for (const name of [...variableNames].sort((a, b) => b.length - a.length)) {
+    result = replaceToken(result, '\\$page\\.', name, name)
   }
   return result
 }
@@ -59,9 +96,19 @@ function toJson(value: unknown): string {
 /** 把节点转成模板 AST */
 function nodeToAst(
   node: PageNode,
-  ctx: { datasourceIds: string[]; variableNames: string[]; allNodes: PageNode[] },
+  ctx: {
+    datasourceIds: string[]
+    variableNames: string[]
+    allNodes: PageNode[]
+    materials: CodegenMaterialMap
+  },
 ): TemplateNode {
-  const tag = `Lc${pascalCase(node.type)}`
+  const material = ctx.materials[node.type]
+  if (!material) {
+    // 未知物料优雅降级：生成注释占位而不是损坏的 <LcXxx> 标签（E4/E1）
+    return { kind: 'comment', value: `未注册物料: ${node.type}（请在 VueSfcGenerator 注册组件映射）` }
+  }
+  const tag = material.importName
   const attrs: Record<string, string> = {}
 
   // 静态 / 表达式属性
@@ -130,10 +177,23 @@ function nodeToAst(
 }
 
 /** 生成脚本 setup：数据源 / 变量 / 动作助手 / 事件处理器 */
-function buildScript(schema: PageSchema, ctx: { datasourceIds: string[]; variableNames: string[] }): string {
+function buildScript(
+  schema: PageSchema,
+  ctx: { datasourceIds: string[]; variableNames: string[] },
+  materials: CodegenMaterialMap,
+): string {
   const lines: string[] = []
   lines.push("import { reactive, ref, onMounted } from 'vue'")
-  lines.push("import { LcContainer, LcText, LcButton, LcInput, LcSelect, LcImage, LcTable, LcDialog } from '@lowcode/materials'")
+  // 物料按来源聚合导入（由调用方注入映射，不写死）
+  const byFrom = new Map<string, string[]>()
+  for (const entry of Object.values(materials)) {
+    const names = byFrom.get(entry.from) ?? []
+    if (!names.includes(entry.importName)) names.push(entry.importName)
+    byFrom.set(entry.from, names)
+  }
+  for (const [from, names] of byFrom) {
+    lines.push(`import { ${names.join(', ')} } from '${from}'`)
+  }
   lines.push('')
 
   // 数据源 ref
@@ -238,6 +298,12 @@ function buildScript(schema: PageSchema, ctx: { datasourceIds: string[]; variabl
 
 /** Vue SFC 生成器：Schema → 模板 AST → Prettier → 可运行 SFC */
 export class VueSfcGenerator implements ICodeGenerator {
+  private readonly materials: CodegenMaterialMap
+
+  constructor(options: { materials?: CodegenMaterialMap } = {}) {
+    this.materials = { ...DEFAULT_MATERIALS, ...(options.materials ?? {}) }
+  }
+
   async generate(schema: PageSchema): Promise<GeneratedCode> {
     const datasourceIds = schema.dataSources.map((source) => source.id)
     const variableNames = schema.variables.map((variable) => variable.name)
@@ -245,13 +311,14 @@ export class VueSfcGenerator implements ICodeGenerator {
       datasourceIds,
       variableNames,
       allNodes: schema.nodes,
+      materials: this.materials,
     }
     const rootChildren: TemplateNode[] = schema.nodes
       .filter((node) => !ctx.allNodes.some((other) => [...(other.children ?? []), ...Object.values(other.slots ?? {}).flat()].includes(node.id)))
       .map((node) => nodeToAst(node, ctx))
     const root = el('div', { class: 'lc-page' }, rootChildren)
     const template = stringifyTemplate(root)
-    const script = buildScript(schema, ctx)
+    const script = buildScript(schema, ctx, this.materials)
     const style = [
       '.lc-page { padding: 16px; }',
       '.lc-page > * { margin-bottom: 8px; }',

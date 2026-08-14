@@ -16,6 +16,18 @@ export type ExpressionResult<T = unknown> =
   | { ok: true; value: T }
   | { ok: false; error: string }
 
+/** 表达式引擎运行统计（性能可观测，E5） */
+export interface ExpressionEngineStats {
+  /** 累计求值次数 */
+  evalCount: number
+  /** 累计编译次数（缓存未命中） */
+  compileCount: number
+  /** 缓存命中次数 */
+  cacheHitCount: number
+  /** 累计求值耗时（毫秒，含编译） */
+  evalMs: number
+}
+
 /** 表达式引擎接口：Runtime / Action / Rule 统一依赖它 */
 export interface IExpressionEngine {
   evaluate<T = unknown>(expression: string, context?: ExpressionContext): T
@@ -23,6 +35,8 @@ export interface IExpressionEngine {
   compile(expression: string): (context?: ExpressionContext) => unknown
   addFunction(name: string, fn: (...args: unknown[]) => unknown): void
   addFunctions(functions: Record<string, (...args: unknown[]) => unknown>): void
+  /** 可选：表达式引擎运行统计（未实现时为空对象） */
+  stats?: ExpressionEngineStats
 }
 
 /** 函数注册表：统一管理可在表达式中使用的函数 */
@@ -124,15 +138,26 @@ const DEFAULT_FUNCTIONS: Record<string, (...args: unknown[]) => unknown> = {
  */
 export class JexlExpressionEngine implements IExpressionEngine {
   private jexl: Jexl
+  /** 编译结果缓存：同一表达式只编译一次（E5 AST 缓存） */
+  private cache = new Map<string, ReturnType<Jexl['createExpression']>>()
+  readonly stats: ExpressionEngineStats = { evalCount: 0, compileCount: 0, cacheHitCount: 0, evalMs: 0 }
+  private readonly now: () => number
 
-  constructor(functions?: Record<string, (...args: unknown[]) => unknown>) {
+  constructor(
+    functions?: Record<string, (...args: unknown[]) => unknown>,
+    /** 是否采集耗时统计；计数统计始终开启 */
+    private collectStats = true,
+  ) {
     this.jexl = new Jexl()
     this.addFunctions(DEFAULT_FUNCTIONS)
     if (functions) this.addFunctions(functions)
+    this.now = typeof performance !== 'undefined' ? () => performance.now() : () => Date.now()
   }
 
   addFunction(name: string, fn: (...args: unknown[]) => unknown): void {
     this.jexl.addFunction(name, fn as (...args: never[]) => unknown)
+    // 新增函数可能改变已有表达式的解析结果，缓存必须失效
+    this.cache.clear()
   }
 
   addFunctions(functions: Record<string, (...args: unknown[]) => unknown>): void {
@@ -142,14 +167,20 @@ export class JexlExpressionEngine implements IExpressionEngine {
   }
 
   compile(expression: string): (context?: ExpressionContext) => unknown {
-    const compiled = this.jexl.createExpression(normalizeExpression(expression))
+    const compiled = this.getCompiled(expression)
     return (context) => compiled.evalSync(this.mergeContext(context))
   }
 
   evaluate<T = unknown>(expression: string, context?: ExpressionContext): T {
-    return this.jexl
-      .createExpression(normalizeExpression(expression))
-      .evalSync(this.mergeContext(context)) as T
+    this.stats.evalCount += 1
+    const start = this.collectStats ? this.now() : 0
+    try {
+      return this.getCompiled(expression).evalSync(this.mergeContext(context)) as T
+    } finally {
+      if (this.collectStats) {
+        this.stats.evalMs += this.now() - start
+      }
+    }
   }
 
   tryEvaluate<T = unknown>(expression: string, context?: ExpressionContext): ExpressionResult<T> {
@@ -182,8 +213,10 @@ export class JexlExpressionEngine implements IExpressionEngine {
         merged[key] = value
       }
     }
-    // 命名空间作用域展开到顶层，支持 user.age 写法
-    for (const scope of [namespaces.local, namespaces.loop, namespaces.page, namespaces.global]) {
+    // 命名空间作用域展开到顶层，支持 user.age 写法。
+    // 优先级：loop > local > page > global（后合并者覆盖先合并者）。
+    // 修复：此前 page/global 覆盖 loop/local，导致页面变量遮蔽循环变量。
+    for (const scope of [namespaces.global, namespaces.page, namespaces.local, namespaces.loop]) {
       if (scope) Object.assign(merged, scope)
     }
     for (const [name, scope] of Object.entries(namespaces)) {
@@ -191,5 +224,19 @@ export class JexlExpressionEngine implements IExpressionEngine {
       merged[`$${name}`] = scope ?? {}
     }
     return merged
+  }
+
+  /** 编译缓存：命中直接复用，未命中编译一次（Jexl 表达式可重复求值） */
+  private getCompiled(expression: string): ReturnType<Jexl['createExpression']> {
+    const normalized = normalizeExpression(expression)
+    let compiled = this.cache.get(normalized)
+    if (!compiled) {
+      compiled = this.jexl.createExpression(normalized)
+      this.cache.set(normalized, compiled)
+      if (this.collectStats) this.stats.compileCount += 1
+    } else if (this.collectStats) {
+      this.stats.cacheHitCount += 1
+    }
+    return compiled
   }
 }

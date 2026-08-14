@@ -32,7 +32,8 @@ export function renderNode(
   depth = 0,
 ): VNode | null {
   if (depth > MAX_DEPTH) return null
-  const node = ctx.schema.nodes.find((n) => n.id === nodeId)
+  // O(1) 节点索引查找，替代 O(n) 线性扫描（500 组件页从 25 万次查找降到 500 次）
+  const node = ctx.getNode(nodeId)
   if (!node) return null
   if (node.meta?.hidden) return null
   if (!ctx.resolveVisible(node, loop)) return null
@@ -69,44 +70,58 @@ function buildNode(
   loop: LoopCtx | undefined,
   depth: number,
 ): VNode | null {
-  const component = ctx.resolver.resolve(node.type)
-  if (!component) {
+  try {
+    const component = ctx.resolver.resolve(node.type)
+    if (!component) {
+      return h(
+        'div',
+        { class: 'lc-missing', 'data-node-type': node.type },
+        `[未注册物料: ${node.type}]`,
+      )
+    }
+
+    // Props：静态值 / 表达式绑定 / 本地覆盖
+    const props: Record<string, unknown> = {}
+    for (const key of Object.keys(node.props)) {
+      props[key] = ctx.resolveProp(node, key, loop)
+    }
+
+    // Style：表达式或静态绑定
+    const style = ctx.resolveStyle(node, loop)
+    if (Object.keys(style).length > 0) props.style = style
+
+    // Events：DOM 事件 → 动作链
+    for (const eventName of Object.keys(node.events ?? {})) {
+      props[toOnProp(eventName)] = (event: unknown) => {
+        ctx.dispatchNodeEvent(node, eventName, event)
+      }
+    }
+
+    // Children / Slots
+    const childrenIds = node.children ?? []
+    const renderChild = (id: string): VNode | null => renderNode(id, ctx, wrap, loop, depth + 1)
+    const defaultSlot = childrenIds.map(renderChild).filter(Boolean) as VNode[]
+    const slots: Record<string, () => VNode[]> = { default: () => defaultSlot }
+    for (const [slotName, ids] of Object.entries(node.slots ?? {})) {
+      slots[slotName] = () =>
+        ids.map(renderChild).filter(Boolean) as VNode[]
+    }
+
+    const vnode = h(component as Component, props, slots)
+    return wrap(node, vnode)
+  } catch (error) {
+    // 容错降级（E4）：单节点渲染失败不拖垮整页，渲染占位并记录错误上下文
+    const message = error instanceof Error ? error.message : String(error)
+    ctx.errors.add(
+      { scope: 'render', message, nodeId: node.id },
+      `render:${node.id}`,
+    )
     return h(
       'div',
-      { class: 'lc-missing', 'data-node-type': node.type },
-      `[未注册物料: ${node.type}]`,
+      { class: 'lc-render-error', 'data-node-id': node.id, 'data-node-type': node.type },
+      `[渲染失败: ${message}]`,
     )
   }
-
-  // Props：静态值 / 表达式绑定 / 本地覆盖
-  const props: Record<string, unknown> = {}
-  for (const key of Object.keys(node.props)) {
-    props[key] = ctx.resolveProp(node, key, loop)
-  }
-
-  // Style：表达式或静态绑定
-  const style = ctx.resolveStyle(node, loop)
-  if (Object.keys(style).length > 0) props.style = style
-
-  // Events：DOM 事件 → 动作链
-  for (const eventName of Object.keys(node.events ?? {})) {
-    props[toOnProp(eventName)] = (event: unknown) => {
-      ctx.dispatchNodeEvent(node, eventName, event)
-    }
-  }
-
-  // Children / Slots
-  const childrenIds = node.children ?? []
-  const renderChild = (id: string): VNode | null => renderNode(id, ctx, wrap, loop, depth + 1)
-  const defaultSlot = childrenIds.map(renderChild).filter(Boolean) as VNode[]
-  const slots: Record<string, () => VNode[]> = { default: () => defaultSlot }
-  for (const [slotName, ids] of Object.entries(node.slots ?? {})) {
-    slots[slotName] = () =>
-      ids.map(renderChild).filter(Boolean) as VNode[]
-  }
-
-  const vnode = h(component as Component, props, slots)
-  return wrap(node, vnode)
 }
 
 export interface RuntimeRendererProps {
@@ -131,10 +146,16 @@ export const RuntimeRenderer = defineComponent({
     provide(RUNTIME_CONTEXT_KEY, props.context)
     return () => {
       const wrap = props.wrapNode ?? ((_node: PageNode, inner: VNode) => inner)
-      const children = props.context.schema.nodes
-        .map((node) => renderNode(node.id, props.context, wrap))
-        .filter(Boolean) as VNode[]
-      return h('div', { class: 'lc-runtime-root' }, children)
+      const end = props.context.metrics.start('render')
+      try {
+        const children = props.context.schema.nodes
+          .map((node) => renderNode(node.id, props.context, wrap))
+          .filter(Boolean) as VNode[]
+        props.context.metrics.increment('render.nodes', children.length)
+        return h('div', { class: 'lc-runtime-root' }, children)
+      } finally {
+        end()
+      }
     }
   },
 })
