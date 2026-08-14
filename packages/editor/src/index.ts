@@ -27,12 +27,15 @@ export {
   Designer,
   useDesigner,
   DESIGNER_KEY,
-  deviceWidth,
-  DEVICE_WIDTH,
+  deviceDimension,
+  DEVICE_DIMENSION,
+  DEVICE_BORDER,
+  DEVICE_RADIUS,
 } from './designer'
 export type {
   DesignerContext,
   UseDesignerOptions,
   DeviceType,
   DesignerViewState,
+  DeviceDimension,
 } from './designer'

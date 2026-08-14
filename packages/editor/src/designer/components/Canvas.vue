@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { computed, h, inject, type VNode } from 'vue'
+import {
+  computed,
+  h,
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  type VNode,
+} from 'vue'
 import type { PageNode } from '@lowcode/schema'
 import { RuntimeRenderer } from '@lowcode/runtime'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
-import { deviceWidth } from '../device'
+import { DEVICE_BORDER, deviceDimension } from '../device'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
 const { schema, runtime, state, selectNode, hoverNode, insertMaterial } = ctx
@@ -35,9 +44,60 @@ const wrapNode = computed(() => {
 
 const isEmpty = computed(() => schema.value.nodes.length === 0)
 
-const canvasStyle = computed(() => ({
-  width: deviceWidth(state.device) ?? '100%',
-}))
+const dimension = computed(() => deviceDimension(state.device))
+
+/** 设备总尺寸（含边框） */
+const totalSize = computed(() => {
+  const d = dimension.value
+  if (!d) return null
+  return { width: d.width + DEVICE_BORDER * 2, height: d.height + DEVICE_BORDER * 2 }
+})
+
+/** 缩放：工作区小于设备时等比例缩小 */
+const wrapRef = ref<HTMLElement | null>(null)
+const scale = ref(1)
+let observer: ResizeObserver | null = null
+
+function updateScale(): void {
+  const el = wrapRef.value
+  const total = totalSize.value
+  if (!el || !total) {
+    scale.value = 1
+    return
+  }
+  const availW = el.clientWidth - 48
+  const availH = el.clientHeight - 48
+  scale.value = Math.max(0.2, Math.min(1, availW / total.width, availH / total.height))
+}
+
+onMounted(() => {
+  if (typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(updateScale)
+    if (wrapRef.value) observer.observe(wrapRef.value)
+  }
+  updateScale()
+})
+onBeforeUnmount(() => observer?.disconnect())
+watch(() => state.device, updateScale)
+
+/** 缩放容器布局尺寸（= 设备总尺寸 × scale） */
+const viewportStyle = computed(() => {
+  const total = totalSize.value
+  if (!total) return {}
+  return { width: `${total.width * scale.value}px`, height: `${total.height * scale.value}px` }
+})
+
+/** 设备画布样式（固定尺寸 + 等比缩放） */
+const deviceStyle = computed(() => {
+  const total = totalSize.value
+  if (!total) return {}
+  return {
+    width: `${total.width}px`,
+    height: `${total.height}px`,
+    transform: `scale(${scale.value})`,
+    transformOrigin: 'top left',
+  }
+})
 
 function onDrop(event: DragEvent): void {
   const type = event.dataTransfer?.getData('application/x-lc-material')
@@ -46,11 +106,16 @@ function onDrop(event: DragEvent): void {
 </script>
 
 <template>
-  <main class="lc-canvas-wrap">
+  <main
+    ref="wrapRef"
+    class="lc-canvas-wrap"
+    :class="`lc-canvas-wrap--${state.device}`"
+  >
+    <!-- PC：白色画布铺满工作区 -->
     <div
-      class="lc-canvas"
+      v-if="state.device === 'pc'"
+      class="lc-canvas lc-canvas--pc"
       :class="{ 'lc-canvas--empty': isEmpty }"
-      :style="canvasStyle"
       @click="selectNode(null)"
       @drop="onDrop"
       @dragover.prevent
@@ -66,6 +131,29 @@ function onDrop(event: DragEvent): void {
         <p class="lc-canvas__empty-sub">开始搭建你的页面</p>
       </div>
     </div>
+
+    <!-- Pad / H5：浅灰工作区 + 居中设备画布 + 深灰圆角边框 -->
+    <div v-else class="lc-device-viewport" :style="viewportStyle">
+      <div
+        class="lc-canvas lc-canvas--device"
+        :class="{ 'lc-canvas--empty': isEmpty }"
+        :style="deviceStyle"
+        @click="selectNode(null)"
+        @drop="onDrop"
+        @dragover.prevent
+      >
+        <RuntimeRenderer
+          v-if="schema && runtime && !isEmpty"
+          :schema="schema"
+          :context="runtime"
+          :wrap-node="wrapNode"
+        />
+        <div v-if="isEmpty" class="lc-canvas__empty">
+          <p class="lc-canvas__empty-title">从左侧拖入或点击组件</p>
+          <p class="lc-canvas__empty-sub">开始搭建你的页面</p>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -73,22 +161,51 @@ function onDrop(event: DragEvent): void {
 .lc-canvas-wrap {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* PC：画布铺满，无边框 */
+.lc-canvas-wrap--pc {
+  padding: 0;
+  background: #fff;
+}
+
+/* Pad / H5：浅灰工作区 + 内边距 */
+.lc-canvas-wrap--pad,
+.lc-canvas-wrap--h5 {
+  padding: 24px;
+  background: #f2f3f5;
+}
+
+.lc-canvas {
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.lc-canvas--pc {
+  width: 100%;
   height: 100%;
   overflow: auto;
-  background: #f2f3f5;
-  padding: 24px;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  border: none;
+  border-radius: 0;
 }
-.lc-canvas {
-  min-height: calc(100vh - 200px);
-  background: #fff;
-  border: 1px solid #e5e6eb;
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  transition: width 0.2s ease;
+
+.lc-canvas--device {
+  overflow: auto;
+  border: 10px solid #3c4043;
+  border-radius: 22px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
 }
+
+.lc-device-viewport {
+  margin: auto;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
 .lc-canvas--empty {
   display: flex;
   align-items: center;
