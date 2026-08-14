@@ -82,5 +82,6 @@ export function initPlatform(): void {
 
 /** 外部插件注册入口（playground 等） */
 export function registerPlugin(plugin: Plugin): void {
+  if (pluginManager.get(plugin.id)) return
   pluginManager.register(plugin)
 }
