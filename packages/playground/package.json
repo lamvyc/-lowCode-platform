@@ -15,6 +15,7 @@
     "@lowcode/core": "workspace:*",
     "@lowcode/runtime": "workspace:*",
     "@lowcode/schema": "workspace:*",
+    "element-plus": "^2.9.1",
     "vue": "^3.5.13"
   },
   "devDependencies": {

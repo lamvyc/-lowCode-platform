@@ -90,19 +90,34 @@ export class EditorEngine {
     mergeKey?: string,
   ): PageSchema {
     this.currentSchema = this.history.record(recipe, op, mergeKey)
+    // schema 变更后重建运行时，保证 RuntimeRenderer 消费到最新节点树
+    this.runtimeContext = this.createRuntime()
     return this.currentSchema
   }
 
   undo(): PageSchema | undefined {
     const next = this.history.undo()
-    if (next) this.currentSchema = next
+    if (next) {
+      this.currentSchema = next
+      this.runtimeContext = this.createRuntime()
+    }
     return next
   }
 
   redo(): PageSchema | undefined {
     const next = this.history.redo()
-    if (next) this.currentSchema = next
+    if (next) {
+      this.currentSchema = next
+      this.runtimeContext = this.createRuntime()
+    }
     return next
+  }
+
+  /** 清空画布（移除全部节点） */
+  clear(): void {
+    this.record((draft) => {
+      draft.nodes = []
+    }, 'clear')
   }
 
   insertMaterial(type: string, target: DropTarget): PageNode {

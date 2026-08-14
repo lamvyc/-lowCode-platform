@@ -23,3 +23,16 @@ export {
   type RectLike,
 } from './engine/lasso'
 export type { DragState } from './engine/types'
+export {
+  Designer,
+  useDesigner,
+  DESIGNER_KEY,
+  deviceWidth,
+  DEVICE_WIDTH,
+} from './designer'
+export type {
+  DesignerContext,
+  UseDesignerOptions,
+  DeviceType,
+  DesignerViewState,
+} from './designer'
