@@ -26,6 +26,8 @@ const {
   hoverNode,
   insertMaterial,
   moveNode,
+  removeNode,
+  copyNode,
   setDragState,
   setDropTarget,
 } = ctx
@@ -81,6 +83,37 @@ const wrapNode = computed(() => {
           },
           '⠿',
         ),
+        ...(isSelected
+          ? [
+              h(
+                'div',
+                {
+                  class: 'lc-node__actions',
+                  onClick: (event: MouseEvent) => event.stopPropagation(),
+                },
+                [
+                  h(
+                    'button',
+                    {
+                      class: 'lc-node__action',
+                      title: '复制',
+                      onClick: () => copyNode(node.id),
+                    },
+                    '⧉',
+                  ),
+                  h(
+                    'button',
+                    {
+                      class: 'lc-node__action lc-node__action--danger',
+                      title: '删除',
+                      onClick: () => removeNode(node.id),
+                    },
+                    '×',
+                  ),
+                ],
+              ),
+            ]
+          : []),
       ],
     )
   }
@@ -384,6 +417,36 @@ function onDragEnd(): void {
 :deep(.lc-node:hover .lc-node__handle),
 :deep(.lc-node--selected .lc-node__handle) {
   display: flex;
+}
+
+/* 选中节点浮钮：复制/删除 */
+:deep(.lc-node__actions) {
+  position: absolute;
+  top: -14px;
+  right: -1px;
+  display: flex;
+  gap: 2px;
+  z-index: 10;
+}
+:deep(.lc-node__action) {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: #3370ff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:deep(.lc-node__action:hover) {
+  opacity: 0.85;
+}
+:deep(.lc-node__action--danger) {
+  background: #f53f3f;
 }
 
 /* 落点指示 */

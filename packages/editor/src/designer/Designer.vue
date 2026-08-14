@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { provide } from 'vue'
+import { onBeforeUnmount, onMounted, provide } from 'vue'
 import { ElButton } from 'element-plus'
 import type { PageSchema } from '@lowcode/schema'
 import { RuntimeRenderer } from '@lowcode/runtime'
@@ -14,7 +14,39 @@ const props = defineProps<{ schema: PageSchema }>()
 const ctx = useDesigner({ schema: props.schema })
 provide(DESIGNER_KEY, ctx)
 
-const { state, schema, runtime, togglePreview } = ctx
+const { state, schema, runtime, togglePreview, undo, redo, removeNode, copyNode, pasteClipboard } = ctx
+
+function onKeydown(event: KeyboardEvent): void {
+  if (state.preview) return
+  const target = event.target as HTMLElement | null
+  if (
+    target &&
+    (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+  ) {
+    return
+  }
+
+  const mod = event.ctrlKey || event.metaKey
+  if ((event.key === 'Delete' || event.key === 'Backspace') && state.selectedNodeId) {
+    event.preventDefault()
+    removeNode(state.selectedNodeId)
+  } else if (mod && (event.key === 'c' || event.key === 'C') && state.selectedNodeId) {
+    event.preventDefault()
+    copyNode(state.selectedNodeId)
+  } else if (mod && (event.key === 'v' || event.key === 'V')) {
+    event.preventDefault()
+    pasteClipboard()
+  } else if (mod && event.shiftKey && (event.key === 'z' || event.key === 'Z')) {
+    event.preventDefault()
+    redo()
+  } else if (mod && (event.key === 'z' || event.key === 'Z')) {
+    event.preventDefault()
+    undo()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>

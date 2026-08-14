@@ -47,6 +47,8 @@ export interface DesignerContext {
   insertMaterial: (type: string, target?: DropTarget) => void
   moveNode: (nodeId: string, target: DropTarget) => void
   removeNode: (id: string) => void
+  copyNode: (id: string) => void
+  pasteClipboard: () => void
   updateProps: (id: string, patch: Record<string, unknown>) => void
   updateNode: (id: string, updater: (n: PageNode) => PageNode) => void
   setDragState: (ds: DragState | null) => void
@@ -158,6 +160,37 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     sync()
     if (state.selectedNodeId === id) selectNode(null)
   }
+
+  const clipboard = shallowRef<PageNode[]>([])
+
+  /** 收集节点及其后代（平铺） */
+  function collectSubtree(id: string): PageNode[] {
+    const node = engine.current.nodes.find((n) => n.id === id)
+    if (!node) return []
+    const result: PageNode[] = [node]
+    const stack = [...(node.children ?? []), ...Object.values(node.slots ?? {}).flat()]
+    while (stack.length > 0) {
+      const childId = stack.pop()!
+      const child = engine.current.nodes.find((n) => n.id === childId)
+      if (child) {
+        result.push(child)
+        stack.push(...(child.children ?? []), ...Object.values(child.slots ?? {}).flat())
+      }
+    }
+    return result
+  }
+
+  function copyNode(id: string): void {
+    clipboard.value = collectSubtree(id)
+  }
+
+  function pasteClipboard(): void {
+    if (clipboard.value.length === 0) return
+    const inserted = engine.paste(clipboard.value)
+    sync()
+    if (inserted.length > 0) selectNode(inserted[inserted.length - 1].id)
+  }
+
   function setDragState(ds: DragState | null): void {
     state.dragState = ds
   }
@@ -206,6 +239,8 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     insertMaterial,
     moveNode,
     removeNode,
+    copyNode,
+    pasteClipboard,
     updateProps,
     updateNode,
     setDragState,
