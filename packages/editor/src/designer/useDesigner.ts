@@ -6,7 +6,7 @@ import {
   type InjectionKey,
   type Ref,
 } from 'vue'
-import { DragDropManager, NodeFactory } from '@lowcode/core'
+import { DragDropManager, NodeFactory, type DropTarget } from '@lowcode/core'
 import { MaterialRegistryResolver, type RuntimeContext } from '@lowcode/runtime'
 import {
   deserializePage,
@@ -15,6 +15,7 @@ import {
   type PageSchema,
 } from '@lowcode/schema'
 import { EditorEngine } from '../engine/editor-engine'
+import type { DragState } from '../engine/types'
 import {
   actionRegistry,
   expressionEngine,
@@ -43,10 +44,13 @@ export interface DesignerContext {
   undo: () => void
   redo: () => void
   clear: () => void
-  insertMaterial: (type: string) => void
+  insertMaterial: (type: string, target?: DropTarget) => void
+  moveNode: (nodeId: string, target: DropTarget) => void
   removeNode: (id: string) => void
   updateProps: (id: string, patch: Record<string, unknown>) => void
   updateNode: (id: string, updater: (n: PageNode) => PageNode) => void
+  setDragState: (ds: DragState | null) => void
+  setDropTarget: (dt: DropTarget | null) => void
   importSchema: (json: string) => { ok: boolean; error?: string }
   exportSchema: () => string
 }
@@ -78,6 +82,8 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     device: 'pc',
     zoom: 1,
     preview: false,
+    dragState: null,
+    dropTarget: null,
   })
 
   function sync(): void {
@@ -134,19 +140,29 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     sync()
     selectNode(null)
   }
-  function insertMaterial(type: string): void {
-    const node = engine.insertMaterial(type, {
-      parentId: null,
-      position: 'root',
-      index: engine.current.nodes.length,
-    })
+  function insertMaterial(type: string, target?: DropTarget): void {
+    const node = engine.insertMaterial(
+      type,
+      target ?? { parentId: null, position: 'root', index: engine.current.nodes.length },
+    )
     sync()
     selectNode(node.id)
+  }
+  function moveNode(nodeId: string, target: DropTarget): void {
+    engine.moveNode(nodeId, target)
+    sync()
+    selectNode(nodeId)
   }
   function removeNode(id: string): void {
     engine.removeNodes([id])
     sync()
     if (state.selectedNodeId === id) selectNode(null)
+  }
+  function setDragState(ds: DragState | null): void {
+    state.dragState = ds
+  }
+  function setDropTarget(dt: DropTarget | null): void {
+    state.dropTarget = dt
   }
   function updateProps(id: string, patch: Record<string, unknown>): void {
     engine.updateProps(id, patch)
@@ -188,9 +204,12 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     redo,
     clear,
     insertMaterial,
+    moveNode,
     removeNode,
     updateProps,
     updateNode,
+    setDragState,
+    setDropTarget,
     importSchema,
     exportSchema,
   }

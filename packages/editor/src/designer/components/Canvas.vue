@@ -9,18 +9,36 @@ import {
   watch,
   type VNode,
 } from 'vue'
+import type { DropTarget } from '@lowcode/core'
 import type { PageNode } from '@lowcode/schema'
 import { RuntimeRenderer } from '@lowcode/runtime'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
+import type { DropOver } from '../../engine/editor-engine'
 import { DEVICE_BORDER, deviceDimension } from '../device'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
-const { schema, runtime, state, selectNode, hoverNode, insertMaterial } = ctx
+const {
+  engine,
+  schema,
+  runtime,
+  state,
+  selectNode,
+  hoverNode,
+  insertMaterial,
+  moveNode,
+  setDragState,
+  setDropTarget,
+} = ctx
 
 const wrapNode = computed(() => {
   return (node: PageNode, inner: VNode): VNode => {
     const isSelected = state.selectedNodeId === node.id
     const isHovered = state.hoverNodeId === node.id
+    const drop = state.dropTarget
+    const isDropInside = drop?.targetId === node.id && drop.position === 'inside'
+    const isDropBefore = drop?.targetId === node.id && drop.position === 'before'
+    const isDropAfter = drop?.targetId === node.id && drop.position === 'after'
+
     return h(
       'div',
       {
@@ -28,6 +46,9 @@ const wrapNode = computed(() => {
           'lc-node',
           isSelected ? 'lc-node--selected' : '',
           isHovered ? 'lc-node--hovered' : '',
+          isDropInside ? 'lc-node--drop-inside' : '',
+          isDropBefore ? 'lc-node--drop-before' : '',
+          isDropAfter ? 'lc-node--drop-after' : '',
         ],
         'data-node-id': node.id,
         onClick: (event: MouseEvent) => {
@@ -37,7 +58,30 @@ const wrapNode = computed(() => {
         onMouseenter: () => hoverNode(node.id),
         onMouseleave: () => hoverNode(null),
       },
-      inner,
+      [
+        inner,
+        h(
+          'div',
+          {
+            class: 'lc-node__handle',
+            draggable: 'true',
+            title: '拖动',
+            onDragstart: (event: DragEvent) => {
+              event.stopPropagation()
+              if (event.dataTransfer) {
+                event.dataTransfer.setData('application/x-lc-node', node.id)
+                event.dataTransfer.effectAllowed = 'move'
+              }
+              setDragState({ source: 'canvas', nodeId: node.id })
+            },
+            onDragend: () => {
+              setDragState(null)
+              setDropTarget(null)
+            },
+          },
+          '⠿',
+        ),
+      ],
     )
   }
 })
@@ -99,9 +143,72 @@ const deviceStyle = computed(() => {
   }
 })
 
+/** 计算拖拽落点（把指针/节点 rect 转换到画布坐标系） */
+function computeDropTarget(event: DragEvent): DropTarget | null {
+  const ds = state.dragState
+  const canvasEl = wrapRef.value
+  if (!ds || !canvasEl) return null
+  const canvasRect = canvasEl.getBoundingClientRect()
+
+  const targetEl = (event.target as HTMLElement | null)?.closest?.(
+    '[data-node-id]',
+  ) as HTMLElement | null
+  let over: DropOver | null = null
+  if (targetEl?.dataset.nodeId) {
+    const node = schema.value.nodes.find((n) => n.id === targetEl.dataset.nodeId)
+    if (node) {
+      const rect = targetEl.getBoundingClientRect()
+      over = {
+        node,
+        rect: {
+          left: rect.left - canvasRect.left,
+          top: rect.top - canvasRect.top,
+          width: rect.width,
+          height: rect.height,
+        },
+      }
+    }
+  }
+
+  const pointer = {
+    x: event.clientX - canvasRect.left,
+    y: event.clientY - canvasRect.top,
+  }
+  return engine.computeDropTarget(ds, over, pointer, {
+    left: 0,
+    top: 0,
+    width: canvasRect.width,
+    height: canvasRect.height,
+  })
+}
+
+function onDragOver(event: DragEvent): void {
+  event.preventDefault()
+  if (!state.dragState) return
+  setDropTarget(computeDropTarget(event))
+}
+
 function onDrop(event: DragEvent): void {
-  const type = event.dataTransfer?.getData('application/x-lc-material')
-  if (type) insertMaterial(type)
+  event.preventDefault()
+  const ds = state.dragState
+  const target = state.dropTarget
+  if (ds && target) {
+    if (ds.source === 'material' && ds.materialType) {
+      insertMaterial(ds.materialType, target)
+    } else if (ds.source === 'canvas' && ds.nodeId) {
+      moveNode(ds.nodeId, target)
+    }
+  } else {
+    const materialType = event.dataTransfer?.getData('application/x-lc-material')
+    if (materialType) insertMaterial(materialType)
+  }
+  setDragState(null)
+  setDropTarget(null)
+}
+
+function onDragEnd(): void {
+  setDragState(null)
+  setDropTarget(null)
 }
 </script>
 
@@ -110,15 +217,16 @@ function onDrop(event: DragEvent): void {
     ref="wrapRef"
     class="lc-canvas-wrap"
     :class="`lc-canvas-wrap--${state.device}`"
+    @dragend="onDragEnd"
   >
     <!-- PC：白色画布铺满工作区 -->
     <div
       v-if="state.device === 'pc'"
       class="lc-canvas lc-canvas--pc"
-      :class="{ 'lc-canvas--empty': isEmpty }"
+      :class="{ 'lc-canvas--empty': isEmpty, 'lc-canvas--drop-root': state.dropTarget?.position === 'root' }"
       @click="selectNode(null)"
       @drop="onDrop"
-      @dragover.prevent
+      @dragover="onDragOver"
     >
       <RuntimeRenderer
         v-if="schema && runtime && !isEmpty"
@@ -136,11 +244,11 @@ function onDrop(event: DragEvent): void {
     <div v-else class="lc-device-viewport" :style="viewportStyle">
       <div
         class="lc-canvas lc-canvas--device"
-        :class="{ 'lc-canvas--empty': isEmpty }"
+        :class="{ 'lc-canvas--empty': isEmpty, 'lc-canvas--drop-root': state.dropTarget?.position === 'root' }"
         :style="deviceStyle"
         @click="selectNode(null)"
         @drop="onDrop"
-        @dragover.prevent
+        @dragover="onDragOver"
       >
         <RuntimeRenderer
           v-if="schema && runtime && !isEmpty"
@@ -167,13 +275,11 @@ function onDrop(event: DragEvent): void {
   box-sizing: border-box;
 }
 
-/* PC：画布铺满，无边框 */
 .lc-canvas-wrap--pc {
   padding: 0;
   background: #fff;
 }
 
-/* Pad / H5：浅灰工作区 + 内边距 */
 .lc-canvas-wrap--pad,
 .lc-canvas-wrap--h5 {
   padding: 24px;
@@ -206,6 +312,10 @@ function onDrop(event: DragEvent): void {
   overflow: hidden;
 }
 
+.lc-canvas--drop-root {
+  box-shadow: inset 0 3px 0 #3370ff;
+}
+
 .lc-canvas--empty {
   display: flex;
   align-items: center;
@@ -225,7 +335,7 @@ function onDrop(event: DragEvent): void {
   margin: 0;
 }
 
-/* 节点包装层：选中/悬停边框 */
+/* 节点包装层：选中/悬停/落点边框 */
 :deep(.lc-node) {
   position: relative;
   border: 1px dashed transparent;
@@ -251,5 +361,41 @@ function onDrop(event: DragEvent): void {
   background: #3370ff;
   border-radius: 3px 3px 0 0;
   white-space: nowrap;
+}
+
+/* 拖拽手柄：hover/选中时显示，仅手柄可拖 */
+:deep(.lc-node__handle) {
+  position: absolute;
+  top: -11px;
+  left: -11px;
+  width: 20px;
+  height: 20px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #3370ff;
+  color: #fff;
+  border-radius: 4px;
+  cursor: grab;
+  font-size: 12px;
+  line-height: 1;
+  z-index: 10;
+}
+:deep(.lc-node:hover .lc-node__handle),
+:deep(.lc-node--selected .lc-node__handle) {
+  display: flex;
+}
+
+/* 落点指示 */
+:deep(.lc-node--drop-inside) {
+  outline: 2px dashed #3370ff;
+  outline-offset: 1px;
+  border-color: #3370ff;
+}
+:deep(.lc-node--drop-before) {
+  box-shadow: 0 -3px 0 #3370ff;
+}
+:deep(.lc-node--drop-after) {
+  box-shadow: 0 3px 0 #3370ff;
 }
 </style>

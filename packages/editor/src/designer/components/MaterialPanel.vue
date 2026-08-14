@@ -7,6 +7,7 @@ import { materialRegistry } from '../../platform'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
+const { setDragState, setDropTarget } = ctx
 
 const activeTab = ref<'components' | 'templates'>('components')
 const keyword = ref('')
@@ -48,6 +49,12 @@ function onDragStart(event: DragEvent, material: Material): void {
     event.dataTransfer.setData('application/x-lc-material', material.type)
     event.dataTransfer.effectAllowed = 'copy'
   }
+  setDragState({ source: 'material', materialType: material.type })
+}
+
+function onDragEnd(): void {
+  setDragState(null)
+  setDropTarget(null)
 }
 </script>
 
@@ -89,6 +96,7 @@ function onDragStart(event: DragEvent, material: Material): void {
               draggable="true"
               @click="addMaterial(material)"
               @dragstart="onDragStart($event, material)"
+              @dragend="onDragEnd"
             >
               <span class="lc-material-item__icon">{{ material.icon ?? '◇' }}</span>
               <span class="lc-material-item__name">{{ material.name }}</span>
