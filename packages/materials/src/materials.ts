@@ -5,11 +5,41 @@ import Input from './components/Input.vue'
 import Select from './components/Select.vue'
 import Image from './components/Image.vue'
 import Container from './components/Container.vue'
+import Card from './components/Card.vue'
 import Table from './components/Table.vue'
 import Dialog from './components/Dialog.vue'
 
 /** 本地物料清单：组件 + 默认属性 + 属性面板配置 */
 export const LOCAL_MATERIALS: Material[] = [
+  {
+    type: 'card',
+    name: '卡片',
+    category: '布局',
+    icon: '▢',
+    description: '带标题与折叠能力的容器',
+    version: '1.0.0',
+    droppable: true,
+    groupable: true,
+    slots: ['default'],
+    component: Card,
+    defaultProps: {
+      label: '',
+      collapsed: false,
+      showCollapse: true,
+      hideTitle: false,
+      width: '100%',
+    },
+    propConfigs: [
+      { name: 'name', label: '唯一名称', control: 'name' },
+      { name: 'label', label: '标签', control: 'label', defaultValue: '' },
+      { name: 'hidden', label: '隐藏', control: 'hidden' },
+      { name: 'style', label: '自定义 CSS 样式', control: 'style' },
+      { name: 'hideTitle', label: '隐藏标题区', control: 'switch', defaultValue: false },
+      { name: 'collapsed', label: '是否收起', control: 'switch', defaultValue: false },
+      { name: 'showCollapse', label: '显示折叠按钮', control: 'switch', defaultValue: true },
+      { name: 'width', label: '卡片宽度', control: 'input', defaultValue: '100%' },
+    ],
+  },
   {
     type: 'container',
     name: '容器',

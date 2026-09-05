@@ -15,6 +15,7 @@ import { RuntimeRenderer } from '@lowcode/runtime'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
 import type { DropOver } from '../../engine/editor-engine'
 import { DEVICE_BORDER, deviceDimension } from '../device'
+import { materialRegistry } from '../../platform'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
 const {
@@ -26,8 +27,13 @@ const {
   hoverNode,
   insertMaterial,
   moveNode,
+  selectParent,
+  moveNodeUp,
+  moveNodeDown,
+  duplicateNode,
+  canMoveUp,
+  canMoveDown,
   removeNode,
-  copyNode,
   setDragState,
   setDropTarget,
 } = ctx
@@ -36,10 +42,14 @@ const wrapNode = computed(() => {
   return (node: PageNode, inner: VNode): VNode => {
     const isSelected = state.selectedNodeId === node.id
     const isHovered = state.hoverNodeId === node.id
+    const typeLabel = materialRegistry.get(node.type)?.name ?? node.type
     const drop = state.dropTarget
     const isDropInside = drop?.targetId === node.id && drop.position === 'inside'
     const isDropBefore = drop?.targetId === node.id && drop.position === 'before'
     const isDropAfter = drop?.targetId === node.id && drop.position === 'after'
+    const hasParent = ctx.getParentId(node.id) !== null
+    const upEnabled = canMoveUp(node.id)
+    const downEnabled = canMoveDown(node.id)
 
     return h(
       'div',
@@ -65,7 +75,7 @@ const wrapNode = computed(() => {
         h(
           'div',
           {
-            class: 'lc-node__handle',
+            class: 'lc-node__badges',
             draggable: 'true',
             title: '拖动',
             onDragstart: (event: DragEvent) => {
@@ -81,7 +91,16 @@ const wrapNode = computed(() => {
               setDropTarget(null)
             },
           },
-          '⠿',
+          [
+            h(
+              'div',
+              {
+                class: 'lc-node__handle',
+              },
+              '⠿',
+            ),
+            h('div', { class: 'lc-node__type' }, typeLabel),
+          ],
         ),
         ...(isSelected
           ? [
@@ -95,11 +114,41 @@ const wrapNode = computed(() => {
                   h(
                     'button',
                     {
+                      class: ['lc-node__action', { 'lc-node__action--disabled': !hasParent }],
+                      title: '选中父级',
+                      disabled: !hasParent,
+                      onClick: () => selectParent(node.id),
+                    },
+                    '←',
+                  ),
+                  h(
+                    'button',
+                    {
+                      class: ['lc-node__action', { 'lc-node__action--disabled': !upEnabled }],
+                      title: '上移',
+                      disabled: !upEnabled,
+                      onClick: () => moveNodeUp(node.id),
+                    },
+                    '↑',
+                  ),
+                  h(
+                    'button',
+                    {
+                      class: ['lc-node__action', { 'lc-node__action--disabled': !downEnabled }],
+                      title: '下移',
+                      disabled: !downEnabled,
+                      onClick: () => moveNodeDown(node.id),
+                    },
+                    '↓',
+                  ),
+                  h(
+                    'button',
+                    {
                       class: 'lc-node__action',
                       title: '复制',
-                      onClick: () => copyNode(node.id),
+                      onClick: () => duplicateNode(node.id),
                     },
-                    '⧉',
+                    '复制',
                   ),
                   h(
                     'button',
@@ -108,7 +157,7 @@ const wrapNode = computed(() => {
                       title: '删除',
                       onClick: () => removeNode(node.id),
                     },
-                    '×',
+                    '删除',
                   ),
                 ],
               ),
@@ -327,6 +376,8 @@ function onDragEnd(): void {
 .lc-canvas {
   background: #fff;
   box-sizing: border-box;
+  /* 为节点外浮层（组件名/拖拽手柄等）留出空间，避免贴边被画布裁剪 */
+  padding: 24px;
 }
 
 .lc-canvas--pc {
@@ -387,61 +438,70 @@ function onDragEnd(): void {
 :deep(.lc-node--selected) {
   border: 1px solid #3370ff;
 }
-:deep(.lc-node--selected::after) {
-  content: attr(data-node-id);
-  position: absolute;
-  top: -18px;
-  left: -1px;
-  padding: 0 6px;
-  font-size: 11px;
-  line-height: 16px;
-  color: #fff;
-  background: #3370ff;
-  border-radius: 3px 3px 0 0;
-  white-space: nowrap;
-}
 
-/* 拖拽手柄：hover/选中时显示，仅手柄可拖 */
-:deep(.lc-node__handle) {
+/* 左上角浮层组：拖拽手柄 → 组件名称（hover 显示手柄，选中后连名称一起显示） */
+:deep(.lc-node__badges) {
   position: absolute;
-  top: -11px;
-  left: -11px;
-  width: 20px;
-  height: 20px;
+  top: -22px;
+  left: -1px;
   display: none;
   align-items: center;
-  justify-content: center;
+  padding: 5px 10px 5px 7px;
   background: #3370ff;
-  color: #fff;
   border-radius: 4px;
   cursor: grab;
-  font-size: 12px;
-  line-height: 1;
-  z-index: 10;
+  user-select: none;
+  z-index: 11;
 }
-:deep(.lc-node:hover .lc-node__handle),
-:deep(.lc-node--selected .lc-node__handle) {
+:deep(.lc-node:hover .lc-node__badges),
+:deep(.lc-node--selected .lc-node__badges) {
   display: flex;
 }
 
-/* 选中节点浮钮：复制/删除 */
+/* 组件类型标识 */
+:deep(.lc-node__type) {
+  display: none;
+  padding-left: 12px;
+  font-size: 12px;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+}
+:deep(.lc-node--selected .lc-node__type) {
+  display: block;
+}
+
+/* 拖拽字形（整条 .lc-node__badges 均可拖，此处仅负责左侧视觉） */
+:deep(.lc-node__handle) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* 右下角操作组：整条蓝色标签，内部依次为 ← ↑ ↓ 复制 删除 */
 :deep(.lc-node__actions) {
   position: absolute;
-  top: -14px;
+  bottom: -26px;
   right: -1px;
   display: flex;
-  gap: 2px;
+  align-items: center;
+  padding: 0 4px;
+  background: #3370ff;
+  border-radius: 4px;
   z-index: 10;
 }
 :deep(.lc-node__action) {
-  width: 20px;
-  height: 20px;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 5px;
   border: none;
-  border-radius: 4px;
-  background: #3370ff;
+  background: transparent;
   color: #fff;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -450,8 +510,13 @@ function onDragEnd(): void {
 :deep(.lc-node__action:hover) {
   opacity: 0.85;
 }
+:deep(.lc-node__action--disabled) {
+  color: rgba(255, 255, 255, 0.5);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
 :deep(.lc-node__action--danger) {
-  background: #f53f3f;
+  color: #ff7875;
 }
 
 /* 落点指示 */

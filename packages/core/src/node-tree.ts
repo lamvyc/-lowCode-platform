@@ -63,6 +63,33 @@ export class NodeTree {
     return undefined
   }
 
+  /** 定位节点在父级列表中的位置（根节点 parentId 为 null） */
+  getPosition(id: string): {
+    parentId: string | null
+    slot?: string
+    index: number
+    siblingIds: string[]
+  } {
+    const parent = this.getParent(id)
+    if (!parent) {
+      return {
+        parentId: null,
+        index: this.nodes.findIndex((node) => node.id === id),
+        siblingIds: this.nodes.map((node) => node.id),
+      }
+    }
+    const list =
+      parent.slot && parent.slot !== 'default'
+        ? (parent.node.slots?.[parent.slot] ?? [])
+        : (parent.node.children ?? [])
+    return {
+      parentId: parent.node.id,
+      slot: parent.slot,
+      index: list.indexOf(id),
+      siblingIds: [...list],
+    }
+  }
+
   /**
    * 节点路径（不含页面根容器自身）。
    * 例如 root → b → c，getPath('c') 返回 ['b', 'c']。

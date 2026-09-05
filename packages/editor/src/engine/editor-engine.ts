@@ -3,6 +3,7 @@ import {
   HistoryManager,
   NodeFactory,
   NodeTree,
+  createUniqueName,
   type DropTarget,
   type HistoryOptions,
 } from '@lowcode/core'
@@ -15,7 +16,7 @@ import {
   type PageSchema,
 } from '@lowcode/schema'
 import { RuntimeContext, type RuntimeContextOptions } from '@lowcode/runtime'
-import { applyGroup, applyPaste, applyUngroup } from './node-ops'
+import { applyDuplicate, applyGroup, applyPaste, applyUngroup } from './node-ops'
 import type { DragState } from './types'
 
 export interface EditorEngineOptions {
@@ -122,10 +123,59 @@ export class EditorEngine {
 
   insertMaterial(type: string, target: DropTarget): PageNode {
     const node = this.nodeFactory.create(type)
+    // name 全局唯一：工厂生成的名称与现有节点冲突时重新生成
+    const taken = new Set(this.currentSchema.nodes.map((n) => n.name ?? n.id))
+    if (!node.name || taken.has(node.name)) {
+      node.name = createUniqueName(type, taken)
+    }
+    taken.add(node.name)
+    // label 初始值等于 name（仅对声明了 label 展示字段的物料生效，如卡片）
+    if ('label' in node.props) {
+      node.props.label = node.name
+    }
     this.record((draft) => {
       new NodeTree(draft.nodes).insert(node, target.parentId, target.slot, target.index)
     }, 'insert')
     return node
+  }
+
+  /** 同级上移一位（已在首位时无操作） */
+  moveNodeUp(nodeId: string): void {
+    this.record((draft) => {
+      const tree = new NodeTree(draft.nodes)
+      const position = tree.getPosition(nodeId)
+      if (position.index > 0) {
+        tree.move(nodeId, {
+          parentId: position.parentId,
+          slot: position.slot,
+          index: position.index - 1,
+        })
+      }
+    }, 'moveUp')
+  }
+
+  /** 同级下移一位（已在末位时无操作） */
+  moveNodeDown(nodeId: string): void {
+    this.record((draft) => {
+      const tree = new NodeTree(draft.nodes)
+      const position = tree.getPosition(nodeId)
+      if (position.index >= 0 && position.index < position.siblingIds.length - 1) {
+        tree.move(nodeId, {
+          parentId: position.parentId,
+          slot: position.slot,
+          index: position.index + 1,
+        })
+      }
+    }, 'moveDown')
+  }
+
+  /** 深复制节点子树（生成新 id / name），插入到源节点紧邻后方 */
+  duplicate(nodeId: string): PageNode[] {
+    const inserted: PageNode[] = []
+    this.record((draft) => {
+      inserted.push(...applyDuplicate(new NodeTree(draft.nodes), nodeId))
+    }, 'duplicate')
+    return inserted
   }
 
   moveNode(nodeId: string, target: DropTarget): void {

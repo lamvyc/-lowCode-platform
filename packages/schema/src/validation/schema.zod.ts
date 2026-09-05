@@ -91,6 +91,7 @@ const nodeMetaSchema = z
 
 export const pageNodeSchema = z.object({
   id: z.string(),
+  name: z.string().optional(),
   type: z.string(),
   props: z.record(z.string(), z.unknown()),
   children: z.array(z.string()).optional(),

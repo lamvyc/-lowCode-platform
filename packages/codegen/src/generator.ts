@@ -27,6 +27,7 @@ export type CodegenMaterialMap = Record<string, CodegenMaterialEntry>
 /** 默认内置物料映射：与 @lowcode/materials 导出一一对应 */
 const DEFAULT_MATERIALS: CodegenMaterialMap = {
   container: { importName: 'LcContainer', from: '@lowcode/materials' },
+  card: { importName: 'LcCard', from: '@lowcode/materials' },
   text: { importName: 'LcText', from: '@lowcode/materials' },
   button: { importName: 'LcButton', from: '@lowcode/materials' },
   input: { importName: 'LcInput', from: '@lowcode/materials' },

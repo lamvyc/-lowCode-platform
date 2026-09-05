@@ -51,6 +51,20 @@ export function createNodeId(prefix = 'node'): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** 生成唯一组件名称（如 card111927），prefix 通常为物料 type */
+export function createUniqueName(prefix: string, taken: Iterable<string> = []): string {
+  const used = new Set(taken)
+  const base = `${prefix}${String(Date.now() % 1_000_000).padStart(6, '0')}`
+  if (!used.has(base)) return base
+  let suffix = 0
+  let name = base
+  while (used.has(name)) {
+    suffix += 1
+    name = `${base}${suffix.toString(36)}`
+  }
+  return name
+}
+
 function deepClone<T>(value: T): T {
   return typeof value === 'object' && value !== null
     ? (JSON.parse(JSON.stringify(value)) as T)
@@ -68,6 +82,7 @@ export class NodeFactory {
     const material = this.registry.require(type)
     return {
       id: overrides.id ?? createNodeId(),
+      name: createUniqueName(type),
       type,
       props: { ...deepClone(material.defaultProps), ...(overrides.props ?? {}) },
       children: material.droppable ? [] : undefined,

@@ -10,6 +10,7 @@ export { default as LcInput } from './components/Input.vue'
 export { default as LcSelect } from './components/Select.vue'
 export { default as LcImage } from './components/Image.vue'
 export { default as LcContainer } from './components/Container.vue'
+export { default as LcCard } from './components/Card.vue'
 export { default as LcTable } from './components/Table.vue'
 export { default as LcDialog } from './components/Dialog.vue'
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NodeTree } from '@lowcode/core'
 import type { PageNode } from '@lowcode/schema'
-import { applyGroup, applyPaste, applyUngroup } from './node-ops'
+import { applyDuplicate, applyGroup, applyPaste, applyUngroup } from './node-ops'
 
 function nodes(): PageNode[] {
   return [
@@ -79,5 +79,54 @@ describe('editor node-ops', () => {
     // 没有重复插入（child 只出现一次）
     const allIds = tree.getNodes().map((n) => n.id)
     expect(allIds.filter((id) => id === newChild!.id)).toHaveLength(1)
+  })
+
+  it('applyPaste 深复制时递归生成新的唯一 name', () => {
+    const tree = new NodeTree(nodes())
+
+    const inserted = applyPaste(tree, [
+      { id: 'copy', type: 'card', props: { label: '卡片1' } },
+    ])
+
+    expect(inserted[0].name).toBeDefined()
+    expect(inserted[0].name).not.toBe('copy')
+    expect(inserted[0].props.label).toBe('卡片1')
+    expect(tree.getNodes().some((n) => n.name === inserted[0].name)).toBe(true)
+  })
+
+  it('applyDuplicate 深复制子树：新 id/name、插入到源节点紧邻后方、子节点换名', () => {
+    const tree = new NodeTree(nodes())
+
+    const inserted = applyDuplicate(tree, 'b')
+
+    // b 是容器，含子节点 c
+    expect(inserted).toHaveLength(2)
+    const newContainer = inserted.find((n) => n.type === 'container')!
+    const newChild = inserted.find((n) => n.type === 'input')!
+    expect(newContainer.id).not.toBe('b')
+    expect(newContainer.name).toBeDefined()
+    expect(newContainer.name).not.toBe('b')
+    expect(newChild.id).not.toBe('c')
+    expect(newChild.name).not.toBe('c')
+    expect(newContainer.children).toEqual([newChild.id])
+
+    // 新容器插在原 b 之后（a 和 b 属于根级 root 的 children）
+    const root = tree.get('root')
+    expect(root.children).toEqual(['a', 'b', newContainer.id])
+    expect(tree.getParent(newContainer.id)?.node.id).toBe('root')
+    expect(tree.getParent(newChild.id)?.node.id).toBe(newContainer.id)
+  })
+
+  it('applyDuplicate 根级节点插入到源节点后方', () => {
+    const tree = new NodeTree([
+      { id: 'x', type: 'text', props: { text: 'X' } },
+      { id: 'y', type: 'text', props: { text: 'Y' } },
+    ])
+
+    applyDuplicate(tree, 'x')
+
+    const duplicated = tree.getRoot().find((n) => n.id !== 'x' && n.id !== 'y')
+    expect(duplicated).toBeDefined()
+    expect(tree.getRoot().map((n) => n.id)).toEqual(['x', duplicated!.id, 'y'])
   })
 })

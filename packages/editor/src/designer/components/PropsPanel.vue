@@ -5,6 +5,7 @@ import {
   ElEmpty,
   ElInput,
   ElInputNumber,
+  ElMessage,
   ElOption,
   ElSelect,
   ElSwitch,
@@ -14,7 +15,7 @@ import { materialRegistry } from '../../platform'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
-const { selectedNode, updateProps } = ctx
+const { selectedNode, schema, updateProps, updateNode } = ctx
 
 const activeTab = ref<'component' | 'global' | 'datasource'>('component')
 
@@ -43,6 +44,54 @@ function applyJson(node: PageNode, config: PropConfig, text: string): void {
   } catch {
     // 非法 JSON 忽略，保持原值
   }
+}
+
+/** 读取节点展示名：优先 name，缺省回退到 id（旧 schema 兼容） */
+function nameOf(node: PageNode): string {
+  return node.name ?? node.id
+}
+
+function stylePreview(node: PageNode): string {
+  const style = node.style
+  return !style || Object.keys(style).length === 0 ? '' : JSON.stringify(style, null, 2)
+}
+
+function applyStyle(node: PageNode, text: string): void {
+  try {
+    const parsed = text.trim() ? JSON.parse(text) : {}
+    updateNode(node.id, (n) => ({ ...n, style: parsed as PageNode['style'] }))
+  } catch {
+    // 非法 JSON 忽略，保持原值
+  }
+}
+
+/** 修改唯一名称：全局校验唯一性，重复时禁止修改并提示 */
+function applyName(node: PageNode, value: string): void {
+  const next = value.trim()
+  const current = nameOf(node)
+  if (!next || next === current) return
+  const duplicated = schema.value.nodes.some(
+    (n) => n.id !== node.id && (n.name ?? n.id) === next,
+  )
+  if (duplicated) {
+    ElMessage.error(`组件名称已存在：${next}`)
+    return
+  }
+  // label 与 name 独立维护：仅当 label 仍等于旧 name（未自定义过）时跟随新 name
+  const label = node.props.label
+  const nextProps =
+    typeof label === 'string' && label === current
+      ? { ...node.props, label: next }
+      : node.props
+  updateNode(node.id, (n) => ({ ...n, name: next, props: nextProps }))
+}
+
+function applyLabel(node: PageNode, value: string): void {
+  updateProps(node.id, { label: value })
+}
+
+function applyHidden(node: PageNode, value: boolean): void {
+  updateNode(node.id, (n) => ({ ...n, meta: { ...(n.meta ?? {}), hidden: value } }))
 }
 </script>
 
@@ -75,6 +124,35 @@ function applyJson(node: PageNode, config: PropConfig, text: string): void {
                 v-if="config.control === 'input'"
                 :model-value="String(valueOf(selectedNode, config) ?? '')"
                 @update:model-value="(v: string) => setValue(selectedNode!, config, v)"
+              />
+
+              <el-input
+                v-else-if="config.control === 'name'"
+                :model-value="nameOf(selectedNode)"
+                placeholder="组件唯一名称"
+                @change="(v: string) => applyName(selectedNode!, v)"
+              />
+
+              <el-input
+                v-else-if="config.control === 'label'"
+                :model-value="String(valueOf(selectedNode, config) ?? '')"
+                placeholder="组件标签"
+                @update:model-value="(v: string) => applyLabel(selectedNode!, v)"
+              />
+
+              <el-switch
+                v-else-if="config.control === 'hidden'"
+                :model-value="Boolean(selectedNode.meta?.hidden)"
+                @update:model-value="(v: string | number | boolean) => applyHidden(selectedNode!, Boolean(v))"
+              />
+
+              <el-input
+                v-else-if="config.control === 'style'"
+                type="textarea"
+                :rows="6"
+                :model-value="stylePreview(selectedNode)"
+                placeholder='如 {"borderRadius": "8px"}'
+                @change="(v: string) => applyStyle(selectedNode!, v)"
               />
 
               <el-input-number

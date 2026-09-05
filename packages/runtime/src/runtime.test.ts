@@ -22,9 +22,23 @@ function makeTextComponent() {
   })
 }
 
+function makeBoxComponent() {
+  return defineComponent({
+    name: 'Box',
+    setup(_, { slots }) {
+      return () => h('div', { class: 'box' }, slots.default?.())
+    },
+  })
+}
+
 const resolver: IComponentResolver = {
-  resolve: (type) => (type === 'text' ? makeTextComponent() : undefined),
-  has: (type) => type === 'text',
+  resolve: (type) =>
+    type === 'text'
+      ? makeTextComponent()
+      : type === 'box'
+        ? makeBoxComponent()
+        : undefined,
+  has: (type) => type === 'text' || type === 'box',
 }
 
 function makeSchema(nodes: PageSchema['nodes']): PageSchema {
@@ -62,6 +76,23 @@ describe('Runtime Renderer', () => {
       makeSchema([{ id: 'n1', type: 'text', props: { text: '你好，低代码' } }]),
     )
     expect(html).toContain('你好，低代码')
+  })
+
+  it('容器子节点只渲染一次（不重复挂载到根层级）', async () => {
+    const html = await render(
+      makeSchema([
+        {
+          id: 'root',
+          type: 'box',
+          props: {},
+          children: ['child'],
+        },
+        { id: 'child', type: 'text', props: { text: 'CHILD_ONLY' } },
+      ]),
+    )
+    expect(html).toContain('<div class="box">')
+    expect(html).toContain('CHILD_ONLY')
+    expect(html.match(/CHILD_ONLY/g)).toHaveLength(1)
   })
 
   it('visible 表达式为假时不渲染节点', async () => {

@@ -38,6 +38,8 @@ export interface NodeMeta {
  */
 export interface PageNode {
   id: string
+  /** 组件唯一名称（全局唯一，编辑器身份标识；缺省时回退到 id） */
+  name?: string
   type: string
   props: Record<string, unknown>
   /** 子节点 id 列表（平铺存储，children 只存引用） */

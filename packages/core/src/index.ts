@@ -8,6 +8,7 @@ export {
   MaterialRegistry,
   NodeFactory,
   createNodeId,
+  createUniqueName,
 } from './material/registry'
 export {
   JexlExpressionEngine,

@@ -148,8 +148,18 @@ export const RuntimeRenderer = defineComponent({
       const wrap = props.wrapNode ?? ((_node: PageNode, inner: VNode) => inner)
       const end = props.context.metrics.start('render')
       try {
-        const children = props.context.schema.nodes
-          .map((node) => renderNode(node.id, props.context, wrap))
+        // 只渲染根级节点：子节点由父容器插槽递归渲染，避免平铺数组重复挂载
+        const nodes = props.context.schema.nodes
+        const referenced = new Set<string>()
+        for (const node of nodes) {
+          for (const childId of node.children ?? []) referenced.add(childId)
+          for (const ids of Object.values(node.slots ?? {})) {
+            for (const id of ids) referenced.add(id)
+          }
+        }
+        const rootIds = nodes.filter((node) => !referenced.has(node.id)).map((node) => node.id)
+        const children = rootIds
+          .map((id) => renderNode(id, props.context, wrap))
           .filter(Boolean) as VNode[]
         props.context.metrics.increment('render.nodes', children.length)
         return h('div', { class: 'lc-runtime-root' }, children)

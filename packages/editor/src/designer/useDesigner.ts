@@ -6,7 +6,7 @@ import {
   type InjectionKey,
   type Ref,
 } from 'vue'
-import { DragDropManager, NodeFactory, type DropTarget } from '@lowcode/core'
+import { DragDropManager, NodeFactory, NodeTree, type DropTarget } from '@lowcode/core'
 import { MaterialRegistryResolver, type RuntimeContext } from '@lowcode/runtime'
 import {
   deserializePage,
@@ -46,6 +46,13 @@ export interface DesignerContext {
   clear: () => void
   insertMaterial: (type: string, target?: DropTarget) => void
   moveNode: (nodeId: string, target: DropTarget) => void
+  selectParent: (nodeId: string) => void
+  moveNodeUp: (nodeId: string) => void
+  moveNodeDown: (nodeId: string) => void
+  duplicateNode: (nodeId: string) => void
+  canMoveUp: (nodeId: string) => boolean
+  canMoveDown: (nodeId: string) => boolean
+  getParentId: (nodeId: string) => string | null
   removeNode: (id: string) => void
   copyNode: (id: string) => void
   pasteClipboard: () => void
@@ -155,10 +162,42 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     sync()
     selectNode(nodeId)
   }
+  function tree(): NodeTree {
+    return new NodeTree(engine.current.nodes)
+  }
+  function selectParent(nodeId: string): void {
+    const parent = tree().getParent(nodeId)
+    if (parent) selectNode(parent.node.id)
+  }
+  function moveNodeUp(nodeId: string): void {
+    engine.moveNodeUp(nodeId)
+    sync()
+  }
+  function moveNodeDown(nodeId: string): void {
+    engine.moveNodeDown(nodeId)
+    sync()
+  }
+  function duplicateNode(nodeId: string): void {
+    const inserted = engine.duplicate(nodeId)
+    sync()
+    if (inserted.length > 0) selectNode(inserted[0].id)
+  }
+  function canMoveUp(nodeId: string): boolean {
+    return tree().getPosition(nodeId).index > 0
+  }
+  function canMoveDown(nodeId: string): boolean {
+    const position = tree().getPosition(nodeId)
+    return position.index >= 0 && position.index < position.siblingIds.length - 1
+  }
+  function getParentId(nodeId: string): string | null {
+    return tree().getParent(nodeId)?.node.id ?? null
+  }
   function removeNode(id: string): void {
     engine.removeNodes([id])
     sync()
-    if (state.selectedNodeId === id) selectNode(null)
+    if (state.selectedNodeId && !engine.current.nodes.some((n) => n.id === state.selectedNodeId)) {
+      selectNode(null)
+    }
   }
 
   const clipboard = shallowRef<PageNode[]>([])
@@ -238,6 +277,13 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     clear,
     insertMaterial,
     moveNode,
+    selectParent,
+    moveNodeUp,
+    moveNodeDown,
+    duplicateNode,
+    canMoveUp,
+    canMoveDown,
+    getParentId,
     removeNode,
     copyNode,
     pasteClipboard,
