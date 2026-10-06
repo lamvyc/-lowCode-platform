@@ -55,9 +55,16 @@ export function renderNode(
         },
         depth + 1,
       )
-      if (child) vnodes.push(child)
+      if (child) {
+        // 循环项共用同一个 node.id，需带上下标避免 key 重复
+        child.key = `${node.id}:${index}`
+        vnodes.push(child)
+      }
     })
-    return h(Fragment, vnodes)
+    const fragment = h(Fragment, vnodes)
+    // Fragment 自身也要 key：循环节点与非循环兄弟节点重排时同样需要稳定复用
+    fragment.key = node.id
+    return fragment
   }
 
   return buildNode(node, ctx, wrap, loop, depth)
@@ -75,7 +82,7 @@ function buildNode(
     if (!component) {
       return h(
         'div',
-        { class: 'lc-missing', 'data-node-type': node.type },
+        { key: node.id, class: 'lc-missing', 'data-node-id': node.id, 'data-node-type': node.type },
         `[未注册物料: ${node.type}]`,
       )
     }
@@ -108,7 +115,13 @@ function buildNode(
     }
 
     const vnode = h(component as Component, props, slots)
-    return wrap(node, vnode)
+    const wrapped = wrap(node, vnode)
+    // 稳定 key：节点重排（上移/下移/拖拽排序）时，Vue 会按 key 移动/复用对应 DOM，
+    // 而不是按数组下标把 DOM 元素错配给相邻节点。否则在“点击上移/下移”这次事件的
+    // 冒泡过程中，操作按钮所在的子树会被复用给别的节点，事件冒泡最终命中的是
+    // 相邻节点的包裹层 onClick，于是被移动组件错选成相邻组件。
+    wrapped.key = node.id
+    return wrapped
   } catch (error) {
     // 容错降级（E4）：单节点渲染失败不拖垮整页，渲染占位并记录错误上下文
     const message = error instanceof Error ? error.message : String(error)
@@ -118,7 +131,12 @@ function buildNode(
     )
     return h(
       'div',
-      { class: 'lc-render-error', 'data-node-id': node.id, 'data-node-type': node.type },
+      {
+        key: node.id,
+        class: 'lc-render-error',
+        'data-node-id': node.id,
+        'data-node-type': node.type,
+      },
       `[渲染失败: ${message}]`,
     )
   }

@@ -169,12 +169,19 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     const parent = tree().getParent(nodeId)
     if (parent) selectNode(parent.node.id)
   }
+  /** 节点当前是否会渲染到画布上（meta.hidden 或 visible 绑定为假时不渲染） */
+  function isRenderable(nodeId: string): boolean {
+    const node = engine.current.nodes.find((n) => n.id === nodeId)
+    if (!node) return false
+    if (node.meta?.hidden) return false
+    return runtime.value.resolveVisible(node)
+  }
   function moveNodeUp(nodeId: string): void {
-    engine.moveNodeUp(nodeId)
+    engine.moveNodeUp(nodeId, isRenderable)
     sync()
   }
   function moveNodeDown(nodeId: string): void {
-    engine.moveNodeDown(nodeId)
+    engine.moveNodeDown(nodeId, isRenderable)
     sync()
   }
   function duplicateNode(nodeId: string): void {
@@ -183,11 +190,10 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     if (inserted.length > 0) selectNode(inserted[0].id)
   }
   function canMoveUp(nodeId: string): boolean {
-    return tree().getPosition(nodeId).index > 0
+    return engine.canMoveUp(nodeId, isRenderable)
   }
   function canMoveDown(nodeId: string): boolean {
-    const position = tree().getPosition(nodeId)
-    return position.index >= 0 && position.index < position.siblingIds.length - 1
+    return engine.canMoveDown(nodeId, isRenderable)
   }
   function getParentId(nodeId: string): string | null {
     return tree().getParent(nodeId)?.node.id ?? null

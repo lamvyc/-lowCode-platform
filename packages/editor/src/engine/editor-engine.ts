@@ -139,34 +139,59 @@ export class EditorEngine {
     return node
   }
 
-  /** 同级上移一位（已在首位时无操作） */
-  moveNodeUp(nodeId: string): void {
-    this.record((draft) => {
-      const tree = new NodeTree(draft.nodes)
-      const position = tree.getPosition(nodeId)
-      if (position.index > 0) {
-        tree.move(nodeId, {
-          parentId: position.parentId,
-          slot: position.slot,
-          index: position.index - 1,
-        })
-      }
-    }, 'moveUp')
+  /**
+   * 查找同级上/下方向最近的目标下标。
+   * isVisible 用于跳过高亮画布上不渲染的兄弟节点（如 visible 绑定为假的节点），
+   * 使“上移/下移”一次点击始终对应一个可见位置的变化。
+   */
+  private siblingTarget(
+    nodeId: string,
+    direction: -1 | 1,
+    isVisible?: (id: string) => boolean,
+  ): number | null {
+    const position = new NodeTree(this.currentSchema.nodes).getPosition(nodeId)
+    if (position.index < 0) return null
+    const { siblingIds, index } = position
+    for (let i = index + direction; i >= 0 && i < siblingIds.length; i += direction) {
+      if (!isVisible || isVisible(siblingIds[i])) return i
+    }
+    return null
   }
 
-  /** 同级下移一位（已在末位时无操作） */
-  moveNodeDown(nodeId: string): void {
+  canMoveUp(nodeId: string, isVisible?: (id: string) => boolean): boolean {
+    return this.siblingTarget(nodeId, -1, isVisible) !== null
+  }
+
+  canMoveDown(nodeId: string, isVisible?: (id: string) => boolean): boolean {
+    return this.siblingTarget(nodeId, 1, isVisible) !== null
+  }
+
+  /** 同级上移（已在首位时无操作）；isVisible 可跳过硬隐藏兄弟节点 */
+  moveNodeUp(nodeId: string, isVisible?: (id: string) => boolean): void {
+    this.moveSibling(nodeId, -1, isVisible)
+  }
+
+  /** 同级下移（已在末位时无操作）；isVisible 可跳过硬隐藏兄弟节点 */
+  moveNodeDown(nodeId: string, isVisible?: (id: string) => boolean): void {
+    this.moveSibling(nodeId, 1, isVisible)
+  }
+
+  private moveSibling(
+    nodeId: string,
+    direction: -1 | 1,
+    isVisible?: (id: string) => boolean,
+  ): void {
+    const target = this.siblingTarget(nodeId, direction, isVisible)
+    if (target === null) return
     this.record((draft) => {
       const tree = new NodeTree(draft.nodes)
       const position = tree.getPosition(nodeId)
-      if (position.index >= 0 && position.index < position.siblingIds.length - 1) {
-        tree.move(nodeId, {
-          parentId: position.parentId,
-          slot: position.slot,
-          index: position.index + 1,
-        })
-      }
-    }, 'moveDown')
+      tree.move(nodeId, {
+        parentId: position.parentId,
+        slot: position.slot,
+        index: target,
+      })
+    }, direction < 0 ? 'moveUp' : 'moveDown')
   }
 
   /** 深复制节点子树（生成新 id / name），插入到源节点紧邻后方 */

@@ -105,6 +105,39 @@ describe('EditorEngine 卡片容器交互', () => {
     expect(engine.current.nodes.find((n) => n.id === 'root')!.children).toEqual(['c', 'a', 'b'])
   })
 
+  it('moveNodeUp / moveNodeDown 跳过画布上不渲染的兄弟节点', () => {
+    const engine = makeEngine({
+      version: SCHEMA_VERSION,
+      meta: { id: 'p1', name: '测试', createdAt: '', updatedAt: '' },
+      nodes: [
+        { id: 'root', type: 'card', props: {}, children: ['a', 'hidden', 'c'] },
+        { id: 'a', type: 'card', props: {} },
+        { id: 'hidden', type: 'card', props: {} },
+        { id: 'c', type: 'card', props: {} },
+      ],
+      materials: [],
+      dataSources: [],
+      variables: [],
+      rules: [],
+    })
+    const isVisible = (id: string): boolean => id !== 'hidden'
+    const children = (): unknown => engine.current.nodes.find((n) => n.id === 'root')!.children
+
+    // c 上方的直接兄弟 hidden 不可见，应直接跨过它排到 a 之前（一个可见位置）
+    engine.moveNodeUp('c', isVisible)
+    expect(children()).toEqual(['c', 'a', 'hidden'])
+    expect(engine.canMoveUp('c', isVisible)).toBe(false)
+
+    // 下移同理：跨过 hidden，排到 a 之后
+    engine.moveNodeDown('c', isVisible)
+    expect(children()).toEqual(['a', 'c', 'hidden'])
+    expect(engine.canMoveDown('c', isVisible)).toBe(false)
+
+    // 无可见兄弟时两个方向都不可移动
+    expect(engine.canMoveUp('a', () => false)).toBe(false)
+    expect(engine.canMoveDown('a', () => false)).toBe(false)
+  })
+
   it('duplicate 复制完整子树：新 id/name、自动插入并保留 label', () => {
     const engine = makeEngine({
       version: SCHEMA_VERSION,

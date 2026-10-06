@@ -47,9 +47,10 @@ const wrapNode = computed(() => {
     const isDropInside = drop?.targetId === node.id && drop.position === 'inside'
     const isDropBefore = drop?.targetId === node.id && drop.position === 'before'
     const isDropAfter = drop?.targetId === node.id && drop.position === 'after'
-    const hasParent = ctx.getParentId(node.id) !== null
-    const upEnabled = canMoveUp(node.id)
-    const downEnabled = canMoveDown(node.id)
+    // 操作条仅在选中时渲染，未选中无需计算（也避免逐节点求值 visible 带来的开销）
+    const hasParent = isSelected ? ctx.getParentId(node.id) !== null : false
+    const upEnabled = isSelected ? canMoveUp(node.id) : false
+    const downEnabled = isSelected ? canMoveDown(node.id) : false
 
     return h(
       'div',
@@ -229,6 +230,19 @@ const deviceStyle = computed(() => {
   }
 })
 
+/**
+ * id 是否为 ancestorId 自身或其后代。
+ * 用于：拖拽父节点时，判断指针落点是否落在其子树内。
+ */
+function isSelfOrDescendant(nodeId: string, ancestorId: string): boolean {
+  let current: string | null = nodeId
+  while (current !== null) {
+    if (current === ancestorId) return true
+    current = ctx.getParentId(current)
+  }
+  return false
+}
+
 /** 计算拖拽落点（把指针/节点 rect 转换到画布坐标系） */
 function computeDropTarget(event: DragEvent): DropTarget | null {
   const ds = state.dragState
@@ -241,9 +255,19 @@ function computeDropTarget(event: DragEvent): DropTarget | null {
   ) as HTMLElement | null
   let over: DropOver | null = null
   if (targetEl?.dataset.nodeId) {
-    const node = schema.value.nodes.find((n) => n.id === targetEl.dataset.nodeId)
+    // 画布内拖拽父节点时，悬停在它自身/子树（如子组件）上，
+    // 必须把落点基准提升到被拖节点本身。否则落点会指向子组件，
+    // 被 validateDrop 判定为“移动到自身后代”而非法，导致整个拖拽无法成立，
+    // 表现就是“拖动父组件时子组件不会跟着动”。
+    let overId = targetEl.dataset.nodeId
+    let overEl = targetEl as HTMLElement
+    if (ds.source === 'canvas' && ds.nodeId && isSelfOrDescendant(overId, ds.nodeId)) {
+      overId = ds.nodeId
+      overEl = (targetEl.closest(`[data-node-id="${ds.nodeId}"]`) as HTMLElement | null) ?? targetEl
+    }
+    const node = schema.value.nodes.find((n) => n.id === overId)
     if (node) {
-      const rect = targetEl.getBoundingClientRect()
+      const rect = overEl.getBoundingClientRect()
       over = {
         node,
         rect: {
@@ -311,7 +335,6 @@ function onDragEnd(): void {
       class="lc-canvas lc-canvas--pc"
       :class="{ 'lc-canvas--empty': isEmpty, 'lc-canvas--drop-root': state.dropTarget?.position === 'root' }"
       :style="{ zoom: state.zoom }"
-      @click="selectNode(null)"
       @drop="onDrop"
       @dragover="onDragOver"
     >
@@ -333,7 +356,6 @@ function onDragEnd(): void {
         class="lc-canvas lc-canvas--device"
         :class="{ 'lc-canvas--empty': isEmpty, 'lc-canvas--drop-root': state.dropTarget?.position === 'root' }"
         :style="deviceStyle"
-        @click="selectNode(null)"
         @drop="onDrop"
         @dragover="onDragOver"
       >
