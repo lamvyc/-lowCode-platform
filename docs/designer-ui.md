@@ -77,7 +77,33 @@ registerPageTemplate({
   （`el-tree.setCurrentKey`）；支持展开全部 / 收起全部（重建实例切换 `default-expand-all`）。
 - 面板顶部展示真实组件总数（不含插槽分组与缺失占位）。
 
-## 五、生成 SFC（SfcDialog.vue + @lowcode/codegen）
+## 五、画布拖拽交互（Canvas.vue + engine/drop-target.ts）
+
+与 `variant-form`（Sortable）一致的交互语言：
+
+| 交互 | 行为 |
+| --- | --- |
+| 选中 | 单击节点选中，选中态为 `outline: 2px solid #3370ff`（不参与布局，不会引起位移） |
+| 悬停 | 未选中节点显示 1px 虚线主色 outline |
+| 拖拽手柄 | **仅选中时出现**，位于节点左上角（`top/left: -2px`，高 20px，主色底，⠿ + 组件名 + 已隐藏标记），`cursor: move`；只有手柄能发起拖拽 |
+| 操作条 | 仅选中时出现，位于右下角（高 22px，主色底）：← 选中父级 · ↑ 上移 · ↓ 下移 · 复制 · 删除 |
+| 拖拽浮层 | 拖拽时生成节点克隆跟随指针（轻微旋转 + 投影 + 组件名标签），原始节点 `opacity: .4` 作为占位；浏览器默认拖拽影像替换为 1×1 透明图，避免出现两个影像 |
+| 插入指示条 | **3px 主色细条**（同参考实现的 `ghost` 样式），贴在目标插入位置的兄弟间隙；列表为空时贴容器内容区起点 |
+| 落点判定 | 与 Sortable 一致：取指针下**最内层可接收容器**，在该容器内按子节点**主轴中线**决定插入下标（纵向列表比 y，栅格行 / 横向容器比 x） |
+| 拖拽来源 | 组件库拖入 = 新增（`copy`）；画布内拖拽 = 移动（`move`） |
+| 嵌套保护 | 拖动节点时落点若落在自身或子树内，自动收敛到其父容器 |
+| 自动滚动 | 指针靠近画布边缘时自动滚动容器（rAF 循环） |
+| 取消 | `Esc` 取消拖拽；拖出画布或 `dragend` 也会清理浮层与指示条 |
+
+实现要点：
+
+- 落点与指示条几何由纯函数 `packages/editor/src/engine/drop-target.ts` 计算（`computeListDrop` / `resolveInsertionIndex` / `resolveIndicatorRect`），DOM 只负责测量矩形，逻辑可单测。
+- 落点优先用 `beforeId` 表达「插到某兄弟节点之前」，避免同容器移动时的下标偏移，也让**隐藏节点**（不参与 DOM 测量）不影响插入位置；`moveNode` / `insertMaterial` 都按 `beforeId` 解析。
+- 指示条通过 `<Teleport to="body">` 以 `position: fixed` + 视口坐标渲染，绕开画布 `zoom` / `transform: scale()` 的坐标换算。
+- 内部结构节点（栅格列 / 表格行 / 单元格）与参考实现的 `internal` 组件一致：不渲染手柄与操作条，结构由属性面板的结构编辑器维护。
+- `EditorEngine.computeDropTarget`（基于悬停节点上中下三分区的几何算法）保留为引擎层 API，画布已改用上面的 DOM 测量算法。
+
+## 六、生成 SFC（SfcDialog.vue + @lowcode/codegen）
 
 - 工具栏「生成 SFC」→ 对话框内四个页签：**完整 SFC / Template / Script / Style**，展示文件名、行数、字符数，
   支持复制与下载（Blob，无需 file-saver）。
@@ -86,7 +112,7 @@ registerPageTemplate({
 - 浏览器可用性：Prettier 以 `prettier/standalone` + `babel/estree/html/postcss` 插件显式调用，
   否则浏览器端会报 `Couldn't resolve parser "vue"`；格式化失败时回退为未格式化文本（结构仍完整）。
 
-## 六、扩展点
+## 七、扩展点
 
 | 扩展点 | 用法 |
 | --- | --- |
@@ -95,10 +121,14 @@ registerPageTemplate({
 | 插件 | `registerPlugin(plugin)`（动作 / 物料 / 表达式函数） |
 | 远程物料 | `remoteMaterialLoader`（ESM / UMD） |
 
-## 七、验证
+## 八、验证
 
 - 单测：`outline.test.ts`（层级 / 插槽分组 / 缺失占位 / 隐藏标记 / 路径定位）、
   `templates.test.ts`（内置模板 Schema 合法性 / 幂等注册 / 去重 / 深拷贝隔离）。
-- 浏览器交互（无头 Chrome + CDP，11/11 通过、0 未捕获异常）：
-  工具栏按钮齐备、组件库分组与搜索、单击添加、结构树层级与选中同步、隐藏标记、
-  模板卡片与结构预览、载入模板后无未注册物料、SFC 四页签生成、导出 JSON 下载、控制台无错误。
+- 浏览器交互（无头 Chrome + CDP，0 未捕获异常）：
+  - 设计器界面 11 项：工具栏按钮齐备、组件库分组与搜索、单击添加、结构树层级与选中同步、
+    隐藏标记、模板卡片与结构预览、载入模板后无未注册物料、SFC 四页签生成、导出 JSON 下载。
+  - 拖拽交互 7 项：选中态手柄/操作条位置（左上 / 右下）与 `cursor: move`、
+    画布内排序（浮层跟随 + 3px 指示条贴合目标间隙 + 落点生效）、拖拽结束无残留、
+    组件库拖入空容器与追加到已有子节点之后、跨容器移动（原位置移除）、Esc 取消。
+  - 组件库 7 项、设置面板 12 项、控件交互 4 项。

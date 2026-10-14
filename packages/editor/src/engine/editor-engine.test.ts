@@ -226,3 +226,61 @@ describe('EditorEngine 表单设置', () => {
     expect(engine.current.nodes.find((n) => n.id === card.id)!.events).toBeUndefined()
   })
 })
+
+describe('EditorEngine 拖拽落点', () => {
+  function listEngine(): EditorEngine {
+    return makeEngine({
+      version: SCHEMA_VERSION,
+      meta: { id: 'p1', name: '测试', createdAt: '', updatedAt: '' },
+      nodes: [
+        { id: 'root', type: 'card', props: {}, children: ['a', 'hidden', 'c'] },
+        { id: 'a', type: 'card', props: {} },
+        { id: 'hidden', type: 'card', props: {}, meta: { hidden: true } },
+        { id: 'c', type: 'card', props: {} },
+      ],
+      materials: [],
+      dataSources: [],
+      variables: [],
+      rules: [],
+    })
+  }
+
+  it('insertMaterial 优先按 beforeId 定位（DOM 中隐藏节点不参与测量）', () => {
+    const engine = listEngine()
+
+    // 画布上可见子节点只有 a / c，插到 c 之前对应 schema 下标 2
+    const inserted = engine.insertMaterial('card', {
+      parentId: 'root',
+      position: 'inside',
+      index: 1,
+      beforeId: 'c',
+    })
+
+    expect(engine.current.nodes.find((n) => n.id === 'root')!.children).toEqual([
+      'a',
+      'hidden',
+      inserted.id,
+      'c',
+    ])
+  })
+
+  it('moveNode 按 beforeId 落点，同容器移动不产生下标偏移', () => {
+    const engine = listEngine()
+
+    // 把 c 移到 a 之前
+    engine.moveNode('c', { parentId: 'root', position: 'inside', index: 0, beforeId: 'a' })
+    expect(engine.current.nodes.find((n) => n.id === 'root')!.children).toEqual([
+      'c',
+      'a',
+      'hidden',
+    ])
+
+    // 再追加到末尾
+    engine.moveNode('c', { parentId: 'root', position: 'inside', index: 3 })
+    expect(engine.current.nodes.find((n) => n.id === 'root')!.children).toEqual([
+      'a',
+      'hidden',
+      'c',
+    ])
+  })
+})

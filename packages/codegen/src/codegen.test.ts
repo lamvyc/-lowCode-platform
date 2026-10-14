@@ -16,8 +16,8 @@ function makeSchema(): PageSchema {
     nodes: [
       {
         id: 'n_container',
-        type: 'container',
-        props: { direction: 'column' },
+        type: 'card',
+        props: { label: '订单卡片' },
         children: ['n_btn', 'n_list'],
       },
       {

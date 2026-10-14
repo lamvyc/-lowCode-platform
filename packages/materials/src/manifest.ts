@@ -105,7 +105,8 @@ function labelProps(): PropConfig[] {
 }
 
 /** 字段高级设置（校验 / 标签排版 / 图标 / 尺寸） */
-function fieldAdvancedProps(): PropConfig[] {
+function fieldAdvancedProps(options: { size?: boolean } = {}): PropConfig[] {
+  const { size = true } = options
   return [
     {
       name: 'validation',
@@ -114,6 +115,7 @@ function fieldAdvancedProps(): PropConfig[] {
       group: 'advanced',
       options: VALIDATION_OPTIONS,
       defaultValue: '',
+      description: '声明式规则，由表单引擎 / 代码生成消费；画布不做即时校验',
     },
     {
       name: 'validationHint',
@@ -123,7 +125,12 @@ function fieldAdvancedProps(): PropConfig[] {
       defaultValue: '',
       visibleWhen: { prop: 'validation', notEquals: '' },
     },
-    { name: 'size', label: '尺寸', control: 'select', group: 'advanced', options: SIZE_OPTIONS, defaultValue: '' },
+    // 参考实现中 switch / rate / 上传 / 富文本没有 size，此处按需关闭
+    ...(size
+      ? ([
+          { name: 'size', label: '尺寸', control: 'select', group: 'advanced', options: SIZE_OPTIONS, defaultValue: '' },
+        ] as PropConfig[])
+      : []),
     {
       name: 'labelWidth',
       label: '标签宽度',
@@ -380,69 +387,6 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     ],
   },
   {
-    type: 'container',
-    name: '容器',
-    category: '布局',
-    icon: '▣',
-    description: '可容纳子节点的弹性容器',
-    version: '1.0.0',
-    droppable: true,
-    groupable: true,
-    slots: ['default'],
-    defaultProps: {
-      direction: 'column',
-      gap: 8,
-      padding: 12,
-      backgroundColor: '',
-      align: 'stretch',
-      justify: 'flex-start',
-    },
-    propConfigs: [
-      ...systemProps(),
-      {
-        name: 'direction',
-        label: '排列方向',
-        control: 'radio-button',
-        group: 'common',
-        options: [
-          { label: '纵向', value: 'column' },
-          { label: '横向', value: 'row' },
-        ],
-        defaultValue: 'column',
-      },
-      {
-        name: 'align',
-        label: '交叉轴对齐',
-        control: 'select',
-        group: 'common',
-        options: [
-          { label: '拉伸', value: 'stretch' },
-          { label: '居中', value: 'center' },
-          { label: '起始', value: 'flex-start' },
-          { label: '末尾', value: 'flex-end' },
-        ],
-        defaultValue: 'stretch',
-      },
-      { name: 'gap', label: '子项间距', control: 'number', group: 'advanced', range: { min: 0, max: 80 }, defaultValue: 8 },
-      { name: 'padding', label: '内边距', control: 'number', group: 'advanced', range: { min: 0, max: 80 }, defaultValue: 12 },
-      { name: 'backgroundColor', label: '背景色', control: 'color', group: 'advanced', defaultValue: '' },
-      {
-        name: 'justify',
-        label: '主轴对齐',
-        control: 'select',
-        group: 'advanced',
-        options: [
-          { label: '起始', value: 'flex-start' },
-          { label: '居中', value: 'center' },
-          { label: '末尾', value: 'flex-end' },
-          { label: '两端对齐', value: 'space-between' },
-          { label: '环绕', value: 'space-around' },
-        ],
-        defaultValue: 'flex-start',
-      },
-    ],
-  },
-  {
     type: 'card',
     name: '卡片',
     category: '布局',
@@ -466,24 +410,6 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
         visibleWhen: { prop: 'showCollapse', equals: true },
       },
       { name: 'width', label: '卡片宽度', control: 'input', group: 'advanced', defaultValue: '100%', placeholder: '如 100% / 320px' },
-    ],
-  },
-  {
-    type: 'dialog',
-    name: '弹窗',
-    category: '布局',
-    icon: '▣',
-    description: '由打开/关闭弹窗动作控制',
-    version: '1.0.0',
-    droppable: true,
-    groupable: true,
-    slots: ['default'],
-    defaultProps: { dialogId: 'dialog1', title: '弹窗', width: '480px' },
-    propConfigs: [
-      ...systemProps(),
-      { name: 'dialogId', label: '弹窗 ID', control: 'input', group: 'common', defaultValue: 'dialog1', description: '打开弹窗动作通过该 ID 定位弹窗' },
-      { name: 'title', label: '标题', control: 'input', group: 'common', defaultValue: '弹窗' },
-      { name: 'width', label: '宽度', control: 'input', group: 'advanced', defaultValue: '480px' },
     ],
   },
 
@@ -546,6 +472,9 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     icon: '□',
     description: '触发事件与动作链',
     version: '1.0.0',
+    events: [
+      { name: 'click', label: 'onClick', params: ['event'], description: '点击按钮时触发动作链' },
+    ],
     defaultProps: {
       text: '按钮',
       type: 'primary',
@@ -1198,7 +1127,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       { name: 'activeColor', label: '打开颜色', control: 'color', group: 'advanced', defaultValue: '' },
       { name: 'inactiveColor', label: '关闭颜色', control: 'color', group: 'advanced', defaultValue: '' },
       { name: 'disabled', label: '禁用', control: 'switch', group: 'advanced', defaultValue: false },
-      ...fieldAdvancedProps(),
+      ...fieldAdvancedProps({ size: false }),
     ],
   },
   {
@@ -1231,7 +1160,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       { name: 'showText', label: '显示辅助文字', control: 'switch', group: 'advanced', defaultValue: false },
       { name: 'showScore', label: '显示分数', control: 'switch', group: 'advanced', defaultValue: false },
       { name: 'disabled', label: '禁用', control: 'switch', group: 'advanced', defaultValue: false },
-      ...fieldAdvancedProps(),
+      ...fieldAdvancedProps({ size: false }),
     ],
   },
   {
@@ -1395,7 +1324,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       { name: 'showFileList', label: '显示文件列表', control: 'switch', group: 'advanced', defaultValue: true },
       { name: 'withCredentials', label: '携带 Cookie', control: 'switch', group: 'advanced', defaultValue: false },
       { name: 'disabled', label: '禁用', control: 'switch', group: 'advanced', defaultValue: false },
-      ...fieldAdvancedProps(),
+      ...fieldAdvancedProps({ size: false }),
     ],
   },
   {
@@ -1451,7 +1380,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       { name: 'showFileList', label: '显示文件列表', control: 'switch', group: 'advanced', defaultValue: true },
       { name: 'withCredentials', label: '携带 Cookie', control: 'switch', group: 'advanced', defaultValue: false },
       { name: 'disabled', label: '禁用', control: 'switch', group: 'advanced', defaultValue: false },
-      ...fieldAdvancedProps(),
+      ...fieldAdvancedProps({ size: false }),
     ],
   },
   {
@@ -1487,7 +1416,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
         visibleWhen: { prop: 'maxLength', notEquals: null },
       },
       { name: 'disabled', label: '禁用', control: 'switch', group: 'advanced', defaultValue: false },
-      ...fieldAdvancedProps(),
+      ...fieldAdvancedProps({ size: false }),
     ],
   },
 

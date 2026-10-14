@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { PropGroup } from '@lowcode/schema'
 import { MATERIAL_MANIFESTS } from './manifest'
 
-/** 参考 variant-form 组件库的 29 个组件类型（layout 表格相关按本平台命名） */
+/**
+ * 期望覆盖的组件类型：参考 variant-form 组件库的 28 个 widget（layout 表格相关按本平台命名）
+ * + 本平台为布局表格补充的行容器 layout-table-row。
+ */
 const REFERENCE_WIDGET_TYPES = [
   // 容器
   'grid',

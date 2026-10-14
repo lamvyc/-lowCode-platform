@@ -26,9 +26,7 @@ import LcFileUpload from './components/FileUpload.vue'
 import LcRichEditor from './components/RichEditor.vue'
 import LcImage from './components/Image.vue'
 import LcTable from './components/Table.vue'
-import LcContainer from './components/Container.vue'
 import LcCard from './components/Card.vue'
-import LcDialog from './components/Dialog.vue'
 import LcGrid from './components/Grid.vue'
 import LcGridCol from './components/GridCol.vue'
 import LcLayoutTable from './components/LayoutTable.vue'
@@ -40,9 +38,7 @@ import LcTabPane from './components/TabPane.vue'
 /** 物料 type → Vue 组件实现 */
 export const MATERIAL_COMPONENTS: Record<string, Component> = {
   // 容器
-  container: LcContainer,
   card: LcCard,
-  dialog: LcDialog,
   grid: LcGrid,
   'grid-col': LcGridCol,
   'layout-table': LcLayoutTable,

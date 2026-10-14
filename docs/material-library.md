@@ -1,11 +1,12 @@
 # 组件库（物料清单）
 
-按 `variant-form` 的组件库逐项移植。共注册 **35 个物料**：30 个在组件库面板展示，5 个为内部结构 / 旧版兼容物料。
+按 `variant-form` 的组件库逐项移植。共注册 **33 个物料**：28 个在组件库面板展示，5 个为内部结构 / 旧版兼容物料。
+（本平台早期的「容器」「弹窗」两个额外物料已按要求移除，不再注册。）
 
 ```text
 布局   grid 栅格(自动 2 列) · grid-col 栅格列(内部) · layout-table 布局表格(自动 2×2)
        layout-table-row 表格行(内部) · layout-table-cell 单元格(内部)
-       tab 标签页(自动 2 个面板) · tab-pane 标签页(内部) · container 容器 · card 卡片 · dialog 弹窗
+       tab 标签页(自动 2 个面板) · tab-pane 标签页(内部) · card 卡片
 基础   static-text 静态文本 · html-text HTML 文本 · button 按钮 · divider 分割线 · image 图片 · text 文本(旧版·不展示)
 表单   input 输入框 · textarea 多行文本 · number 计数器 · radio 单选框 · checkbox 复选框 · select 下拉选择
        time 时间选择 · time-range 时间范围 · date 日期选择 · date-range 日期范围 · switch 开关
@@ -82,6 +83,7 @@
 | 标签页标识 | `paneName`，避免与节点级「唯一名称」`props.name` 冲突 |
 | 布局表格 | 类型名 `layout-table`，避免与既有数据表格 `table` 冲突 |
 | 旧版文本 | 类型 `text` 保留注册但不在组件库展示，既有页面继续可用；新页面请用 `static-text` |
+| 已移除物料 | `container` 容器与 `dialog` 弹窗已从物料库删除：内置模板改以「卡片 / 栅格」承载布局，演示页改为扁平根节点；如既有页面用到它们会渲染为「未注册物料」 |
 | `size` | `''` 表示跟随默认，组件内部转 `undefined` 传给 Element Plus |
 | 上传 | `uploadURL` 为空时使用本地预览 / 本地文件，非空时用 XHR 上传（含 `withCredentials`） |
 | 富文本 | 自研轻量编辑器（`document.execCommand`），**不引入第三方富文本库** |

@@ -139,7 +139,15 @@ export class EditorEngine {
     const defaultChildren = this.nodeFactory.material(type)?.defaultChildren ?? []
     this.record((draft) => {
       const tree = new NodeTree(draft.nodes)
-      tree.insert(node, target.parentId, target.slot, target.index)
+      // 落点若给出 beforeId，则以它为准（DOM 中隐藏节点不参与测量，下标可能不准）
+      let index = target.index
+      if (target.beforeId) {
+        const position = tree.getPosition(target.beforeId)
+        if (position.index >= 0 && position.parentId === target.parentId) {
+          index = position.index
+        }
+      }
+      tree.insert(node, target.parentId, target.slot, index)
       // 容器物料的内部结构（栅格列 / 表格行单元格 / 标签页）随插入一并创建
       if (defaultChildren.length > 0) {
         this.insertDefaultChildren(tree, node.id, defaultChildren)

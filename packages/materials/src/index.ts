@@ -7,9 +7,7 @@ export { createFormWidgetResolver } from './form'
 export { useRuntimeContext } from './use-runtime'
 
 // 容器
-export { default as LcContainer } from './components/Container.vue'
 export { default as LcCard } from './components/Card.vue'
-export { default as LcDialog } from './components/Dialog.vue'
 export { default as LcGrid } from './components/Grid.vue'
 export { default as LcGridCol } from './components/GridCol.vue'
 export { default as LcLayoutTable } from './components/LayoutTable.vue'

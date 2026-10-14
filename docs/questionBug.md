@@ -101,7 +101,7 @@
 ### 验证
 
 - 无头 Chrome + 真实鼠标事件：修复前 `n_table` 第一次上移可见顺序不变、第二次才变；修复后第一次上移即移动到 `n_select` 上方，第二次移动到 `n_title` 上方，第三次（已到顶）按钮置灰。
-- 遍历示例页各节点/方向：`n_title` 上移、`n_dialog` 下移正确置灰，其余除下拉框外均一次点击即移动。
+- 遍历示例页各节点/方向：`n_title` 上移、`n_button` 下移正确置灰，其余除下拉框外均一次点击即移动。
 - 新增 `editor-engine.test.ts` 用例覆盖“跳过不可见兄弟”。
 - `pnpm -r test`：全部通过（schema 30 / codegen 6 / core 164 / runtime 31 / editor 18 / playground 6）。
 - `pnpm -r typecheck`：通过。

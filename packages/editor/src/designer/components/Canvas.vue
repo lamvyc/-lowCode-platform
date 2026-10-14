@@ -13,13 +13,18 @@ import type { DropTarget } from '@lowcode/core'
 import type { PageNode } from '@lowcode/schema'
 import { RuntimeRenderer } from '@lowcode/runtime'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
-import type { DropOver } from '../../engine/editor-engine'
 import { DEVICE_BORDER, deviceDimension } from '../device'
 import { materialRegistry } from '../../platform'
+import { computeListDrop, type DropAxis, type DropRect } from '../../engine/drop-target'
+import {
+  beginDragGhost,
+  endDragGhost,
+  moveDragGhost,
+  transparentDragImage,
+} from '../drag-ghost'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
 const {
-  engine,
   schema,
   runtime,
   state,
@@ -38,6 +43,22 @@ const {
   setDropTarget,
 } = ctx
 
+/* ------------------------------------------------------------------ *
+ * 节点索引：一次遍历建立「子 → 父」「id → 类型」映射，避免逐节点 O(n) 查父
+ * ------------------------------------------------------------------ */
+const nodeIndexOf = computed(() => {
+  const parentOf = new Map<string, string>()
+  const typeById = new Map<string, string>()
+  for (const node of schema.value.nodes) {
+    typeById.set(node.id, node.type)
+    for (const childId of node.children ?? []) parentOf.set(childId, node.id)
+    for (const ids of Object.values(node.slots ?? {})) {
+      for (const childId of ids) parentOf.set(childId, node.id)
+    }
+  }
+  return { parentOf, typeById }
+})
+
 /**
  * 父级为这些布局容器时，节点不能再套一层 div：
  * el-row 要求直接子级是 el-col、table 要求 tbody>tr>td，插入包裹层会破坏布局。
@@ -46,27 +67,17 @@ const {
 const LAYOUT_TRANSPARENT_PARENTS = new Set(['grid', 'layout-table', 'layout-table-row'])
 
 const wrapNode = computed(() => {
-  // 渲染前一次性建立「子 → 父」「id → 类型」索引，避免逐节点 O(n) 查父（大页面下的 O(n²) 开销）
-  const parentOf = new Map<string, string>()
-  const typeById = new Map<string, string>()
-  for (const item of schema.value.nodes) {
-    typeById.set(item.id, item.type)
-    for (const childId of item.children ?? []) parentOf.set(childId, item.id)
-    for (const ids of Object.values(item.slots ?? {})) {
-      for (const childId of ids) parentOf.set(childId, item.id)
-    }
-  }
+  const { parentOf, typeById } = nodeIndexOf.value
 
   return (node: PageNode, inner: VNode): VNode => {
     const isSelected = state.selectedNodeId === node.id
     const isHovered = state.hoverNodeId === node.id
+    const isDragging = state.dragState?.source === 'canvas' && state.dragState.nodeId === node.id
     const typeLabel = materialRegistry.get(node.type)?.name ?? node.type
     const drop = state.dropTarget
-    const isDropInside = drop?.targetId === node.id && drop.position === 'inside'
-    const isDropBefore = drop?.targetId === node.id && drop.position === 'before'
-    const isDropAfter = drop?.targetId === node.id && drop.position === 'after'
+    const isDropInside = drop?.position === 'inside' && drop.targetId === node.id
     // 操作条仅在选中时渲染，未选中无需计算（也避免逐节点求值 visible 带来的开销）
-    const hasParent = isSelected ? ctx.getParentId(node.id) !== null : false
+    const hasParent = isSelected ? parentOf.has(node.id) : false
     const upEnabled = isSelected ? canMoveUp(node.id) : false
     const downEnabled = isSelected ? canMoveDown(node.id) : false
 
@@ -74,19 +85,18 @@ const wrapNode = computed(() => {
     const parentType = parentId ? typeById.get(parentId) : undefined
     const embedded = parentType ? LAYOUT_TRANSPARENT_PARENTS.has(parentType) : false
 
+    const stateClasses = [
+      isSelected ? 'lc-node--selected' : '',
+      isHovered ? 'lc-node--hovered' : '',
+      isDragging ? 'lc-node--dragging' : '',
+      isDropInside ? 'lc-node--drop-inside' : '',
+    ]
+
     if (embedded) {
       const props = (inner.props ?? {}) as Record<string, unknown>
       inner.props = {
         ...props,
-        class: [
-          props.class,
-          'lc-node--embedded',
-          isSelected ? 'lc-node--selected' : '',
-          isHovered ? 'lc-node--hovered' : '',
-          isDropInside ? 'lc-node--drop-inside' : '',
-          isDropBefore ? 'lc-node--drop-before' : '',
-          isDropAfter ? 'lc-node--drop-after' : '',
-        ],
+        class: [props.class, 'lc-node--embedded', ...stateClasses],
         'data-node-id': node.id,
         onClick: (event: MouseEvent) => {
           event.stopPropagation()
@@ -101,14 +111,7 @@ const wrapNode = computed(() => {
     return h(
       'div',
       {
-        class: [
-          'lc-node',
-          isSelected ? 'lc-node--selected' : '',
-          isHovered ? 'lc-node--hovered' : '',
-          isDropInside ? 'lc-node--drop-inside' : '',
-          isDropBefore ? 'lc-node--drop-before' : '',
-          isDropAfter ? 'lc-node--drop-after' : '',
-        ],
+        class: ['lc-node', ...stateClasses],
         'data-node-id': node.id,
         onClick: (event: MouseEvent) => {
           event.stopPropagation()
@@ -119,38 +122,24 @@ const wrapNode = computed(() => {
       },
       [
         inner,
-        h(
-          'div',
-          {
-            class: 'lc-node__badges',
-            draggable: 'true',
-            title: '拖动',
-            onDragstart: (event: DragEvent) => {
-              event.stopPropagation()
-              if (event.dataTransfer) {
-                event.dataTransfer.setData('application/x-lc-node', node.id)
-                event.dataTransfer.effectAllowed = 'move'
-              }
-              setDragState({ source: 'canvas', nodeId: node.id })
-            },
-            onDragend: () => {
-              setDragState(null)
-              setDropTarget(null)
-            },
-          },
-          [
-            h(
-              'div',
-              {
-                class: 'lc-node__handle',
-              },
-              '⠿',
-            ),
-            h('div', { class: 'lc-node__type' }, typeLabel),
-          ],
-        ),
+        // 与 variant-form 一致：拖拽手柄只在选中时出现，位于左上角
         ...(isSelected
           ? [
+              h(
+                'div',
+                {
+                  class: 'lc-node__badges',
+                  draggable: 'true',
+                  title: '按住拖动排序 / 移动',
+                  onDragstart: (event: DragEvent) => onNodeDragStart(event, node),
+                  onDragend: () => finishDrag(),
+                },
+                [
+                  h('i', { class: 'lc-node__rank' }, '⠿'),
+                  h('i', { class: 'lc-node__type' }, typeLabel),
+                  ...(node.meta?.hidden ? [h('i', { class: 'lc-node__hidden' }, '已隐藏')] : []),
+                ],
+              ),
               h(
                 'div',
                 {
@@ -228,6 +217,7 @@ const totalSize = computed(() => {
 
 /** 缩放：工作区小于设备时等比例缩小 */
 const wrapRef = ref<HTMLElement | null>(null)
+const canvasRef = ref<HTMLElement | null>(null)
 const scale = ref(1)
 let observer: ResizeObserver | null = null
 
@@ -249,8 +239,14 @@ onMounted(() => {
     if (wrapRef.value) observer.observe(wrapRef.value)
   }
   updateScale()
+  window.addEventListener('keydown', onKeydown)
 })
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  window.removeEventListener('keydown', onKeydown)
+  stopAutoScroll()
+  endDragGhost()
+})
 watch(() => state.device, updateScale)
 
 /** 缩放容器布局尺寸（= 设备总尺寸 × scale），并叠加用户缩放 */
@@ -276,94 +272,238 @@ const deviceStyle = computed(() => {
   }
 })
 
-/**
- * id 是否为 ancestorId 自身或其后代。
- * 用于：拖拽父节点时，判断指针落点是否落在其子树内。
- */
+/* ------------------------------------------------------------------ *
+ * 拖拽：落点计算（与 Sortable 一致 —— 最内层可接收容器 + 主轴中线判定）
+ * ------------------------------------------------------------------ */
+
+/** 当前插入指示条（视口坐标，通过 Teleport 渲染到 body，避开画布缩放坐标系） */
+const dropIndicator = ref<DropRect | null>(null)
+
+const indicatorStyle = computed(() => {
+  const rect = dropIndicator.value
+  if (!rect) return undefined
+  return {
+    left: `${Math.round(rect.left)}px`,
+    top: `${Math.round(rect.top)}px`,
+    width: `${Math.round(rect.width)}px`,
+    height: `${Math.round(rect.height)}px`,
+  }
+})
+
+/** id 是否为 ancestorId 自身或其后代 */
 function isSelfOrDescendant(nodeId: string, ancestorId: string): boolean {
   let current: string | null = nodeId
   while (current !== null) {
     if (current === ancestorId) return true
-    current = ctx.getParentId(current)
+    current = nodeIndexOf.value.parentOf.get(current) ?? null
   }
   return false
 }
 
-/** 计算拖拽落点（把指针/节点 rect 转换到画布坐标系） */
-function computeDropTarget(event: DragEvent): DropTarget | null {
-  const ds = state.dragState
-  const canvasEl = wrapRef.value
-  if (!ds || !canvasEl) return null
-  const canvasRect = canvasEl.getBoundingClientRect()
+/** DOM：某元素的最近节点祖先 id（跨 Teleport，向上走到 body） */
+function closestNodeId(el: Element | null): string | null {
+  let current: Element | null = el
+  while (current) {
+    const id = (current as HTMLElement).dataset?.nodeId
+    if (id) return id
+    current = current.parentElement
+  }
+  return null
+}
 
-  const targetEl = (event.target as HTMLElement | null)?.closest?.(
-    '[data-node-id]',
-  ) as HTMLElement | null
-  let over: DropOver | null = null
-  if (targetEl?.dataset.nodeId) {
-    // 画布内拖拽父节点时，悬停在它自身/子树（如子组件）上，
-    // 必须把落点基准提升到被拖节点本身。否则落点会指向子组件，
-    // 被 validateDrop 判定为“移动到自身后代”而非法，导致整个拖拽无法成立，
-    // 表现就是“拖动父组件时子组件不会跟着动”。
-    let overId = targetEl.dataset.nodeId
-    let overEl = targetEl as HTMLElement
-    if (ds.source === 'canvas' && ds.nodeId && isSelfOrDescendant(overId, ds.nodeId)) {
-      overId = ds.nodeId
-      overEl = (targetEl.closest(`[data-node-id="${ds.nodeId}"]`) as HTMLElement | null) ?? targetEl
-    }
-    const node = schema.value.nodes.find((n) => n.id === overId)
-    if (node) {
-      const rect = overEl.getBoundingClientRect()
-      over = {
-        node,
-        rect: {
-          left: rect.left - canvasRect.left,
-          top: rect.top - canvasRect.top,
-          width: rect.width,
-          height: rect.height,
-        },
-      }
+/** DOM：列出所有已渲染节点元素，并按「父节点 id → 子元素」归组（DOM 顺序即 children 顺序） */
+function collectLists(): Map<string | null, HTMLElement[]> {
+  const lists = new Map<string | null, HTMLElement[]>()
+  for (const el of document.querySelectorAll<HTMLElement>('[data-node-id]')) {
+    const parentId = closestNodeId(el.parentElement)
+    const bucket = lists.get(parentId)
+    if (bucket) bucket.push(el)
+    else lists.set(parentId, [el])
+  }
+  return lists
+}
+
+/** 指针下最内层的「可接收容器」；null 表示根列表；undefined 表示指针不在画布上 */
+function findContainerAt(
+  clientX: number,
+  clientY: number,
+): string | null | undefined {
+  const canvasEl = canvasRef.value
+  const stack = typeof document.elementsFromPoint === 'function'
+    ? document.elementsFromPoint(clientX, clientY)
+    : []
+  const top = stack[0] as HTMLElement | undefined
+
+  for (const el of stack) {
+    if (!(el instanceof HTMLElement)) continue
+    let nodeId = closestNodeId(el)
+    while (nodeId) {
+      const type = nodeIndexOf.value.typeById.get(nodeId)
+      const material = type ? materialRegistry.get(type) : undefined
+      if (material?.droppable) return nodeId
+      nodeId = nodeIndexOf.value.parentOf.get(nodeId) ?? null
     }
   }
 
-  const pointer = {
-    x: event.clientX - canvasRect.left,
-    y: event.clientY - canvasRect.top,
+  // 不在任何节点上：只有指针位于画布内时才落到根列表
+  if (top && canvasEl?.contains(top)) return null
+  return undefined
+}
+
+/** 容器主轴：flex row 与 grid 视为横向，其余纵向 */
+function axisOf(el: HTMLElement | null): DropAxis {
+  if (!el) return 'y'
+  const style = getComputedStyle(el)
+  if (style.display === 'flex' && style.flexDirection.startsWith('row')) return 'x'
+  if (style.display === 'grid') return 'x'
+  return 'y'
+}
+
+function toDropRect(rect: DOMRect): DropRect {
+  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+}
+
+/** 计算落点与插入指示条 */
+function computeDrop(event: DragEvent): { target: DropTarget; indicator: DropRect } | null {
+  const dragState = state.dragState
+  if (!dragState) return null
+
+  let containerId = findContainerAt(event.clientX, event.clientY)
+  if (containerId === undefined) return null
+
+  const draggedId = dragState.source === 'canvas' ? dragState.nodeId : undefined
+  // 画布内拖动时不能落进自己或自己的后代：收敛到被拖节点的父容器
+  if (draggedId && containerId && isSelfOrDescendant(containerId, draggedId)) {
+    containerId = nodeIndexOf.value.parentOf.get(draggedId) ?? null
   }
-  return engine.computeDropTarget(ds, over, pointer, {
-    left: 0,
-    top: 0,
-    width: canvasRect.width,
-    height: canvasRect.height,
+
+  const lists = collectLists()
+  const childEls = (lists.get(containerId) ?? []).filter(
+    (el) => el.dataset.nodeId !== draggedId,
+  )
+  const containerEl = containerId
+    ? document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(containerId)}"]`)
+    : canvasRef.value?.querySelector<HTMLElement>('.lc-runtime-root') ?? null
+
+  const listRect = containerEl
+    ? toDropRect(containerEl.getBoundingClientRect())
+    : toDropRect(canvasRef.value?.getBoundingClientRect() ?? new DOMRect())
+
+  return computeListDrop({
+    containerId,
+    childIds: childEls.map((el) => el.dataset.nodeId ?? ''),
+    childRects: childEls.map((el) => toDropRect(el.getBoundingClientRect())),
+    listRect,
+    axis: axisOf(containerEl),
+    pointer: { x: event.clientX, y: event.clientY },
   })
 }
 
-function onDragOver(event: DragEvent): void {
-  event.preventDefault()
+/* ---------------- 自动滚动：拖到画布边缘时滚动容器 ---------------- */
+
+const SCROLL_EDGE = 48
+const SCROLL_STEP = 18
+let autoScrollFrame = 0
+let lastPointer = { x: 0, y: 0 }
+
+function autoScrollTick(): void {
+  autoScrollFrame = 0
   if (!state.dragState) return
-  setDropTarget(computeDropTarget(event))
+  const scrollers: HTMLElement[] = []
+  if (canvasRef.value) scrollers.push(canvasRef.value)
+  if (wrapRef.value) scrollers.push(wrapRef.value)
+
+  for (const el of scrollers) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) continue
+    if (lastPointer.x < rect.left + SCROLL_EDGE) el.scrollLeft -= SCROLL_STEP
+    else if (lastPointer.x > rect.right - SCROLL_EDGE) el.scrollLeft += SCROLL_STEP
+    if (lastPointer.y < rect.top + SCROLL_EDGE) el.scrollTop -= SCROLL_STEP
+    else if (lastPointer.y > rect.bottom - SCROLL_EDGE) el.scrollTop += SCROLL_STEP
+  }
+  autoScrollFrame = requestAnimationFrame(autoScrollTick)
+}
+
+function startAutoScroll(): void {
+  if (autoScrollFrame === 0) autoScrollFrame = requestAnimationFrame(autoScrollTick)
+}
+
+function stopAutoScroll(): void {
+  if (autoScrollFrame !== 0) {
+    cancelAnimationFrame(autoScrollFrame)
+    autoScrollFrame = 0
+  }
+}
+
+/* ---------------- 拖拽生命周期 ---------------- */
+
+function onNodeDragStart(event: DragEvent, node: PageNode): void {
+  const handle = event.currentTarget as HTMLElement
+  const nodeEl = handle.closest('[data-node-id]') as HTMLElement | null
+  const typeLabel = materialRegistry.get(node.type)?.name ?? node.type
+  beginDragGhost({ sourceEl: nodeEl, label: typeLabel })
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('application/x-lc-node', node.id)
+    // 用自有浮层替代浏览器默认影像，避免出现两个拖拽影像
+    event.dataTransfer.setDragImage(transparentDragImage(), 0, 0)
+  }
+  setDragState({ source: 'canvas', nodeId: node.id })
+  startAutoScroll()
+}
+
+function finishDrag(): void {
+  setDragState(null)
+  setDropTarget(null)
+  dropIndicator.value = null
+  stopAutoScroll()
+  endDragGhost()
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && state.dragState) {
+    finishDrag()
+  }
+}
+
+function onDragOver(event: DragEvent): void {
+  if (!state.dragState) return
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = state.dragState.source === 'material' ? 'copy' : 'move'
+  }
+  lastPointer = { x: event.clientX, y: event.clientY }
+  moveDragGhost(event.clientX, event.clientY)
+
+  const result = computeDrop(event)
+  if (!result) {
+    setDropTarget(null)
+    dropIndicator.value = null
+    return
+  }
+  setDropTarget(result.target)
+  dropIndicator.value = result.indicator
 }
 
 function onDrop(event: DragEvent): void {
   event.preventDefault()
-  const ds = state.dragState
-  const target = state.dropTarget
-  if (ds && target) {
-    if (ds.source === 'material' && ds.materialType) {
-      insertMaterial(ds.materialType, target)
-    } else if (ds.source === 'canvas' && ds.nodeId) {
-      moveNode(ds.nodeId, target)
+  const dragState = state.dragState
+  const target = state.dropTarget ?? computeDrop(event)?.target ?? null
+  if (dragState && target) {
+    if (dragState.source === 'material' && dragState.materialType) {
+      insertMaterial(dragState.materialType, target)
+    } else if (dragState.source === 'canvas' && dragState.nodeId) {
+      moveNode(dragState.nodeId, target)
     }
-  } else {
-    const materialType = event.dataTransfer?.getData('application/x-lc-material')
-    if (materialType) insertMaterial(materialType)
   }
-  setDragState(null)
-  setDropTarget(null)
+  finishDrag()
 }
 
-function onDragEnd(): void {
-  setDragState(null)
+function onDragLeave(event: DragEvent): void {
+  // 只在真正离开画布时清除指示条（子元素间移动会冒泡 dragleave）
+  const related = event.relatedTarget as HTMLElement | null
+  if (related && canvasRef.value?.contains(related)) return
+  dropIndicator.value = null
   setDropTarget(null)
 }
 </script>
@@ -373,13 +513,15 @@ function onDragEnd(): void {
     ref="wrapRef"
     class="lc-canvas-wrap"
     :class="`lc-canvas-wrap--${state.device}`"
-    @dragend="onDragEnd"
+    @dragend="finishDrag"
+    @dragleave="onDragLeave"
   >
     <!-- PC：白色画布铺满工作区 -->
     <div
       v-if="state.device === 'pc'"
+      ref="canvasRef"
       class="lc-canvas lc-canvas--pc"
-      :class="{ 'lc-canvas--empty': isEmpty, 'lc-canvas--drop-root': state.dropTarget?.position === 'root' }"
+      :class="{ 'lc-canvas--empty': isEmpty }"
       :style="{ zoom: state.zoom }"
       @drop="onDrop"
       @dragover="onDragOver"
@@ -399,8 +541,9 @@ function onDragEnd(): void {
     <!-- Pad / H5：浅灰工作区 + 居中设备画布 + 深灰圆角边框 -->
     <div v-else class="lc-device-viewport" :style="viewportStyle">
       <div
+        ref="canvasRef"
         class="lc-canvas lc-canvas--device"
-        :class="{ 'lc-canvas--empty': isEmpty, 'lc-canvas--drop-root': state.dropTarget?.position === 'root' }"
+        :class="{ 'lc-canvas--empty': isEmpty }"
         :style="deviceStyle"
         @drop="onDrop"
         @dragover="onDragOver"
@@ -417,6 +560,11 @@ function onDragEnd(): void {
         </div>
       </div>
     </div>
+
+    <!-- 插入指示条：与 variant-form 的 ghost 一致（3px 主色条），渲染到 body 以避开画布缩放 -->
+    <Teleport to="body">
+      <div v-if="dropIndicator" class="lc-drop-indicator" :style="indicatorStyle" />
+    </Teleport>
   </main>
 </template>
 
@@ -469,10 +617,6 @@ function onDragEnd(): void {
   overflow: hidden;
 }
 
-.lc-canvas--drop-root {
-  box-shadow: inset 0 3px 0 #3370ff;
-}
-
 .lc-canvas--empty {
   display: flex;
   align-items: center;
@@ -492,30 +636,38 @@ function onDragEnd(): void {
   margin: 0;
 }
 
-/* 节点包装层：选中/悬停/落点边框 */
+/*
+ * 节点包装层：选中 / 悬停 / 拖拽 / 落点。
+ * 选中态使用 outline（不参与布局），与 variant-form 的 `outline: 2px solid` 一致。
+ */
 :deep(.lc-node) {
   position: relative;
-  border: 1px dashed transparent;
+  outline: 1px dashed transparent;
+  outline-offset: -1px;
   border-radius: 2px;
-  transition: border-color 0.15s ease;
+  transition: outline-color 0.15s ease, opacity 0.15s ease;
   cursor: pointer;
 }
 :deep(.lc-node:hover) {
-  border-color: #3370ff;
+  outline-color: #3370ff;
 }
 :deep(.lc-node--selected) {
-  border: 1px solid #3370ff;
+  outline: 2px solid #3370ff;
+  outline-offset: -2px;
+}
+:deep(.lc-node--dragging) {
+  opacity: 0.4;
+}
+:deep(.lc-node--drop-inside) {
+  outline: 1px dashed #3370ff;
+  outline-offset: -1px;
 }
 
-/*
- * 嵌入式节点（栅格列 / 表格行 / 单元格）：不套包裹层，选中态用 outline 表达，
- * 避免 border 参与布局导致栅格与表格错位。
- */
+/* 内部结构节点（栅格列 / 表格行 / 单元格）：直接复用组件根元素 */
 :deep(.lc-node--embedded) {
   cursor: pointer;
 }
 :deep(.lc-node--embedded.lc-node--selected) {
-  border: none;
   outline: 2px solid #3370ff;
   outline-offset: -2px;
 }
@@ -524,73 +676,65 @@ function onDragEnd(): void {
   outline-offset: -1px;
 }
 :deep(.lc-node--embedded.lc-node--drop-inside) {
-  outline: 2px dashed #00b42a;
-  outline-offset: -2px;
-}
-:deep(.lc-node--embedded.lc-node--drop-before) {
-  box-shadow: inset 0 2px 0 #00b42a;
-}
-:deep(.lc-node--embedded.lc-node--drop-after) {
-  box-shadow: inset 0 -2px 0 #00b42a;
+  outline: 1px dashed #3370ff;
+  outline-offset: -1px;
 }
 
-/* 左上角浮层组：拖拽手柄 → 组件名称（hover 显示手柄，选中后连名称一起显示） */
+/* 左上角拖拽手柄（仅选中时出现，与 variant-form 位置/尺寸一致） */
 :deep(.lc-node__badges) {
   position: absolute;
-  top: -22px;
-  left: -1px;
-  display: none;
+  top: -2px;
+  left: -2px;
+  display: flex;
   align-items: center;
-  padding: 5px 10px 5px 7px;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px 0 6px;
   background: #3370ff;
-  border-radius: 4px;
-  cursor: grab;
+  border-radius: 3px;
+  cursor: move;
   user-select: none;
   z-index: 11;
 }
-:deep(.lc-node:hover .lc-node__badges),
-:deep(.lc-node--selected .lc-node__badges) {
-  display: flex;
-}
-
-/* 组件类型标识 */
-:deep(.lc-node__type) {
-  display: none;
-  padding-left: 12px;
+:deep(.lc-node__rank) {
   font-size: 12px;
+  font-style: normal;
+  line-height: 1;
+  color: #fff;
+}
+:deep(.lc-node__type) {
+  font-size: 12px;
+  font-style: normal;
   line-height: 1;
   color: #fff;
   white-space: nowrap;
 }
-:deep(.lc-node--selected .lc-node__type) {
-  display: block;
-}
-
-/* 拖拽字形（整条 .lc-node__badges 均可拖，此处仅负责左侧视觉） */
-:deep(.lc-node__handle) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+:deep(.lc-node__hidden) {
+  padding: 0 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
   color: #fff;
-  font-size: 12px;
-  line-height: 1;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 14px;
 }
 
-/* 右下角操作组：整条蓝色标签，内部依次为 ← ↑ ↓ 复制 删除 */
+/* 右下角操作组：← ↑ ↓ 复制 删除（仅选中时出现） */
 :deep(.lc-node__actions) {
   position: absolute;
-  bottom: -26px;
-  right: -1px;
+  bottom: -2px;
+  right: -2px;
   display: flex;
   align-items: center;
+  height: 22px;
   padding: 0 4px;
   background: #3370ff;
-  border-radius: 4px;
+  border-radius: 3px;
   z-index: 10;
 }
 :deep(.lc-node__action) {
-  min-width: 24px;
-  height: 22px;
+  min-width: 22px;
+  height: 20px;
   padding: 0 5px;
   border: none;
   background: transparent;
@@ -611,19 +755,19 @@ function onDragEnd(): void {
   opacity: 0.65;
 }
 :deep(.lc-node__action--danger) {
-  color: #ff7875;
+  color: #ffb3b3;
 }
+</style>
 
-/* 落点指示 */
-:deep(.lc-node--drop-inside) {
-  outline: 2px dashed #3370ff;
-  outline-offset: 1px;
-  border-color: #3370ff;
-}
-:deep(.lc-node--drop-before) {
-  box-shadow: 0 -3px 0 #3370ff;
-}
-:deep(.lc-node--drop-after) {
-  box-shadow: 0 3px 0 #3370ff;
+<!-- 插入指示条被 Teleport 到 body，使用非 scoped 样式 -->
+<style>
+.lc-drop-indicator {
+  position: fixed;
+  z-index: 3500;
+  pointer-events: none;
+  background: #3370ff;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(51, 112, 255, 0.6);
+  transition: left 0.08s ease, top 0.08s ease, width 0.08s ease, height 0.08s ease;
 }
 </style>

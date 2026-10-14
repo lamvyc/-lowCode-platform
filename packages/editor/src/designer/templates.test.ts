@@ -45,9 +45,11 @@ describe('页面模板', () => {
   })
 
   it('内置模板节点都声明了合法 type 与 props', () => {
+    // 「空白页面」是合法的空页面，其余模板必须有实质内容
     for (const template of BUILTIN_TEMPLATES) {
+      if (template.id === 'blank') continue
       const nodes = normalizePageSchema(template.create()).nodes
-      expect(nodes.length).toBeGreaterThan(0)
+      expect(nodes.length).toBeGreaterThanOrEqual(3)
       for (const node of nodes) {
         expect(node.type).toMatch(/^[a-z][\w-]*$/)
         expect(typeof node.props).toBe('object')
@@ -61,16 +63,17 @@ describe('页面模板', () => {
     const tree = buildOutlineTree(normalizePageSchema(login.create()).nodes)
 
     expect(tree).toHaveLength(1)
-    expect(countOutlineNodes(tree)).toBe(5)
+    expect(countOutlineNodes(tree)).toBe(4)
   })
 
   it('create() 每次返回全新对象，互不影响', () => {
-    const template = BUILTIN_TEMPLATES[0]
+    const template = BUILTIN_TEMPLATES.find((item) => item.id === 'login')!
     const first = normalizePageSchema(template.create())
-    first.nodes[0].props.direction = 'row'
+    const card = first.nodes.find((node) => node.type === 'card')!
+    card.props.label = '被改坏了'
 
     const second = normalizePageSchema(template.create())
-    expect(second.nodes[0].props.direction).not.toBe('row')
+    expect(second.nodes.find((node) => node.type === 'card')?.props.label).toBe('账号登录')
   })
 
   it('TemplateRegistry 按 id 去重、可删除、可实例化深拷贝', () => {

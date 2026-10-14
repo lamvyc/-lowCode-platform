@@ -14,12 +14,6 @@ export function createDemoSchema(): PageSchema {
     },
     nodes: [
       {
-        id: 'root',
-        type: 'container',
-        props: { direction: 'column', gap: 12, padding: 16, backgroundColor: '' },
-        children: ['n_title', 'n_select', 'n_input', 'n_table', 'n_button', 'n_dialog'],
-      },
-      {
         id: 'n_title',
         type: 'static-text',
         props: {
@@ -89,35 +83,23 @@ export function createDemoSchema(): PageSchema {
       {
         id: 'n_button',
         type: 'button',
-        props: { text: '打开详情', type: 'primary', size: 'default', disabled: false },
+        props: { text: '刷新列表', type: 'primary', size: 'default', disabled: false },
         events: {
           click: [
             {
               id: 'a_click_1',
               kind: 'setProp',
               label: '修改按钮文案',
-              config: { nodeId: 'n_button', prop: 'text', value: '已打开详情' },
+              config: { nodeId: 'n_button', prop: 'text', value: '已刷新' },
             },
             {
               id: 'a_click_2',
-              kind: 'openDialog',
-              label: '打开弹窗',
-              config: { dialogId: 'dialog1' },
+              kind: 'emitEvent',
+              label: '派发刷新事件',
+              config: { event: 'refreshUserList', payload: {} },
             },
           ],
         },
-      },
-      {
-        id: 'n_dialog',
-        type: 'dialog',
-        props: { dialogId: 'dialog1', title: '详情弹窗', width: '420px' },
-        children: ['n_dialog_text'],
-      },
-      {
-        id: 'n_dialog_text',
-        type: 'static-text',
-        props: { textContent: '这是通过 openDialog 动作打开的弹窗', fontSize: '14px', textAlign: 'left' },
-        style: { color: { type: 'static', value: '#4e5969' } },
       },
     ],
     materials: [],

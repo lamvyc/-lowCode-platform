@@ -15,6 +15,7 @@ import { materialRegistry } from '../../platform'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
 import { buildOutlineTree, countOutlineNodes } from '../outline'
 import { templateRegistry, type PageTemplate } from '../templates'
+import { beginDragGhost, endDragGhost, transparentDragImage } from '../drag-ghost'
 
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
 const { setDragState, setDropTarget, schema } = ctx
@@ -90,13 +91,17 @@ function onDragStart(event: DragEvent, material: Material): void {
   if (event.dataTransfer) {
     event.dataTransfer.setData('application/x-lc-material', material.type)
     event.dataTransfer.effectAllowed = 'copy'
+    // 用自有浮层替代浏览器默认影像，与画布内拖拽保持一致
+    event.dataTransfer.setDragImage(transparentDragImage(), 0, 0)
   }
+  beginDragGhost({ sourceEl: event.currentTarget as HTMLElement | null, label: material.name })
   setDragState({ source: 'material', materialType: material.type })
 }
 
 function onDragEnd(): void {
   setDragState(null)
   setDropTarget(null)
+  endDragGhost()
 }
 
 /* ---------------- 页面模板 ---------------- */

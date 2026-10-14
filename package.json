@@ -8,6 +8,7 @@
     "dev": "pnpm --filter @lowcode/playground dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "conformance": "pnpm --filter @lowcode/materials test",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

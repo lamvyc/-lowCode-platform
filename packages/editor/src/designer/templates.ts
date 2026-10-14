@@ -38,18 +38,9 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
   {
     id: 'blank',
     name: '空白页面',
-    description: '仅一个根容器，适合从零搭建',
+    description: '空画布，适合从零搭建',
     tags: ['基础'],
-    create: () =>
-      page('tpl_blank', '空白页面', '空白页面模板', [
-        {
-          id: 'tpl_blank_root',
-          name: 'root',
-          type: 'container',
-          props: { direction: 'column', gap: 12, padding: 16, align: 'stretch' },
-          children: [],
-        },
-      ]),
+    create: () => page('tpl_blank', '空白页面', '空白页面模板', []),
   },
   {
     id: 'login',
@@ -58,13 +49,6 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
     tags: ['表单', '常用'],
     create: () =>
       page('tpl_login', '登录表单', '登录表单模板', [
-        {
-          id: 'tpl_login_root',
-          name: 'root',
-          type: 'container',
-          props: { direction: 'column', gap: 12, padding: 24, align: 'stretch' },
-          children: ['tpl_login_card'],
-        },
         {
           id: 'tpl_login_card',
           name: 'loginCard',
@@ -126,13 +110,6 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
         '数据列表页模板',
         [
           {
-            id: 'tpl_list_root',
-            name: 'root',
-            type: 'container',
-            props: { direction: 'column', gap: 12, padding: 16, align: 'stretch' },
-            children: ['tpl_list_title', 'tpl_list_table', 'tpl_list_open', 'tpl_list_dialog'],
-          },
-          {
             id: 'tpl_list_title',
             name: 'title',
             type: 'static-text',
@@ -155,33 +132,20 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
             },
           },
           {
-            id: 'tpl_list_open',
-            name: 'openDetail',
+            id: 'tpl_list_refresh',
+            name: 'refreshList',
             type: 'button',
-            props: { text: '查看详情', type: 'primary', size: 'default' },
+            props: { text: '刷新列表', type: 'primary', size: 'default' },
             events: {
               click: [
                 {
-                  id: 'tpl_list_open_action',
-                  kind: 'openDialog',
-                  label: '打开详情弹窗',
-                  config: { dialogId: 'detailDialog' },
+                  id: 'tpl_list_refresh_action',
+                  kind: 'emitEvent',
+                  label: '派发刷新事件',
+                  config: { event: 'refreshList', payload: {} },
                 },
               ],
             },
-          },
-          {
-            id: 'tpl_list_dialog',
-            name: 'detailDialog',
-            type: 'dialog',
-            props: { dialogId: 'detailDialog', title: '详情', width: '480px' },
-            children: ['tpl_list_dialog_text'],
-          },
-          {
-            id: 'tpl_list_dialog_text',
-            name: 'detailText',
-            type: 'static-text',
-            props: { textContent: '这里展示行详情内容', fontSize: '14px', textAlign: 'left' },
           },
         ],
         {
@@ -212,13 +176,6 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
     create: () =>
       page('tpl_dashboard', '卡片看板', '卡片看板模板', [
         {
-          id: 'tpl_dash_root',
-          name: 'root',
-          type: 'container',
-          props: { direction: 'column', gap: 12, padding: 16, align: 'stretch' },
-          children: ['tpl_dash_title', 'tpl_dash_row'],
-        },
-        {
           id: 'tpl_dash_title',
           name: 'title',
           type: 'static-text',
@@ -226,11 +183,18 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
           style: { fontWeight: { type: 'static', value: 700 } },
         },
         {
-          id: 'tpl_dash_row',
-          name: 'cards',
-          type: 'container',
-          props: { direction: 'row', gap: 12, padding: 0, align: 'stretch' },
-          children: ['tpl_dash_card_a', 'tpl_dash_card_b'],
+          id: 'tpl_dash_grid',
+          name: 'cardsGrid',
+          type: 'grid',
+          props: { gutter: 12, justify: 'start' },
+          children: ['tpl_dash_col_a', 'tpl_dash_col_b'],
+        },
+        {
+          id: 'tpl_dash_col_a',
+          name: 'colA',
+          type: 'grid-col',
+          props: { span: 12 },
+          children: ['tpl_dash_card_a'],
         },
         {
           id: 'tpl_dash_card_a',
@@ -248,6 +212,13 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
             fontWeight: { type: 'static', value: 700 },
             color: { type: 'static', value: '#3370ff' },
           },
+        },
+        {
+          id: 'tpl_dash_col_b',
+          name: 'colB',
+          type: 'grid-col',
+          props: { span: 12 },
+          children: ['tpl_dash_card_b'],
         },
         {
           id: 'tpl_dash_card_b',

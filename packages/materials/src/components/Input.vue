@@ -12,6 +12,12 @@ const props = withDefaults(
     labelWidth?: number | null
     labelHidden?: boolean
     labelAlign?: 'left' | 'center' | 'right'
+    /** 标签图标 class（如 el-icon-user） */
+    labelIconClass?: string
+    /** 标签图标位置：前置 / 后置 */
+    labelIconPosition?: 'front' | 'rear'
+    /** 标签悬浮提示 */
+    labelTooltip?: string
     required?: boolean
     requiredHint?: string
     validationHint?: string
@@ -93,6 +99,9 @@ const minLength = computed(() => (props.minLength && props.minLength > 0 ? props
     :label-width="labelWidth"
     :label-hidden="labelHidden"
     :label-align="labelAlign"
+    :label-icon-class="labelIconClass"
+    :label-icon-position="labelIconPosition"
+    :label-tooltip="labelTooltip"
     :required="required"
     :required-hint="requiredHint"
     :validation-hint="validationHint"

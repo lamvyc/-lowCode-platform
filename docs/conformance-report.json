@@ -1,0 +1,734 @@
+{
+  "referenceDir": "/Users/unravel/variant-form/src",
+  "widgets": [
+    {
+      "referenceType": "grid",
+      "ourType": "grid",
+      "componentFile": "Grid.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "hidden"
+      ],
+      "extraOptions": [
+        "columns",
+        "justify"
+      ],
+      "waived": [
+        "attr:gridcolwidget:col-height"
+      ]
+    },
+    {
+      "referenceType": "table",
+      "ourType": "layout-table",
+      "componentFile": "LayoutTable.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "hidden"
+      ],
+      "extraOptions": [
+        "tableStructure",
+        "border"
+      ],
+      "waived": []
+    },
+    {
+      "referenceType": "tab",
+      "ourType": "tab",
+      "componentFile": "Tab.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "hidden"
+      ],
+      "extraOptions": [
+        "panes",
+        "displayType",
+        "activeName"
+      ],
+      "waived": []
+    },
+    {
+      "referenceType": "grid-col",
+      "ourType": "grid-col",
+      "componentFile": "GridCol.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "hidden"
+      ],
+      "extraOptions": [
+        "colHeight"
+      ],
+      "waived": []
+    },
+    {
+      "referenceType": "table-cell",
+      "ourType": "layout-table-cell",
+      "componentFile": "LayoutTableCell.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name"
+      ],
+      "extraOptions": [],
+      "waived": []
+    },
+    {
+      "referenceType": "tab-pane",
+      "ourType": "tab-pane",
+      "componentFile": "TabPane.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "label",
+        "hidden",
+        "active",
+        "disabled",
+        "customClass"
+      ],
+      "extraOptions": [
+        "label",
+        "paneName",
+        "disabled"
+      ],
+      "waived": []
+    },
+    {
+      "referenceType": "input",
+      "ourType": "input",
+      "componentFile": "Input.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "rows",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate",
+        "attr:elbutton:class"
+      ]
+    },
+    {
+      "referenceType": "textarea",
+      "ourType": "textarea",
+      "componentFile": "Textarea.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "number",
+      "ourType": "number",
+      "componentFile": "Number.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "radio",
+      "ourType": "radio",
+      "componentFile": "Radio.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate",
+        "attr:elradiobutton:border"
+      ]
+    },
+    {
+      "referenceType": "checkbox",
+      "ourType": "checkbox",
+      "componentFile": "Checkbox.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "select",
+      "ourType": "select",
+      "componentFile": "Select.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "time",
+      "ourType": "time",
+      "componentFile": "Time.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "time-range",
+      "ourType": "time-range",
+      "componentFile": "TimeRange.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "date",
+      "ourType": "date",
+      "componentFile": "Date.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "date-range",
+      "ourType": "date-range",
+      "componentFile": "DateRange.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "switch",
+      "ourType": "switch",
+      "componentFile": "Switch.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "rate",
+      "ourType": "rate",
+      "componentFile": "Rate.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "color",
+      "ourType": "color",
+      "componentFile": "Color.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "validation",
+        "validationHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "showAlpha",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "slider",
+      "ourType": "slider",
+      "componentFile": "Slider.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "columnWidth",
+        "size",
+        "requiredHint",
+        "validation",
+        "validationHint",
+        "height"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "height",
+        "validation",
+        "validationHint",
+        "size",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "static-text",
+      "ourType": "static-text",
+      "componentFile": "StaticText.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "columnWidth",
+        "hidden",
+        "customClass"
+      ],
+      "extraOptions": [
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "attr:pre:style"
+      ]
+    },
+    {
+      "referenceType": "html-text",
+      "ourType": "html-text",
+      "componentFile": "HtmlText.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "columnWidth",
+        "hidden",
+        "customClass"
+      ],
+      "extraOptions": [
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted"
+      ]
+    },
+    {
+      "referenceType": "button",
+      "ourType": "button",
+      "componentFile": "Button.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "columnWidth",
+        "hidden",
+        "customClass"
+      ],
+      "extraOptions": [
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "attr:staticcontentwrapper:display-style"
+      ]
+    },
+    {
+      "referenceType": "divider",
+      "ourType": "divider",
+      "componentFile": "Divider.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "name",
+        "columnWidth",
+        "direction",
+        "hidden",
+        "customClass"
+      ],
+      "extraOptions": [
+        "direction"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted"
+      ]
+    },
+    {
+      "referenceType": "picture-upload",
+      "ourType": "picture-upload",
+      "componentFile": "PictureUpload.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "columnWidth",
+        "requiredHint",
+        "customRule",
+        "customRuleHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "file-upload",
+      "ourType": "file-upload",
+      "componentFile": "FileUpload.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "columnWidth",
+        "requiredHint",
+        "customRule",
+        "customRuleHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    },
+    {
+      "referenceType": "rich-editor",
+      "ourType": "rich-editor",
+      "componentFile": "RichEditor.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "columnWidth",
+        "requiredHint",
+        "customRule",
+        "customRuleHint",
+        "minLength",
+        "maxLength",
+        "showWordLimit"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "minLength",
+        "maxLength",
+        "showWordLimit",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate",
+        "attr:vueeditor:disabled",
+        "attr:vueeditor:placeholder"
+      ]
+    },
+    {
+      "referenceType": "cascader",
+      "ourType": "cascader",
+      "componentFile": "Cascader.vue",
+      "status": "ok",
+      "missingOptions": [],
+      "missingEvents": [],
+      "missingAttrs": [],
+      "unusedOptions": [
+        "defaultValue",
+        "columnWidth",
+        "requiredHint",
+        "customRule",
+        "customRuleHint"
+      ],
+      "extraOptions": [
+        "requiredHint",
+        "modelValue",
+        "validation",
+        "validationHint",
+        "columnWidth"
+      ],
+      "waived": [
+        "event:onCreated",
+        "event:onMounted",
+        "event:onValidate"
+      ]
+    }
+  ],
+  "missingWidgets": [],
+  "extraWidgets": [
+    "card",
+    "image"
+  ],
+  "summary": {
+    "referenceWidgets": 28,
+    "checkedWidgets": 28,
+    "ok": 28,
+    "withGaps": 0,
+    "missingWidgets": 0,
+    "missingOptions": 0,
+    "missingEvents": 0,
+    "missingAttrs": 0,
+    "waived": 69
+  }
+}
