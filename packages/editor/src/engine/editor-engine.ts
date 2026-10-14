@@ -13,6 +13,7 @@ import {
   type AnyPageSchema,
   type Binding,
   type FormSettings,
+  type MaterialDefaultChild,
   type PageNode,
   type PageSchema,
   type PageSettings,
@@ -135,10 +136,57 @@ export class EditorEngine {
     if ('label' in node.props) {
       node.props.label = node.name
     }
+    const defaultChildren = this.nodeFactory.material(type)?.defaultChildren ?? []
     this.record((draft) => {
-      new NodeTree(draft.nodes).insert(node, target.parentId, target.slot, target.index)
+      const tree = new NodeTree(draft.nodes)
+      tree.insert(node, target.parentId, target.slot, target.index)
+      // 容器物料的内部结构（栅格列 / 表格行单元格 / 标签页）随插入一并创建
+      if (defaultChildren.length > 0) {
+        this.insertDefaultChildren(tree, node.id, defaultChildren)
+      }
     }, 'insert')
     return node
+  }
+
+  /** 递归创建物料的默认子结构 */
+  private insertDefaultChildren(
+    tree: NodeTree,
+    parentId: string,
+    specs: MaterialDefaultChild[],
+  ): void {
+    for (const spec of specs) {
+      const count = spec.count ?? 1
+      for (let index = 0; index < count; index += 1) {
+        const child = this.nodeFactory.create(spec.type)
+        tree.insert(child, parentId, spec.slot, undefined)
+        if (spec.children?.length) {
+          this.insertDefaultChildren(tree, child.id, spec.children)
+        }
+      }
+    }
+  }
+
+  /**
+   * 在容器下追加内部结构子节点（栅格列 / 表格行 / 标签页）。
+   * 结构编辑器使用，不改变选中态。
+   */
+  appendChildren(parentId: string, type: string, count = 1, slot?: string): PageNode[] {
+    const material = this.nodeFactory.material(type)
+    if (!material) throw new Error(`物料未注册: ${type}`)
+    const created: PageNode[] = []
+    this.record((draft) => {
+      const tree = new NodeTree(draft.nodes)
+      if (!tree.find(parentId)) throw new Error(`父节点不存在: ${parentId}`)
+      for (let index = 0; index < count; index += 1) {
+        const child = this.nodeFactory.create(type)
+        tree.insert(child, parentId, slot, undefined)
+        created.push(child)
+        if (material.defaultChildren?.length) {
+          this.insertDefaultChildren(tree, child.id, material.defaultChildren)
+        }
+      }
+    }, 'appendChild')
+    return created
   }
 
   /**
@@ -313,7 +361,14 @@ export class EditorEngine {
     const tree = new NodeTree(this.currentSchema.nodes)
     const target = this.dragDropManager.computeDropTarget(tree, dragState, over, pointer, rootRect)
     const validation = this.dragDropManager.validateDrop(tree, dragState, target)
-    return validation.ok ? target : null
+    if (!validation.ok) return null
+    // 「放入内部」要求目标物料声明 droppable，否则组件无法容纳子节点
+    if (target.position === 'inside' && target.targetId) {
+      const targetNode = tree.find(target.targetId)
+      const material = targetNode ? this.nodeFactory.material(targetNode.type) : undefined
+      if (!material?.droppable) return null
+    }
+    return target
   }
 
   private createRuntime(): RuntimeContext {

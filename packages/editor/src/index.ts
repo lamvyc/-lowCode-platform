@@ -1,6 +1,8 @@
 export {
   initPlatform,
   registerPlugin,
+  registerPageTemplate,
+  registerPageTemplates,
   materialRegistry,
   actionRegistry,
   expressionEngine,
@@ -49,6 +51,14 @@ export {
   toStyleConfig,
   useFormCss,
   validateCode,
+  buildOutlineTree,
+  countOutlineNodes,
+  findOutlineNode,
+  outlinePathTo,
+  BUILTIN_TEMPLATES,
+  TemplateRegistry,
+  registerBuiltinTemplates,
+  templateRegistry,
 } from './designer'
 export type {
   DesignerContext,
@@ -58,4 +68,7 @@ export type {
   DeviceDimension,
   CodeAnnotation,
   CodeMode,
+  BuildOutlineOptions,
+  OutlineNode,
+  PageTemplate,
 } from './designer'

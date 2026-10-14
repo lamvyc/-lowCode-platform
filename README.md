@@ -17,5 +17,7 @@ pnpm build
 
 - [架构总览](docs/architecture.md)
 - [Schema 代码级走读](docs/schema-walkthrough.md)
+- [设计器界面（导航栏 / 组件库 / 页面模板 / 结构树 / 生成 SFC）](docs/designer-ui.md)
+- [组件库（物料清单与移植说明）](docs/material-library.md)
 - [设置面板（组件设置 / 表单设置）](docs/setting-panel.md)
 - [五层架构企业级实践反推与基建优化](docs/五层架构企业级实践反推与基建优化.md)

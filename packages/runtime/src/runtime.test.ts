@@ -26,7 +26,8 @@ function makeBoxComponent() {
   return defineComponent({
     name: 'Box',
     setup(_, { slots }) {
-      return () => h('div', { class: 'box' }, slots.default?.())
+      // 同时渲染 default 与具名插槽，便于覆盖插槽渲染路径
+      return () => h('div', { class: 'box' }, [slots.default?.(), slots.named?.()])
     },
   })
 }
@@ -93,6 +94,35 @@ describe('Runtime Renderer', () => {
     expect(html).toContain('<div class="box">')
     expect(html).toContain('CHILD_ONLY')
     expect(html.match(/CHILD_ONLY/g)).toHaveLength(1)
+  })
+
+  it('slots.default 为空数组时不得覆盖 children 渲染（NodeFactory 会初始化该字段）', async () => {
+    const html = await render(
+      makeSchema([
+        {
+          id: 'root',
+          type: 'box',
+          props: {},
+          children: ['child'],
+          // 物料声明 slots: ['default'] 时工厂会写入该字段，历史数据也可能存在
+          slots: { default: [] },
+        },
+        { id: 'child', type: 'text', props: { text: 'CHILD_ONLY' } },
+      ]),
+    )
+    expect(html).toContain('<div class="box">')
+    expect(html).toContain('CHILD_ONLY')
+    expect(html.match(/CHILD_ONLY/g)).toHaveLength(1)
+  })
+
+  it('具名插槽仍然按 slots 渲染', async () => {
+    const html = await render(
+      makeSchema([
+        { id: 'root', type: 'box', props: {}, slots: { named: ['child'] } },
+        { id: 'child', type: 'text', props: { text: 'NAMED_ONLY' } },
+      ]),
+    )
+    expect(html).toContain('NAMED_ONLY')
   })
 
   it('visible 表达式为假时不渲染节点', async () => {

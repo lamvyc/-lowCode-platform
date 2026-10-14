@@ -38,7 +38,25 @@ const {
   setDropTarget,
 } = ctx
 
+/**
+ * 父级为这些布局容器时，节点不能再套一层 div：
+ * el-row 要求直接子级是 el-col、table 要求 tbody>tr>td，插入包裹层会破坏布局。
+ * 这类节点改用「嵌入式包裹」：直接把选中态 class 与事件合并到组件根 vnode 上。
+ */
+const LAYOUT_TRANSPARENT_PARENTS = new Set(['grid', 'layout-table', 'layout-table-row'])
+
 const wrapNode = computed(() => {
+  // 渲染前一次性建立「子 → 父」「id → 类型」索引，避免逐节点 O(n) 查父（大页面下的 O(n²) 开销）
+  const parentOf = new Map<string, string>()
+  const typeById = new Map<string, string>()
+  for (const item of schema.value.nodes) {
+    typeById.set(item.id, item.type)
+    for (const childId of item.children ?? []) parentOf.set(childId, item.id)
+    for (const ids of Object.values(item.slots ?? {})) {
+      for (const childId of ids) parentOf.set(childId, item.id)
+    }
+  }
+
   return (node: PageNode, inner: VNode): VNode => {
     const isSelected = state.selectedNodeId === node.id
     const isHovered = state.hoverNodeId === node.id
@@ -51,6 +69,34 @@ const wrapNode = computed(() => {
     const hasParent = isSelected ? ctx.getParentId(node.id) !== null : false
     const upEnabled = isSelected ? canMoveUp(node.id) : false
     const downEnabled = isSelected ? canMoveDown(node.id) : false
+
+    const parentId = parentOf.get(node.id)
+    const parentType = parentId ? typeById.get(parentId) : undefined
+    const embedded = parentType ? LAYOUT_TRANSPARENT_PARENTS.has(parentType) : false
+
+    if (embedded) {
+      const props = (inner.props ?? {}) as Record<string, unknown>
+      inner.props = {
+        ...props,
+        class: [
+          props.class,
+          'lc-node--embedded',
+          isSelected ? 'lc-node--selected' : '',
+          isHovered ? 'lc-node--hovered' : '',
+          isDropInside ? 'lc-node--drop-inside' : '',
+          isDropBefore ? 'lc-node--drop-before' : '',
+          isDropAfter ? 'lc-node--drop-after' : '',
+        ],
+        'data-node-id': node.id,
+        onClick: (event: MouseEvent) => {
+          event.stopPropagation()
+          selectNode(node.id)
+        },
+        onMouseenter: () => hoverNode(node.id),
+        onMouseleave: () => hoverNode(null),
+      }
+      return inner
+    }
 
     return h(
       'div',
@@ -459,6 +505,33 @@ function onDragEnd(): void {
 }
 :deep(.lc-node--selected) {
   border: 1px solid #3370ff;
+}
+
+/*
+ * 嵌入式节点（栅格列 / 表格行 / 单元格）：不套包裹层，选中态用 outline 表达，
+ * 避免 border 参与布局导致栅格与表格错位。
+ */
+:deep(.lc-node--embedded) {
+  cursor: pointer;
+}
+:deep(.lc-node--embedded.lc-node--selected) {
+  border: none;
+  outline: 2px solid #3370ff;
+  outline-offset: -2px;
+}
+:deep(.lc-node--embedded.lc-node--hovered:not(.lc-node--selected)) {
+  outline: 1px dashed #3370ff;
+  outline-offset: -1px;
+}
+:deep(.lc-node--embedded.lc-node--drop-inside) {
+  outline: 2px dashed #00b42a;
+  outline-offset: -2px;
+}
+:deep(.lc-node--embedded.lc-node--drop-before) {
+  box-shadow: inset 0 2px 0 #00b42a;
+}
+:deep(.lc-node--embedded.lc-node--drop-after) {
+  box-shadow: inset 0 -2px 0 #00b42a;
 }
 
 /* 左上角浮层组：拖拽手柄 → 组件名称（hover 显示手柄，选中后连名称一起显示） */

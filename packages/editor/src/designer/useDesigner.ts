@@ -12,6 +12,7 @@ import {
   deserializePage,
   getFormSettings,
   serializePage,
+  type AnyPageSchema,
   type FormSettings,
   type PageNode,
   type PageSchema,
@@ -64,12 +65,18 @@ export interface DesignerContext {
   updateProps: (id: string, patch: Record<string, unknown>) => void
   updateNode: (id: string, updater: (n: PageNode) => PageNode) => void
   updateNodeEvents: (id: string, events: PageNode['events']) => void
+  /** 追加内部结构子节点（栅格列 / 表格行 / 标签页），返回新节点 id 列表 */
+  appendChild: (parentId: string, type: string, count?: number) => string[]
+  /** 批量删除节点（级联删除后代），合并为一条历史 */
+  removeNodes: (ids: string[]) => void
   updateSettings: (patch: Partial<PageSettings>) => void
   updateFormSettings: (patch: Partial<FormSettings>) => void
   resetFormSettings: () => void
   setDragState: (ds: DragState | null) => void
   setDropTarget: (dt: DropTarget | null) => void
   importSchema: (json: string) => { ok: boolean; error?: string }
+  /** 直接载入 Schema（页面模板 / 版本回滚），重置历史并清空选中 */
+  loadSchema: (next: AnyPageSchema) => void
   exportSchema: () => string
 }
 
@@ -266,6 +273,19 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     engine.updateEvents(id, events)
     sync()
   }
+  function appendChild(parentId: string, type: string, count = 1): string[] {
+    const created = engine.appendChildren(parentId, type, count)
+    sync()
+    return created.map((node) => node.id)
+  }
+  function removeNodes(ids: string[]): void {
+    if (ids.length === 0) return
+    engine.removeNodes(ids)
+    sync()
+    if (state.selectedNodeId && !engine.current.nodes.some((n) => n.id === state.selectedNodeId)) {
+      selectNode(null)
+    }
+  }
   function updateSettings(patch: Partial<PageSettings>): void {
     engine.updateSettings(patch)
     sync()
@@ -288,6 +308,12 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }
+  }
+  function loadSchema(next: AnyPageSchema): void {
+    engine.load(next)
+    sync()
+    selectNode(null)
+    hoverNode(null)
   }
   function exportSchema(): string {
     return serializePage(engine.current, true)
@@ -325,12 +351,15 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     updateProps,
     updateNode,
     updateNodeEvents,
+    appendChild,
+    removeNodes,
     updateSettings,
     updateFormSettings,
     resetFormSettings,
     setDragState,
     setDropTarget,
     importSchema,
+    loadSchema,
     exportSchema,
   }
 }

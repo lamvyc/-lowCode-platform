@@ -27,3 +27,17 @@ export {
 export { CODE_MODE_LABELS, CODE_MODE_PLACEHOLDERS, formatCode, validateCode } from './code'
 export type { CodeAnnotation, CodeMode } from './code'
 export { useFormCss } from './form-css'
+export {
+  buildOutlineTree,
+  countOutlineNodes,
+  findOutlineNode,
+  outlinePathTo,
+} from './outline'
+export type { BuildOutlineOptions, OutlineNode } from './outline'
+export {
+  BUILTIN_TEMPLATES,
+  TemplateRegistry,
+  registerBuiltinTemplates,
+  templateRegistry,
+} from './templates'
+export type { PageTemplate } from './templates'

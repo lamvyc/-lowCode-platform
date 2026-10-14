@@ -18,6 +18,7 @@ export type PropControlType =
   | 'event'
   | 'events'
   | 'option-items'
+  | 'structure'
   | 'json'
   | 'code'
   | 'monaco'
@@ -87,6 +88,20 @@ export interface MaterialEventConfig {
   description?: string
 }
 
+/**
+ * 物料默认子节点声明：插入容器物料时自动创建内部结构节点。
+ * 例如栅格插入时自动带 1 个栅格列，标签页插入时自动带 2 个标签页。
+ */
+export interface MaterialDefaultChild {
+  type: string
+  /** 创建个数，默认 1 */
+  count?: number
+  /** 落入的插槽，默认 default */
+  slot?: string
+  /** 递归子结构 */
+  children?: MaterialDefaultChild[]
+}
+
 /** JSON Schema 格式的属性面板定义（P4 推荐） */
 export interface PropertySchema {
   type?: string
@@ -121,6 +136,10 @@ export interface RemoteMaterialManifest extends RemoteMaterialMeta {
   slots?: string[]
   /** 支持的事件声明（驱动「事件设置」分区） */
   events?: MaterialEventConfig[]
+  /** 内部物料：组件库面板不展示 */
+  hidden?: boolean
+  /** 插入时自动创建的内部结构节点 */
+  defaultChildren?: MaterialDefaultChild[]
   droppable?: boolean
   groupable?: boolean
   /** UMD 导出到 window 上的全局名 */
@@ -146,6 +165,10 @@ export interface Material {
   slots?: string[]
   /** 支持的事件声明（驱动「事件设置」分区） */
   events?: MaterialEventConfig[]
+  /** 内部物料：注册表可见但组件库面板不展示（如栅格列 / 表格行 / 单元格 / 标签页） */
+  hidden?: boolean
+  /** 插入时自动创建的内部结构节点 */
+  defaultChildren?: MaterialDefaultChild[]
   /** 是否可作为容器接收子节点 */
   droppable?: boolean
   /** 是否支持被拖动（编辑器拖拽移动） */

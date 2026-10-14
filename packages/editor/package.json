@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "@lowcode/codegen": "workspace:*",
     "@lowcode/core": "workspace:*",
     "@lowcode/materials": "workspace:*",
     "@lowcode/runtime": "workspace:*",

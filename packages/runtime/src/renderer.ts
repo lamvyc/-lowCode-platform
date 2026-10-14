@@ -110,6 +110,9 @@ function buildNode(
     const defaultSlot = childrenIds.map(renderChild).filter(Boolean) as VNode[]
     const slots: Record<string, () => VNode[]> = { default: () => defaultSlot }
     for (const [slotName, ids] of Object.entries(node.slots ?? {})) {
+      // 默认插槽以 children 为准：物料声明 slots: ['default'] 时 NodeFactory 会初始化
+      // `slots.default = []`，若在此覆盖会导致容器子节点全部不渲染
+      if (slotName === 'default') continue
       slots[slotName] = () =>
         ids.map(renderChild).filter(Boolean) as VNode[]
     }

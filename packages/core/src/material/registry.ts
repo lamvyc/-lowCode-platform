@@ -80,15 +80,22 @@ export class NodeFactory {
     overrides: { id?: string; props?: Record<string, unknown> } = {},
   ): PageNode {
     const material = this.registry.require(type)
+    // 默认插槽由 children 承载，slots 只保留具名插槽，避免同一份内容出现两种表示
+    const namedSlots = (material.slots ?? []).filter((slot) => slot !== 'default')
     return {
       id: overrides.id ?? createNodeId(),
       name: createUniqueName(type),
       type,
       props: { ...deepClone(material.defaultProps), ...(overrides.props ?? {}) },
-      children: material.droppable ? [] : undefined,
-      slots: material.slots?.length
-        ? Object.fromEntries(material.slots.map((slot) => [slot, []]))
+      children: material.droppable || material.defaultChildren?.length ? [] : undefined,
+      slots: namedSlots.length
+        ? Object.fromEntries(namedSlots.map((slot) => [slot, []]))
         : undefined,
     }
+  }
+
+  /** 读取物料定义（供编辑器解析默认子结构等元信息） */
+  material(type: string): Material | undefined {
+    return this.registry.get(type)
   }
 }

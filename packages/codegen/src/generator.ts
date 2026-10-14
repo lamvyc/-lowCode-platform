@@ -1,7 +1,33 @@
-import prettier from 'prettier'
+import { format as formatWithPrettier } from 'prettier/standalone'
+import * as prettierBabel from 'prettier/plugins/babel'
+import * as prettierEstree from 'prettier/plugins/estree'
+import * as prettierHtml from 'prettier/plugins/html'
+import * as prettierPostcss from 'prettier/plugins/postcss'
 import type { PageNode, PageSchema } from '@lowcode/schema'
 import { isExpressionBinding, isStaticBinding } from '@lowcode/schema'
 import { attr, bind, directive, el, on, stringifyTemplate, type TemplateNode } from './ast'
+
+/**
+ * Prettier 浏览器/Node 通用的 standalone 用法：
+ * vue 解析器来自 html 插件，内嵌脚本用 babel + estree，内嵌样式用 postcss。
+ * 直接 import 'prettier' 在浏览器端会被解析为不含插件的 standalone 包，导致
+ * 「Couldn't resolve parser "vue"」。
+ */
+const PRETTIER_PLUGINS = [prettierBabel, prettierEstree, prettierHtml, prettierPostcss]
+
+/** 格式化 SFC；格式化不可用时回退为未格式化文本（结构仍然完整可解析） */
+async function formatSfc(raw: string): Promise<string> {
+  try {
+    return await formatWithPrettier(raw, {
+      parser: 'vue',
+      semi: false,
+      plugins: PRETTIER_PLUGINS,
+    })
+  } catch {
+    return raw
+  }
+}
+
 
 /** 代码生成器接口：未来可扩展 React / HTML */
 export interface ICodeGenerator {
@@ -26,15 +52,46 @@ export type CodegenMaterialMap = Record<string, CodegenMaterialEntry>
 
 /** 默认内置物料映射：与 @lowcode/materials 导出一一对应 */
 const DEFAULT_MATERIALS: CodegenMaterialMap = {
+  // 容器
   container: { importName: 'LcContainer', from: '@lowcode/materials' },
   card: { importName: 'LcCard', from: '@lowcode/materials' },
-  text: { importName: 'LcText', from: '@lowcode/materials' },
-  button: { importName: 'LcButton', from: '@lowcode/materials' },
-  input: { importName: 'LcInput', from: '@lowcode/materials' },
-  select: { importName: 'LcSelect', from: '@lowcode/materials' },
-  image: { importName: 'LcImage', from: '@lowcode/materials' },
-  table: { importName: 'LcTable', from: '@lowcode/materials' },
   dialog: { importName: 'LcDialog', from: '@lowcode/materials' },
+  grid: { importName: 'LcGrid', from: '@lowcode/materials' },
+  'grid-col': { importName: 'LcGridCol', from: '@lowcode/materials' },
+  'layout-table': { importName: 'LcLayoutTable', from: '@lowcode/materials' },
+  'layout-table-row': { importName: 'LcLayoutTableRow', from: '@lowcode/materials' },
+  'layout-table-cell': { importName: 'LcLayoutTableCell', from: '@lowcode/materials' },
+  tab: { importName: 'LcTab', from: '@lowcode/materials' },
+  'tab-pane': { importName: 'LcTabPane', from: '@lowcode/materials' },
+  // 基础
+  text: { importName: 'LcText', from: '@lowcode/materials' },
+  'static-text': { importName: 'LcStaticText', from: '@lowcode/materials' },
+  'html-text': { importName: 'LcHtmlText', from: '@lowcode/materials' },
+  button: { importName: 'LcButton', from: '@lowcode/materials' },
+  divider: { importName: 'LcDivider', from: '@lowcode/materials' },
+  image: { importName: 'LcImage', from: '@lowcode/materials' },
+  // 表单字段
+  input: { importName: 'LcInput', from: '@lowcode/materials' },
+  textarea: { importName: 'LcTextarea', from: '@lowcode/materials' },
+  number: { importName: 'LcNumber', from: '@lowcode/materials' },
+  radio: { importName: 'LcRadio', from: '@lowcode/materials' },
+  checkbox: { importName: 'LcCheckbox', from: '@lowcode/materials' },
+  select: { importName: 'LcSelect', from: '@lowcode/materials' },
+  time: { importName: 'LcTime', from: '@lowcode/materials' },
+  'time-range': { importName: 'LcTimeRange', from: '@lowcode/materials' },
+  date: { importName: 'LcDate', from: '@lowcode/materials' },
+  'date-range': { importName: 'LcDateRange', from: '@lowcode/materials' },
+  switch: { importName: 'LcSwitch', from: '@lowcode/materials' },
+  rate: { importName: 'LcRate', from: '@lowcode/materials' },
+  color: { importName: 'LcColor', from: '@lowcode/materials' },
+  slider: { importName: 'LcSlider', from: '@lowcode/materials' },
+  cascader: { importName: 'LcCascader', from: '@lowcode/materials' },
+  // 高级字段
+  'picture-upload': { importName: 'LcPictureUpload', from: '@lowcode/materials' },
+  'file-upload': { importName: 'LcFileUpload', from: '@lowcode/materials' },
+  'rich-editor': { importName: 'LcRichEditor', from: '@lowcode/materials' },
+  // 数据
+  table: { importName: 'LcTable', from: '@lowcode/materials' },
 }
 
 function pascalCase(type: string): string {
@@ -337,7 +394,7 @@ export class VueSfcGenerator implements ICodeGenerator {
       style,
       '</style>',
     ].join('\n')
-    const code = await prettier.format(raw, { parser: 'vue', semi: false })
+    const code = await formatSfc(raw)
     return {
       filename: `${schema.meta.name || 'page'}.vue`,
       code,

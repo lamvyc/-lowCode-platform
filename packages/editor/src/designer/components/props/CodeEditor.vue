@@ -94,8 +94,9 @@ defineExpose({ getEditorAnnotations, hasErrors, format: doFormat, focus })
     <div class="lc-code-editor__bar">
       <span class="lc-code-editor__mode">{{ modeLabel }}</span>
       <span class="lc-code-editor__spacer" />
-      <el-button v-if="mode === 'json'" size="small" text @click="doFormat">格式化</el-button>
-      <el-button size="small" text @click="getEditorAnnotations">检查语法</el-button>
+      <el-button v-if="!readonly && mode === 'json'" size="small" text @click="doFormat">格式化</el-button>
+      <el-button v-if="!readonly" size="small" text @click="getEditorAnnotations">检查语法</el-button>
+      <span v-if="readonly" class="lc-code-editor__readonly">只读</span>
     </div>
 
     <div class="lc-code-editor__body">
@@ -152,6 +153,11 @@ defineExpose({ getEditorAnnotations, hasErrors, format: doFormat, focus })
   font-size: 12px;
   color: #86909c;
   letter-spacing: 0.4px;
+}
+.lc-code-editor__readonly {
+  padding: 0 6px;
+  font-size: 11px;
+  color: #86909c;
 }
 .lc-code-editor__spacer {
   flex: 1;

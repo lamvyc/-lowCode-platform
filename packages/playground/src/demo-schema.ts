@@ -21,23 +21,26 @@ export function createDemoSchema(): PageSchema {
       },
       {
         id: 'n_title',
-        type: 'text',
+        type: 'static-text',
         props: {
-          text: '用户管理',
-          fontSize: 20,
-          bold: true,
-          color: '#1f2329',
-          align: 'left',
+          textContent: '用户管理',
+          fontSize: '20px',
+          textAlign: 'left',
           class: ['lc-demo-highlight'],
+        },
+        style: {
+          fontWeight: { type: 'static', value: 700 },
+          color: { type: 'static', value: '#1f2329' },
         },
       },
       {
         id: 'n_select',
         type: 'select',
         props: {
+          label: '筛选条件',
           modelValue: 'option1',
           placeholder: '请选择筛选条件',
-          options: [
+          optionItems: [
             { label: '全部用户', value: 'option1' },
             { label: '其他', value: '其他' },
           ],
@@ -57,7 +60,14 @@ export function createDemoSchema(): PageSchema {
       {
         id: 'n_input',
         type: 'input',
-        props: { modelValue: '', placeholder: '请输入自定义筛选', clearable: true, disabled: false },
+        props: {
+          label: '自定义筛选',
+          modelValue: '',
+          placeholder: '请输入自定义筛选',
+          clearable: true,
+          maxLength: 32,
+          showWordLimit: true,
+        },
         bindings: {
           visible: { type: 'expression', value: 'selectValue === "其他"' },
         },
@@ -105,8 +115,9 @@ export function createDemoSchema(): PageSchema {
       },
       {
         id: 'n_dialog_text',
-        type: 'text',
-        props: { text: '这是通过 openDialog 动作打开的弹窗', fontSize: 14, color: '#4e5969' },
+        type: 'static-text',
+        props: { textContent: '这是通过 openDialog 动作打开的弹窗', fontSize: '14px', textAlign: 'left' },
+        style: { color: { type: 'static', value: '#4e5969' } },
       },
     ],
     materials: [],

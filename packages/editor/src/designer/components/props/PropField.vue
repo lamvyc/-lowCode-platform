@@ -25,6 +25,9 @@ import JsonEditor from './JsonEditor.vue'
 import ExpressionEditor from './ExpressionEditor.vue'
 import OptionItemsEditor from './OptionItemsEditor.vue'
 import CodeDialog from './CodeDialog.vue'
+import GridColumnsEditor from './structure/GridColumnsEditor.vue'
+import TableStructureEditor from './structure/TableStructureEditor.vue'
+import TabPanesEditor from './structure/TabPanesEditor.vue'
 
 const props = defineProps<{
   node: PageNode
@@ -244,6 +247,21 @@ function saveCode(next: string): void {
       v-else-if="config.control === 'option-items'"
       :model-value="value"
       @update:model-value="(next: unknown) => setValue(next)"
+    />
+
+    <GridColumnsEditor
+      v-else-if="config.control === 'structure' && config.editor === 'grid-columns'"
+      :node="node"
+    />
+
+    <TableStructureEditor
+      v-else-if="config.control === 'structure' && config.editor === 'table-structure'"
+      :node="node"
+    />
+
+    <TabPanesEditor
+      v-else-if="config.control === 'structure' && config.editor === 'tab-panes'"
+      :node="node"
     />
 
     <JsonEditor

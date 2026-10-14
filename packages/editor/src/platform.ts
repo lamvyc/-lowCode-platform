@@ -12,6 +12,11 @@ import {
 } from '@lowcode/core'
 import { defineComponent, h } from 'vue'
 import { registerLocalMaterials } from '@lowcode/materials'
+import {
+  registerBuiltinTemplates,
+  templateRegistry,
+  type PageTemplate,
+} from './designer/templates'
 
 /** 编辑器平台单例：物料注册表 / 动作注册表 / 表达式引擎 / 插件管理器 */
 export const materialRegistry = new MaterialRegistry()
@@ -72,12 +77,23 @@ export const remoteMaterialLoader = new RemoteMaterialLoader({
 
 let initialized = false
 
-/** 初始化平台：注册本地物料与内置动作（幂等） */
+/** 初始化平台：注册本地物料、内置动作与内置页面模板（幂等） */
 export function initPlatform(): void {
   if (initialized) return
   initialized = true
   registerLocalMaterials(materialRegistry)
   actionRegistry.registerMany(createBuiltinActions())
+  registerBuiltinTemplates()
+}
+
+/** 注册页面模板（playground / 插件可在启动时追加自己的模板） */
+export function registerPageTemplate(template: PageTemplate): void {
+  templateRegistry.register(template)
+}
+
+/** 批量注册页面模板 */
+export function registerPageTemplates(templates: PageTemplate[]): void {
+  templateRegistry.registerMany(templates)
 }
 
 /** 外部插件注册入口（playground 等） */

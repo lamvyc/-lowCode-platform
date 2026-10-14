@@ -7,7 +7,7 @@ packages/
 ├── schema/     @lowcode/schema   五层协议：Page/DataModel/Process/API/Plugin 类型、Zod 校验、迁移、序列化
 ├── core/       @lowcode/core     纯 TS 业务核心：节点树/物料/表达式/事件/动作/数据源/规则/历史/插件/布局
 ├── runtime/    @lowcode/runtime  Schema 渲染器与运行时上下文（Vue，纯 render 函数）
-├── materials/  @lowcode/materials 本地物料库（Element Plus 组件 + propConfigs）
+├── materials/  @lowcode/materials 物料库（35 个物料：清单声明 + Element Plus 组件实现）
 ├── codegen/    @lowcode/codegen  模板 AST + Prettier → Vue SFC
 ├── editor/     @lowcode/editor   Pinia 编辑器：画布/物料/属性/大纲面板、拖拽、快捷键
 └── playground/ @lowcode/playground 可运行的示例应用
@@ -51,14 +51,14 @@ packages/
 | `core` | 引擎层为主，兼插件机制与基础设施 | 规则引擎 ●、API 引擎 ○、表单引擎 ●、流程引擎 △、自定义函数 ●、连接器 ●、权限 ●、认证 ● | `RuleEngine` / `EventEngine` / `ActionChainRunner` / `UnifiedActionRunner` / `JexlExpressionEngine` 是引擎主体；内置动作按标准 `ActionType` 注册（含 `submit`/`refresh` 一等实现，旧 `kind` 走别名兼容）；`FormEngine`（值/错误/touched/dirty 状态机 + validate/submit/reset + 表达式联动）与 `dataModelToFormSchema`（DataModel → 表单字段）构成表单引擎；`ProcessEngine`（解释执行 ProcessSchema：start/end/task/apiCall/dataModel/delay/condition + 实例状态机 run/completeTask/terminate）构成流程引擎；`ConnectorRegistry`（声明式连接器：baseUrl/path/auth 组装请求）+ `registerConnectorActions`（连接器动作注册进 ActionRegistry）构成连接器；`PermissionService` + 三级权限纯函数（表/字段/操作）消费 `DataModelPermissions`；`authenticatedHttpClient` + `AuthProvider` 提供会话令牌注入与 401 刷新重试；`DataSourceManager` 支持 `DataModel`/`API` ref 取数（`SchemaRegistry` 解析引用）；`PluginManager + HookBus` 是插件机制而非插件本身；`DataBus` / `MemoryStorage` 是消息队列 / 缓存的抽象层 |
 | `runtime` | 引擎层 | 渲染引擎 ●、表单引擎 ●（渲染器）、流程引擎 ●（视图）、权限 ●（指令） | `RuntimeRenderer` / `RuntimeContext` / `IComponentResolver` 就是完整的解释执行渲染引擎；`FormRenderer` + `IFormWidgetResolver` + 内置纯 render 控件构成表单渲染器，`RuntimeContext.forms` 注册表把 `submit` 动作接到 `FormEngine.submit()`；`ProcessViewer` + `topologicalLayers` 把 ProcessSchema 按拓扑层级渲染并高亮当前节点；`createPermissionDirective`（v-permission）+ `usePermission`/`installPermission` 是权限的 Vue 消费端 |
 | `codegen` | 引擎层（图里未单列） | 「编译引擎」 | schema → 模板 AST → Vue SFC，属于第二执行路径，本质是引擎 |
-| `materials` | 插件层 | 自定义组件 ● | 本地物料 + Element Plus，是插件层的实体实现；远程组件机制在 core |
-| `editor` | 用户交互层 | 可视化设计器 △ | `EditorEngine` / 节点操作 / 框选 + 三栏式设计器 UI（物料、画布、属性面板）；属性面板含组件设置（分区折叠 + 专用属性编辑器 + 事件动作链）与表单设置（详见 [设置面板](setting-panel.md)） |
+| `materials` | 插件层 | 自定义组件 ● | 35 个本地物料（30 个对外 + 5 个内部/兼容），清单（`manifest.ts`，纯声明、可单测）与组件实现分离；字段类统一由 `FormItem` 包装并消费 `settings.form` 排版；容器支持 `defaultChildren` 自动生成内部结构。详见 [组件库](material-library.md)；远程组件机制在 core |
+| `editor` | 用户交互层 | 可视化设计器 △ | `EditorEngine` / 节点操作 / 框选 + 三栏式设计器 UI：顶部导航栏（撤销重做 / 设备视图 / 缩放 / 导入导出 JSON / 生成 SFC / 预览）、组件库面板（分类折叠 + 搜索 + 拖拽，含页面模板库）、画布、组件层次结构树抽屉、属性面板（组件设置 + 表单设置）。详见 [设计器界面](designer-ui.md) 与 [设置面板](setting-panel.md) |
 | `playground` | 用户交互层 + 基础设施实现 | 页面预览 ○、应用管理 ○、文件存储 ○ | 运行时渲染挂载 + `StorageRepository`（页面 / 版本 / 模板仓储）+ localStorage 持久化 |
 
 ### 两点观察
 
 1. **`core` 是唯一横跨三层的包**：既是引擎层主体，又承载插件机制（插件层的基础设施），还提供 `DataBus` / `MemoryStorage`（基础设施层抽象）。这是刻意的分层设计——core 是纯 TS 的「能力底座」，各层都通过它。
-2. **按图看，缺口是「产品形态」而非「架构形态」**：五层横向骨架（Schema 契约、引擎抽象、插件注册、存储抽象、权限/认证）已在位；纵向空白仅剩「产品形态」——设计器/应用管理的界面。五层 Schema 协议已在 `schema` 包落地；统一 Action 引擎（标准 type 注册 + submit/refresh）与 DataModel/API 引用解析器（`SchemaRegistry` + `DataSourceManager` ref 取数）在 P0 落地，表单引擎（`FormEngine` + `dataModelToFormSchema`）在 P1 落地、表单渲染器（`FormRenderer` + 控件解析器 + `submit` 接线）在 P1.5 落地，流程引擎（`ProcessEngine` 解释执行 + 实例状态机）在 P2 落地、流程视图（`ProcessViewer` + 拓扑分层）在 P2.5 落地，连接器（`ConnectorDefinition` + `ConnectorRegistry` + `registerConnectorActions`）在 P3 落地，权限 + 认证（`PermissionService` + 三级权限纯函数 + `AuthProvider` + `authenticatedHttpClient`）在 P4 落地，权限的 Vue 消费端（`v-permission` 指令 + `usePermission`/`installPermission`）在 P4.5 落地；下一步落点：`materials` 补 Element Plus 表单控件（switch/number/date/textarea）、`editor` 把设计器 UI 接回 `EditorEngine`、`playground` 把应用管理做成界面。
+2. **按图看，缺口是「产品形态」而非「架构形态」**：五层横向骨架（Schema 契约、引擎抽象、插件注册、存储抽象、权限/认证）已在位；纵向空白仅剩「产品形态」——设计器/应用管理的界面。五层 Schema 协议已在 `schema` 包落地；统一 Action 引擎（标准 type 注册 + submit/refresh）与 DataModel/API 引用解析器（`SchemaRegistry` + `DataSourceManager` ref 取数）在 P0 落地，表单引擎（`FormEngine` + `dataModelToFormSchema`）在 P1 落地、表单渲染器（`FormRenderer` + 控件解析器 + `submit` 接线）在 P1.5 落地，流程引擎（`ProcessEngine` 解释执行 + 实例状态机）在 P2 落地、流程视图（`ProcessViewer` + 拓扑分层）在 P2.5 落地，连接器（`ConnectorDefinition` + `ConnectorRegistry` + `registerConnectorActions`）在 P3 落地，权限 + 认证（`PermissionService` + 三级权限纯函数 + `AuthProvider` + `authenticatedHttpClient`）在 P4 落地，权限的 Vue 消费端（`v-permission` 指令 + `usePermission`/`installPermission`）在 P4.5 落地；`materials` 已补齐 Element Plus 表单控件与容器（35 个物料，见 [组件库](material-library.md)）、`editor` 已把设计器 UI 接回 `EditorEngine`（见 [设计器界面](designer-ui.md) 与 [设置面板](setting-panel.md)）；下一步落点：`playground` 把应用管理做成界面。
 
 ## 二、依赖方向（强制）
 
@@ -74,8 +74,10 @@ Editor
 
 - Core 不依赖 Vue / Pinia / Element Plus / DOM。
 - Runtime 只消费 PageSchema 与 Core 的接口。
-- Editor 是唯一的「界面层」，所有编辑器状态都在 Pinia 中。
+- Editor 是唯一的「界面层」，编辑器状态由 `useDesigner()` 组合式上下文持有（不引入 Pinia）。
 - materials 仅依赖 schema / core / runtime，被 editor 与 codegen 消费。
+- codegen 与 runtime 平级，是「第二执行路径」的叶子引擎；Editor 通过 `await import('@lowcode/codegen')`
+  懒加载它（体积较大的 Prettier），UI 层不反向被引擎依赖。
 
 ## 三、核心数据流
 
