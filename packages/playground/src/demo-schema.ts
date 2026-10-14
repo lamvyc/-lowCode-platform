@@ -22,7 +22,14 @@ export function createDemoSchema(): PageSchema {
       {
         id: 'n_title',
         type: 'text',
-        props: { text: '用户管理', fontSize: 20, bold: true, color: '#1f2329', align: 'left' },
+        props: {
+          text: '用户管理',
+          fontSize: 20,
+          bold: true,
+          color: '#1f2329',
+          align: 'left',
+          class: ['lc-demo-highlight'],
+        },
       },
       {
         id: 'n_select',
@@ -125,5 +132,31 @@ export function createDemoSchema(): PageSchema {
       { id: 'v_input', name: 'inputValue', value: '' },
     ],
     rules: [],
+    settings: {
+      form: {
+        size: 'default',
+        labelPosition: 'top',
+        labelAlign: 'left',
+        labelWidth: 100,
+        customClass: ['lc-demo-page'],
+        cssCode: [
+          '/* 表单自定义 CSS：类名可在「组件设置 → 自定义类名」中引用 */',
+          '.lc-demo-page {',
+          '  max-width: 960px;',
+          '  margin: 0 auto;',
+          '}',
+          '',
+          '.lc-demo-highlight {',
+          '  padding-left: 10px;',
+          '  border-left: 3px solid #3370ff;',
+          '}',
+        ].join('\n'),
+        functions: ['function formatCity(city) {', "  return city ? `${city}市` : '-'", '}'].join('\n'),
+        modelName: 'userForm',
+        refName: 'userFormRef',
+        rulesName: 'userFormRules',
+        onFormMounted: "// 表单挂载完成后可在此加载初始数据\nconsole.log('form mounted')",
+      },
+    },
   }
 }

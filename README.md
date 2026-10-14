@@ -17,4 +17,5 @@ pnpm build
 
 - [架构总览](docs/architecture.md)
 - [Schema 代码级走读](docs/schema-walkthrough.md)
+- [设置面板（组件设置 / 表单设置）](docs/setting-panel.md)
 - [五层架构企业级实践反推与基建优化](docs/五层架构企业级实践反推与基建优化.md)

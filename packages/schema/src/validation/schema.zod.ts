@@ -208,12 +208,31 @@ const layoutSchema = z.object({
     .optional(),
 })
 
+const formSettingsSchema = z
+  .object({
+    size: z.enum(['large', 'default', 'small']).optional(),
+    labelPosition: z.enum(['left', 'top']).optional(),
+    labelAlign: z.enum(['left', 'center', 'right']).optional(),
+    labelWidth: z.number().optional(),
+    customClass: z.array(z.string()).optional(),
+    cssCode: z.string().optional(),
+    functions: z.string().optional(),
+    modelName: z.string().optional(),
+    refName: z.string().optional(),
+    rulesName: z.string().optional(),
+    onFormCreated: z.string().optional(),
+    onFormMounted: z.string().optional(),
+    onFormDataChange: z.string().optional(),
+  })
+  .passthrough()
+
 const pageSettingsSchema = z
   .object({
     title: z.string().optional(),
     layout: layoutSchema.optional(),
     backgroundColor: z.string().optional(),
     width: z.number().optional(),
+    form: formSettingsSchema.optional(),
   })
   .passthrough()
 

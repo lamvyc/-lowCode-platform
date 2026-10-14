@@ -52,7 +52,7 @@ packages/
 | `runtime` | 引擎层 | 渲染引擎 ●、表单引擎 ●（渲染器）、流程引擎 ●（视图）、权限 ●（指令） | `RuntimeRenderer` / `RuntimeContext` / `IComponentResolver` 就是完整的解释执行渲染引擎；`FormRenderer` + `IFormWidgetResolver` + 内置纯 render 控件构成表单渲染器，`RuntimeContext.forms` 注册表把 `submit` 动作接到 `FormEngine.submit()`；`ProcessViewer` + `topologicalLayers` 把 ProcessSchema 按拓扑层级渲染并高亮当前节点；`createPermissionDirective`（v-permission）+ `usePermission`/`installPermission` 是权限的 Vue 消费端 |
 | `codegen` | 引擎层（图里未单列） | 「编译引擎」 | schema → 模板 AST → Vue SFC，属于第二执行路径，本质是引擎 |
 | `materials` | 插件层 | 自定义组件 ● | 本地物料 + Element Plus，是插件层的实体实现；远程组件机制在 core |
-| `editor` | 用户交互层 | 可视化设计器 △ | 只有 `EditorEngine` / 节点操作 / 框选，是设计器的引擎基建，画布 / 面板 UI 已移除 |
+| `editor` | 用户交互层 | 可视化设计器 △ | `EditorEngine` / 节点操作 / 框选 + 三栏式设计器 UI（物料、画布、属性面板）；属性面板含组件设置（分区折叠 + 专用属性编辑器 + 事件动作链）与表单设置（详见 [设置面板](setting-panel.md)） |
 | `playground` | 用户交互层 + 基础设施实现 | 页面预览 ○、应用管理 ○、文件存储 ○ | 运行时渲染挂载 + `StorageRepository`（页面 / 版本 / 模板仓储）+ localStorage 持久化 |
 
 ### 两点观察

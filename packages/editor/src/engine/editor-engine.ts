@@ -12,8 +12,10 @@ import {
   normalizePageSchema,
   type AnyPageSchema,
   type Binding,
+  type FormSettings,
   type PageNode,
   type PageSchema,
+  type PageSettings,
 } from '@lowcode/schema'
 import { RuntimeContext, type RuntimeContextOptions } from '@lowcode/runtime'
 import { applyDuplicate, applyGroup, applyPaste, applyUngroup } from './node-ops'
@@ -242,6 +244,32 @@ export class EditorEngine {
 
   updateEvents(nodeId: string, events: PageNode['events']): void {
     this.updateNode(nodeId, (node) => ({ ...node, events }))
+  }
+
+  /** 合并写入页面级设置（标题、布局、背景等），不覆盖未传字段 */
+  updateSettings(patch: Partial<PageSettings>): void {
+    this.record((draft) => {
+      draft.settings = { ...(draft.settings ?? {}), ...patch }
+    }, 'settings', 'settings')
+  }
+
+  /** 合并写入表单级设置（「表单设置」面板），不覆盖未传字段 */
+  updateFormSettings(patch: Partial<FormSettings>): void {
+    this.record((draft) => {
+      const settings = draft.settings ?? {}
+      draft.settings = {
+        ...settings,
+        form: { ...(settings.form ?? {}), ...patch },
+      }
+    }, 'formSettings', 'formSettings')
+  }
+
+  /** 恢复表单设置为默认值（清空 settings.form） */
+  resetFormSettings(): void {
+    this.record((draft) => {
+      if (!draft.settings?.form) return
+      draft.settings.form = undefined
+    }, 'resetFormSettings')
   }
 
   removeNodes(ids: string[]): void {

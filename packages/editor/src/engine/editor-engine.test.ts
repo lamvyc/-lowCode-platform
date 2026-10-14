@@ -170,3 +170,59 @@ describe('EditorEngine 卡片容器交互', () => {
     ])
   })
 })
+
+describe('EditorEngine 表单设置', () => {
+  it('updateFormSettings 合并写入且保留其他 settings 字段', () => {
+    const engine = makeEngine()
+    engine.updateSettings({ title: '订单页', layout: { mode: 'free' } })
+
+    engine.updateFormSettings({ size: 'small', labelWidth: 120 })
+    engine.updateFormSettings({ labelPosition: 'left' })
+
+    expect(engine.current.settings).toEqual({
+      title: '订单页',
+      layout: { mode: 'free' },
+      form: { size: 'small', labelWidth: 120, labelPosition: 'left' },
+    })
+  })
+
+  it('updateFormSettings 连续写入合并为一条历史（可一次撤销）', () => {
+    const engine = makeEngine()
+    engine.updateFormSettings({ size: 'small' })
+    engine.updateFormSettings({ modelName: 'orderForm' })
+
+    expect(engine.current.settings?.form).toEqual({ size: 'small', modelName: 'orderForm' })
+    expect(engine.canUndo).toBe(true)
+
+    engine.undo()
+    expect(engine.current.settings?.form).toBeUndefined()
+  })
+
+  it('resetFormSettings 仅清空 form，保留页面其他设置', () => {
+    const engine = makeEngine()
+    engine.updateSettings({ title: '订单页' })
+    engine.updateFormSettings({ size: 'large' })
+
+    engine.resetFormSettings()
+
+    expect(engine.current.settings).toEqual({ title: '订单页' })
+    // 无 form 时重置为空操作，不产生多余历史
+    const depthBefore = engine.canUndo
+    engine.resetFormSettings()
+    expect(engine.current.settings).toEqual({ title: '订单页' })
+    expect(engine.canUndo).toBe(depthBefore)
+  })
+
+  it('updateEvents 写入动作链并可撤销', () => {
+    const engine = makeEngine()
+    const card = engine.insertMaterial('card', { parentId: null, position: 'root', index: 0 })
+
+    engine.updateEvents(card.id, {
+      click: [{ id: 'a1', kind: 'openDialog', config: { dialogId: 'd1' } }],
+    })
+    expect(engine.current.nodes.find((n) => n.id === card.id)!.events?.click).toHaveLength(1)
+
+    engine.updateEvents(card.id, undefined)
+    expect(engine.current.nodes.find((n) => n.id === card.id)!.events).toBeUndefined()
+  })
+})

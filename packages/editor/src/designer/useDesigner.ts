@@ -10,9 +10,12 @@ import { DragDropManager, NodeFactory, NodeTree, type DropTarget } from '@lowcod
 import { MaterialRegistryResolver, type RuntimeContext } from '@lowcode/runtime'
 import {
   deserializePage,
+  getFormSettings,
   serializePage,
+  type FormSettings,
   type PageNode,
   type PageSchema,
+  type PageSettings,
 } from '@lowcode/schema'
 import { EditorEngine } from '../engine/editor-engine'
 import type { DragState } from '../engine/types'
@@ -36,6 +39,8 @@ export interface DesignerContext {
   canUndo: ComputedRef<boolean>
   canRedo: ComputedRef<boolean>
   selectedNode: ComputedRef<PageNode | undefined>
+  /** 表单级设置（已补全默认值） */
+  formSettings: ComputedRef<FormSettings>
   selectNode: (id: string | null) => void
   hoverNode: (id: string | null) => void
   setDevice: (d: DeviceType) => void
@@ -58,6 +63,10 @@ export interface DesignerContext {
   pasteClipboard: () => void
   updateProps: (id: string, patch: Record<string, unknown>) => void
   updateNode: (id: string, updater: (n: PageNode) => PageNode) => void
+  updateNodeEvents: (id: string, events: PageNode['events']) => void
+  updateSettings: (patch: Partial<PageSettings>) => void
+  updateFormSettings: (patch: Partial<FormSettings>) => void
+  resetFormSettings: () => void
   setDragState: (ds: DragState | null) => void
   setDropTarget: (dt: DropTarget | null) => void
   importSchema: (json: string) => { ok: boolean; error?: string }
@@ -114,6 +123,9 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
       ? current.nodes.find((n) => n.id === state.selectedNodeId)
       : undefined
   })
+
+  /** 表单设置：始终返回补全默认值后的对象，避免面板到处判空 */
+  const formSettings = computed<FormSettings>(() => getFormSettings(schema.value.settings))
 
   function selectNode(id: string | null): void {
     state.selectedNodeId = id
@@ -250,6 +262,22 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     engine.updateNode(id, updater)
     sync()
   }
+  function updateNodeEvents(id: string, events: PageNode['events']): void {
+    engine.updateEvents(id, events)
+    sync()
+  }
+  function updateSettings(patch: Partial<PageSettings>): void {
+    engine.updateSettings(patch)
+    sync()
+  }
+  function updateFormSettings(patch: Partial<FormSettings>): void {
+    engine.updateFormSettings(patch)
+    sync()
+  }
+  function resetFormSettings(): void {
+    engine.resetFormSettings()
+    sync()
+  }
   function importSchema(json: string): { ok: boolean; error?: string } {
     try {
       const parsed = deserializePage(json)
@@ -273,6 +301,7 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     canUndo,
     canRedo,
     selectedNode,
+    formSettings,
     selectNode,
     hoverNode,
     setDevice,
@@ -295,6 +324,10 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     pasteClipboard,
     updateProps,
     updateNode,
+    updateNodeEvents,
+    updateSettings,
+    updateFormSettings,
+    resetFormSettings,
     setDragState,
     setDropTarget,
     importSchema,
