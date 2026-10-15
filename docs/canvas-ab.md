@@ -227,7 +227,216 @@ python3 scripts/canvas-ab-all.py 单行输入 开关  # 只跑指定物料
 所以表单 1016 < 画布内容 1036；而我们表单就是画布内容（1020）。
 两端各差几个像素、累积到表单项上是 **10px（约 1%）**。
 
-## 七、这一层还能往下做
+## 七、给 A/B 降噪（第二轮）
+
+第一版报告里混着**已知的假差异**，每读一次都要在脑子里过滤一遍。降噪做了三件事，
+**结果差异数反而上升（24 → 27 个物料）——因为测量变准了**，见下文。
+
+### 1. 比较层级：统一到「节点包裹层」
+
+参考的节点包裹层是 `.field-wrapper`（1004），它外面还有一层 `.form-widget-list`（1010）。
+第一版误用了后者，于是差异显示成 `1010 vs 1014`，看起来像 "+4"，
+但真正的节点级差异是 `1004 vs 1014`。
+
+**层级选错会把根因拆成两半**，必须与我们对齐到同一级（我们那边是 `[data-node-id]`）。
+
+### 2. 类名过滤：只保留 `el-*` + 登记过的别名
+
+我们自己的根类（`lc-card` / `lc-static-text` / `lc-divider` …）参考没有对应物，
+全收进来会把"我们的组件多了个根类"报成结构差异——静态文字因此曾报成
+「控件 0 vs 1」（参考那个组件是**纯 div**，压根没有 `el-` 元素）。
+
+只保留 `el-*`，外加明确登记过的别名（`lc-form-item*` → `el-form-item*`）。
+
+### 3. 编辑器浮层：按**子树**排除
+
+参考的 `.field-action`（操作条）/ `.drag-handler`（拖拽手柄），
+我们的 `.lc-node__badges` / `.lc-node__actions`。
+
+⚠️ 只过滤元素自身不够——里面的 `el-icon-*` 会漏进来，
+让容器类物料的"控件结构"看起来差很多（静态文字曾报成 `el-icon-back → el-icon-delete → …`）。
+必须整棵子树跳过。
+
+### 4. `realDrag` 先 `scrollIntoView`
+
+富文本 / 级联选择 / 提示 在面板里靠下，900px 视口里不可见，
+`getBoundingClientRect` 拿到视口外坐标 → 拖拽起点无效 → 报"画布未生效"。
+现在拖拽前先把源滚进视口。**27/27 全部可测**（此前 24/27）。
+
+### 5. 已知机制差异单列，不计入差异数
+
+| 项 | 说明 |
+| --- | --- |
+| `el-form-item__content.margin` | EU：label 浮动 + content 用 `margin-left` 让出宽度；我们：flex。参考 `0 0 0 80px`、我们 `0`，但 content 左边界一致 |
+| 节点包裹层 `.margin` | 参考把间距放在 `.field-wrapper`（含 `design-time-bottom-margin`），我们放在 `.lc-form-item`。同一件事、不同层 |
+
+单列而不是静默丢弃——报告里仍看得见，只是不污染计数。
+
+---
+
+## ⚠️ 降噪过程中揪出的两个真缺陷
+
+### 缺陷 A：比较器会**静默吞掉属性差异**（严重）
+
+`diff_controls` 里原本有一行：
+
+```python
+if a['el'] != b['el']:
+    continue          # 类名不同 → 跳过这个元素的**全部属性比较**
+```
+
+只要类名不完全相同就跳过。于是当我们的元素多了个修饰类
+（如 `el-divider.el-divider--horizontal.lc-divider`）时，
+它的 `margin` / `height` 差异**根本没被检查过**，报告显示"没问题"。
+
+**这正是我上一轮误判「分隔线已修好」的原因。**
+
+修法：只在**块名**（第一个 `el-` 类）都不同时才认为不是同一元素；
+仅修饰类不同时照常比较属性，并把修饰类差异单独报出来
+（这条本身也是有价值的信号——例如参考有 `el-cascader--medium`，
+我们用 CSS 变量所以没这个类）。
+
+> **教训**：比较器里任何"跳过"分支都要问一句——
+> 它跳过的到底是"不适用"，还是"我没能力比较"？后者必须转成显式报告。
+
+### 缺陷 B：分隔线的 `:deep()` 后代选择器从未匹配
+
+```css
+/* 我写的（错） */
+.lc-divider :deep(.el-divider--horizontal) { margin: 0 }
+```
+
+`:deep(A B)` 编译成**后代**选择器：
+
+```
+.lc-divider[data-v-a857cc2c] .el-divider--horizontal     ← 匹配不到任何元素
+```
+
+而 `lc-divider` 与 `el-divider--horizontal` 是**同一个元素**上的两个类。
+
+```html
+<div class="el-divider el-divider--horizontal lc-divider">
+```
+
+正确写法是复合选择器（特异性 (0,3,0)，稳过 Element 的 (0,1,0)）：
+
+```css
+.lc-divider.el-divider--horizontal { margin: 0 }
+```
+
+> 结合缺陷 A：这条 CSS 从未生效，而比较器又把它的差异吞掉了——
+> **两个缺陷叠在一起，让一个坏掉的修复看起来是好的。**
+
+---
+
+## 八、修正后的数据（27/27 可测）
+
+| 属性 | 命中物料 | 主要值 |
+| --- | --- | --- |
+| **`w`** | **27（全部）** | `924→934`×30、`1004→1014`×25 |
+| `h` / `height` | 19 | `17→20`×10、`36→32`×7、`16→14`×6 |
+| `display` | 18 | `block→flex`×14、`inline-block→inline-flex`×11、`inline-block→block`×8 |
+| 结构 / 修饰类 | 23 | 含 `el-cascader--medium` 这类上游档位类 |
+| `padding` | 8 | `…10px→…8px`×6 |
+| `fontSize` | 4 | `14→13`×2、`12→14`×2 |
+| `margin` | 3 | — |
+| `borderRadius` | 1 | `3px→4px` |
+
+**主根因仍是 `w` 的那 10px，命中全部 27 个物料**——它是下一步优先项。
+
+## 九、追平那 10px（第二轮）
+
+**+4 的来源**：参考的中栏有分隔边框。
+
+```
+.center-layout-container { border-left: 2px dotted #EBEEF5; border-right: 2px dotted #EBEEF5 }
+```
+
+它是 `border-box`，所以内容宽从 1040 压到 **1036**。我们对应层没有边框 → 1040。
+
+**+6 的来源**：参考有**两层 3px 内边距**，我们只有一层。
+
+```
+参考：.widget-form(padding 3) → .form-widget-list(padding 3) → .field-wrapper
+我们：.lc-runtime-root(padding 3) → [data-node-id]
+```
+
+从画布边到节点，参考是 `10 + 3 + 3 = 16px`，我们是 `10 + 3 = 13px`。
+
+### 修法
+
+| 改动 | 位置 |
+| --- | --- |
+| 补两侧 2px 点线分隔边框 | `.lc-canvas-wrap--pc`（border-box，等量吃掉 4px） |
+| 内边距 3px → **6px** | `.lc-canvas--pc :deep(.lc-runtime-root)` |
+
+第二处用 6px 而不是再加一层 DOM：参考那两层合起来是 6px，
+**白面到节点的距离因此完全一致**。参考 `.widget-form` 1016 → 3px → 列表 1010 → 3px → 节点 1004；
+我们 `.lc-runtime-root` 1016 → 6px → 节点 1004。**白面尺寸与节点尺寸都对齐。**
+
+### 效果
+
+| | 修复前 | 修复后 |
+| --- | --- | --- |
+| 节点包裹层宽 | 1014 | **1004**（= 参考） |
+| 画布容器宽 | 1040 | **1036**（= 参考） |
+| `w` 命中物料数 | **27（全部）** | **14** |
+| 完全一致的物料 | 0 | **2**（静态文字、HTML） |
+
+差异数全线下降（颜色选择器 20→18、计数器 19→15、时间范围 16→14、单选项 31→29…）。
+
+**残余的 `w` 差异已全是组件级**，不再是系统性噪声：
+
+| 值 | 命中 | 说明 |
+| --- | --- | --- |
+| `352 → 137` | 4 | `el-range-input`：时间范围 / 日期范围，差 2.5 倍，最大的一条 |
+| `1016 → 1004` | 4 | 个别物料的内层容器 |
+| `998 → 1002` | 3 | 标签页内层 |
+
+## 十、逐物料清零（第三轮，进行中）
+
+### 已完成：时间范围 / 日期范围（14 → 3）
+
+差得最狠的一个组件：**整个范围编辑器只有 370px，参考是 924px**；里面的输入框 137 vs 352（差 2.5 倍）。
+
+根因有三层，**每一层都值得单独记**：
+
+| # | 现象 | 根因 |
+| --- | --- | --- |
+| 1 | `width: 100%` 写在 scoped 样式里，完全没生效 | **该元素上没有 scope 属性**：`ElTimePicker` / `ElDatePicker` 不是组件模板的根（根是 `FormItem`），它们在 `FormItem` 的插槽里，Vue 不给它们加 `data-v-*`。实测该元素属性只有 `["class","tabindex"]`，`matches('.lc-time-range[data-v-x]')` 为 **false**。（`Divider.vue` 能用 scoped 是因为 `ElDivider` 是它模板的根。） |
+| 2 | 改用变量覆盖 `--el-date-editor-width: 100%` 仍不生效 | EP 的宽度是变量驱动的：`.el-date-editor.el-input__wrapper { width: var(--el-date-editor-width) }` 是 **(0,2,0)**，与我们的规则**特异性相同**，靠源码顺序决胜负——我们输。 |
+| 3 | 内联样式生效后，宽度 944 还是比参考的 924 宽 20px | `.el-input__wrapper` 是 `content-box`，`width:100%` 之外还要再加 `padding: 10px ×2`。要一起给 `box-sizing: border-box`。 |
+
+过程中还查出两处**上游变更**（都已对齐）：
+
+| 元素 | Element UI | Element Plus |
+| --- | --- | --- |
+| `.el-range-separator` | `width: 5%`（5% × 904 = **45.2px**，正合参考实测的内容宽 45.09px） | 去掉了 width、改成 **`flex: 1`**（撑满剩余空间，实测 171px，参考 55px） |
+| `.el-range-input` | 无固定高（medium 下 28px） | 写死 `height/line-height: 30px` |
+
+**最终：14 → 3 处**（剩 1px 舍入 + 一条结构串差异）。
+
+### 顺带修掉的工具问题
+
+- 比较器遇到「仅修饰类不同」时不再跳过属性比较（见第七节缺陷 A）
+- **上游档位类**（`--medium` / `--mini`）归入已知差异：Element UI 有 medium/small/mini 三档类，
+  Element Plus 只有 large/default/small，我们用 CSS 变量模拟 medium 的度量，
+  因此不会出现 `--medium` 类，**但尺寸是对的**。结构比较也会先把这些类剔掉。
+
+### 剩余清单（按差异数）
+
+| 物料 | 差异 | 主要项 |
+| --- | --- | --- |
+| 多选项 / 单选项 | 37 / 29 | 选项高 参考 **17** vs 我们 **20**、`height: auto` vs `32px`；group 高 参考 36/41 vs 我们 20/16 |
+| 颜色选择器 | 18 | `el-color-picker__trigger` 36 vs 32 |
+| 栅格 | 14 | `el-row` / `el-col` 的结构与子元素 |
+| 计数器 | 13 | `el-input-number__decrease` 的 `display: block→flex`、尺寸 |
+| 提示 | 13 | `el-alert__content` 的 `display: block→flex`、`padding: 0 8px` vs `0` |
+| 标签页 | 12 | `el-tabs__header` 的 `display: block→flex`、nav 宽度 |
+| 评分 | 12 | `el-rate__item` 的 `display: inline-block→block` |
+| 文件 | 9 | `el-upload--text` 64×36 vs 88×32 |
+
+## 十一、这一层还能往下做
 
 | 方向 | 说明 |
 | --- | --- |
