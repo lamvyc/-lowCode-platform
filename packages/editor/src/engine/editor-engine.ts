@@ -132,9 +132,16 @@ export class EditorEngine {
       node.name = createUniqueName(type, taken)
     }
     taken.add(node.name)
-    // label 初始值等于 name（仅对声明了 label 展示字段的物料生效，如卡片）
-    if ('label' in node.props) {
-      node.props.label = node.name
+    // label 兜底：`label || type.toLowerCase()`
+    //
+    // 对齐参考实现 `designer.js: copyNewFieldWidget()`：
+    //   newWidget.options.name  = newWidget.id              // type + tempId
+    //   newWidget.options.label = newWidget.options.label || newWidget.type.toLowerCase()
+    //
+    // ⚠️ 此前我们写成 `label = name`，于是新字段的标签是 `input225556` 这种带随机后缀的值，
+    // 而参考渲染出来是 `input`（只有类型名）。实测参考的属性面板：name=input23761、label=input。
+    if ('label' in node.props && !node.props.label) {
+      node.props.label = node.type.toLowerCase()
     }
     const defaultChildren = this.nodeFactory.material(type)?.defaultChildren ?? []
     this.record((draft) => {

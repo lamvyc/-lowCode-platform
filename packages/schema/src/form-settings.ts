@@ -8,10 +8,14 @@ import type {
 
 /** 表单设置默认值：未声明的字段一律回落到这里 */
 export const DEFAULT_FORM_SETTINGS: FormSettings = {
+  // 以下四项对齐参考实现 `variant-form/src/utils/util.js: getDefaultFormConfig()`：
+  //   labelWidth: 80、labelPosition: 'left'、size: ''（运行时按 medium=36px 处理）
+  // 我们此前是 labelWidth: 100 / labelPosition: 'top'，
+  // 表现为"标签占满整行、控件被挤到下一行"，与参考的左右布局完全不同。
   size: 'default',
-  labelPosition: 'top',
+  labelPosition: 'left',
   labelAlign: 'left',
-  labelWidth: 100,
+  labelWidth: 80,
   customClass: [],
   cssCode: '',
   functions: '',

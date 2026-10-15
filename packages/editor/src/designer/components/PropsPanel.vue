@@ -99,6 +99,7 @@ watch(
 .lc-props-panel {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   width: 300px;
   height: 100%;
   background: #fff;

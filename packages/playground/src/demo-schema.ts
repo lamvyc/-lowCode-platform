@@ -128,15 +128,16 @@ export function createDemoSchema(): PageSchema {
     settings: {
       form: {
         size: 'default',
-        labelPosition: 'top',
+        labelPosition: 'left',
         labelAlign: 'left',
-        labelWidth: 100,
+        labelWidth: 80,
         customClass: ['lc-demo-page'],
         cssCode: [
           '/* 表单自定义 CSS：类名可在「组件设置 → 自定义类名」中引用 */',
           '.lc-demo-page {',
-          '  max-width: 960px;',
-          '  margin: 0 auto;',
+          '  /* 这里演示 customClass + 自定义 CSS 的能力。',
+          '     不要加 max-width 收窄：会让 demo 表单比参考实现窄，失去可比性。 */',
+          '  padding: 0 0 8px;',
           '}',
           '',
           '.lc-demo-highlight {',

@@ -209,6 +209,7 @@ function handleClear(): void {
   display: flex;
   align-items: center;
   gap: 16px;
+  box-sizing: border-box;
   height: 48px;
   padding: 0 16px;
   background: #fff;

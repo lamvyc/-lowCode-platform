@@ -339,6 +339,7 @@ async function saveCurrentAsTemplate(): Promise<void> {
 .lc-material-panel {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   width: 260px;
   height: 100%;
   background: #fff;

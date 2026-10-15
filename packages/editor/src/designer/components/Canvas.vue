@@ -644,6 +644,20 @@ function onDragLeave(event: DragEvent): void {
   overflow: auto;
   border: none;
   border-radius: 0;
+  /* 对齐参考实现实测结构：画布底是**灰底 + 10px 内边距**，
+     白色"表单面"由内部的 .lc-runtime-root 承担（见下）。
+     此前这里是白底 + 24px 内边距，表单净宽 992，比参考的 1016 窄 24px。 */
+  background: #f1f2f3;
+  padding: 10px;
+}
+
+/* 白色"表单面"：对应参考实现的 .widget-form（白底 + 3px 内边距 + 撑满容器）。
+   参考的表单是 full-height，所以白面铺满整个画布高度；此前我们只有内容高。 */
+.lc-canvas--pc :deep(.lc-runtime-root) {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 3px;
+  background: #fff;
 }
 
 .lc-canvas--device {

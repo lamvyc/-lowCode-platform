@@ -51,15 +51,22 @@ function makeEngine(schema?: PageSchema): EditorEngine {
 }
 
 describe('EditorEngine 卡片容器交互', () => {
-  it('insertMaterial 生成唯一 name 且 label 初始等于 name', () => {
+  it('insertMaterial 生成唯一 name；label 兜底成类型名（不是 name）', () => {
     const engine = makeEngine()
     const first = engine.insertMaterial('card', { parentId: null, position: 'root', index: 0 })
     const second = engine.insertMaterial('card', { parentId: null, position: 'root', index: 1 })
 
     expect(first.name).toMatch(/^card\d{6}/)
-    expect(first.props.label).toBe(first.name)
     expect(second.name).toBeDefined()
     expect(second.name).not.toBe(first.name)
+
+    // ⚠️ 这里曾经断言 `label === name`（得到 `card330163` 这种带随机后缀的标签）。
+    // 那是错的：参考实现 `designer.js: copyNewFieldWidget()` 的规则是
+    //   options.label = options.label || type.toLowerCase()
+    // 实测参考的属性面板：name=input23761、label=input。
+    // 旧断言把错误行为固化了下来——"测试全绿"并不等于"行为正确"。
+    expect(first.props.label).toBe('card')
+    expect(second.props.label).toBe('card')
   })
 
   it('插入卡片后子组件可挂在卡片下', () => {

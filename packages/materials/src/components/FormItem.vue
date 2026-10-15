@@ -107,10 +107,19 @@ const controlStyle = computed(() => ({
 </template>
 
 <style scoped>
+/**
+ * ⚠️ 这里的尺寸/间距/字号是对齐参考实现实测值的，不是随手定的。
+ * 参考（Element UI `.el-form-item` + medium 尺寸）实测：
+ *   条目 margin-bottom 22px；label 高 36px、行高 36px、字号 14px、
+ *   padding-right 12px、颜色 rgb(96,98,102)；控件高 36px。
+ * 对齐前我们分别是 0 / 32px / 13px / 8px / #4e5969 / 32px——
+ * 单看每一项都不起眼，叠起来就是"整体感觉不一样"。
+ */
 .lc-form-item {
   display: flex;
   box-sizing: border-box;
   width: 100%;
+  margin-bottom: 22px;
 }
 .lc-form-item--left {
   flex-direction: row;
@@ -122,16 +131,17 @@ const controlStyle = computed(() => ({
 }
 .lc-form-item__label {
   flex-shrink: 0;
-  font-size: 13px;
-  line-height: 32px;
-  color: #4e5969;
+  font-size: 14px;
+  line-height: 36px;
+  color: #606266;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .lc-form-item--left .lc-form-item__label {
-  padding-right: 8px;
+  padding-right: 12px;
   box-sizing: border-box;
+  text-align: right;
 }
 .lc-form-item--top .lc-form-item__label {
   line-height: 22px;
@@ -155,6 +165,10 @@ const controlStyle = computed(() => ({
   cursor: help;
 }
 .lc-form-item__control {
+  /* EP 的控件高度取自 var(--el-input-height, var(--el-component-size))，
+     参考实现的默认尺寸是 Element UI 的 medium（36px），EP 没有这个档位，直接给变量 */
+  --el-component-size: 36px;
+  --el-input-height: 36px;
   flex: 1;
   min-width: 0;
 }
