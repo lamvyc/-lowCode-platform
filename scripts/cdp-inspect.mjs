@@ -26,7 +26,7 @@
  *   --keep-open          结束后不关闭 Chrome
  */
 import { spawn } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -35,7 +35,7 @@ const CHROME =
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 function parseArgs(argv) {
-  const args = { wait: 'body', width: 1440, height: 900, port: 9222, evals: [], evalsAfter: [], clicks: [] }
+  const args = { wait: 'body', width: 1440, height: 900, port: 9222, portExplicit: false, evals: [], evalsAfter: [], clicks: [] }
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i]
     const next = () => argv[++i]
@@ -50,7 +50,7 @@ function parseArgs(argv) {
       case '--blur': args.blur = true; break
       case '--width': args.width = Number(next()); break
       case '--height': args.height = Number(next()); break
-      case '--port': args.port = Number(next()); break
+      case '--port': args.port = Number(next()); args.portExplicit = true; break
       case '--steps': args.steps = JSON.parse(next()); break
       case '--json': args.json = true; break
       case '--keep-open': args.keepOpen = true; break
@@ -65,6 +65,30 @@ function parseArgs(argv) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /** 轮询 CDP 的 /json/version，直到 Chrome 就绪；同时兼容 IPv4 / IPv6 绑定 */
+/**
+ * 解析 Chrome 实际监听的调试端口。
+ *
+ * ⚠️ 为什么不能固定用 9222：CDP 端口是进程级独占的。并发跑两次本脚本时，
+ * 第二次会**静默连上第一次的 Chrome**——两边互相污染页面状态，而脚本"看起来正常"。
+ * （实测踩过：后台扫全量时并发跑了一个只读探针，两边抢同一个 9222。）
+ *
+ * 做法：不显式指定 `--port` 时传 `--remote-debugging-port=0`，让 Chrome 自己挑空闲端口，
+ * 再从 user-data-dir 下的 `DevToolsActivePort` 第一行读出来。
+ */
+async function resolveDebugPort(userDataDir, explicitPort) {
+  if (explicitPort) return explicitPort
+  const marker = join(userDataDir, 'DevToolsActivePort')
+  const deadline = Date.now() + 20000
+  while (Date.now() < deadline) {
+    if (existsSync(marker)) {
+      const port = Number(readFileSync(marker, 'utf8').split('\n')[0].trim())
+      if (Number.isInteger(port) && port > 0) return port
+    }
+    await sleep(100)
+  }
+  throw new Error('未能从 DevToolsActivePort 解析出调试端口')
+}
+
 async function waitForChrome(port, timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -391,7 +415,7 @@ async function main() {
     CHROME,
     [
       '--headless=new',
-      `--remote-debugging-port=${args.port}`,
+      `--remote-debugging-port=${args.portExplicit ? args.port : 0}`,
       '--remote-allow-origins=*',
       `--user-data-dir=${userDataDir}`,
       '--no-first-run',
@@ -421,8 +445,9 @@ async function main() {
 
   let client
   try {
-    const host = await waitForChrome(args.port)
-    const target = await firstPageTarget(host, args.port)
+    const debugPort = await resolveDebugPort(userDataDir, args.portExplicit ? args.port : 0)
+    const host = await waitForChrome(debugPort)
+    const target = await firstPageTarget(host, debugPort)
     client = createClient(target.webSocketDebuggerUrl)
     await client.ready
     await client.send('Page.enable')
