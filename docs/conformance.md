@@ -103,3 +103,87 @@ pnpm conformance
 3. **按钮丢了 `onClick` 事件声明** —— 组件有 `emit('click')`，清单却没有事件入口，面板里点不出事件编辑器。已补。
 4. 参考把内部结构（`tab-pane` 等）渲染在父模板里，我们拆成子组件承载 ——
    审计据此调整为按「组件闭包」检查绑定，避免误报。
+
+## 八、上游样式差异审计（2026 新增）
+
+前面几节覆盖的是"**声明面**"：属性、事件、UI 绑定是否存在。但线上最难查的一类是
+**上游 CSS 语义变化被静默吞掉**——它不体现在任何声明里，却能让你已经绑好的属性完全失效。
+
+典型例子（真修过的一个）：
+
+```css
+/* Element UI (参考实现)   */ .el-radio-group { display: inline-block }
+/* Element Plus (本仓库)   */ .el-radio-group { display: inline-flex }
+```
+
+容器变成 flex 后，它的子项成了 flex item，子项的 `display` 会按 CSS 规范被**「块化」**
+（`inline` → `block`）。于是绑在选项上的 `displayStyle` **完全失去作用**：
+属性面板里从 `inline` 切到 `block`，画布上三个选项依旧挤在同一行。
+
+这类问题**现有的三层验证都抓不到**：
+
+| 层 | 为什么漏 |
+| --- | --- |
+| 静态审计（第二~五节） | 只看"属性是否绑定"，不看"上游 CSS 是否还认这个属性" |
+| happy-dom 单测 | **没有布局引擎**，`getComputedStyle` 不反映真实 flex 布局 |
+| 单测断言 inline style | 断言的字符串本身是对的，失效发生在布局阶段 |
+
+### 怎么跑
+
+```bash
+pnpm --filter @lowcode/materials test    # 审计是其中一个用例
+```
+
+产物：
+
+- `docs/upstream-diff-report.md` —— 人读（自动生成，勿手改）
+- `docs/upstream-diff-report.json` —— 机器可读
+
+参考实现不存在时自动跳过（`describe.skipIf`），不影响 CI。
+
+### 比对了什么
+
+把两份 CSS 的**布局关键属性**（`display` / `position` / `z-index` / `overflow*` /
+`flex-direction` / `align-items` / `justify-content` / `float` / `vertical-align`）
+按选择器逐一 diff，再与**本仓库物料实际用到的组件**求交集（`ElInput` → `.el-input`，
+含子元素 `.el-input-group__append` 这类）。
+
+比对前会**求值 CSS 自定义属性与 `calc()`**：Element Plus 大量用
+`calc(var(--el-index-top) + 1)` 表达层级，而 Element UI 写字面量——
+不求值会把 `.el-select-dropdown` 这类"两边都是 1001"误报成差异（实测修正前 5 条误报 → 修正后 1 条）。
+
+### 两级判定（关键设计）
+
+"上游把某元素的 `display` 改成 `flex`"**本身不是 bug**，
+必须叠加"**我们在它的子项上绑了 `display`**"才成立。因此分两层：
+
+| 层 | 处理 |
+| --- | --- |
+| ⛔ **会让我们失效** | 命中 `CRITICAL_CONTAINERS`（手工登记：我们在其子项上绑 display 的容器）的语义变化，**测试强制拦截**，必须修或登记 `CSS_WAIVERS` |
+| 🔴 其余语义变化 | 只进报告供人工判断，多半与我们无关 |
+
+这样既不会漏掉真正会坏的，也不会被十几条「上游改了 display」淹掉。
+
+报告还带一个 **「已复核结论」** 区：把每条差异的裁决（已修 / 不适用 / 未使用）写进去，
+并在表格里用 `⛔ / ✅ / ⬜` 标状态。**未复核条目会被计数**，避免出现
+「报告里那一堆 🔴 到底看没看过」的模糊状态。当前 18 条非前缀差异**全部已复核**。
+
+### 已知局限
+
+- 只比对**两边都有**的选择器；Element Plus **新增**的规则不在范围内
+  （新增通常表现为"多了一层 wrapper"，只能真机看）。
+- 解析器不处理 `@media` 嵌套：媒体查询里的覆盖值会参与比对，可能误报。
+- `CRITICAL_CONTAINERS` 是手工登记的——**新增"在子项上绑 display"的组件时必须同步登记**，
+  否则该组件不会被拦截。
+- 只覆盖布局属性，颜色/圆角/字号等视觉细节不在范围。
+
+### 逐条的真机复核
+
+报告只负责"列出嫌疑"。确认某条到底有没有影响，用真实浏览器：
+
+```bash
+node scripts/cdp-inspect.mjs --url http://localhost:5174/ --wait ".lc-canvas" \
+  --eval "getComputedStyle(document.querySelector('.el-radio')).display"
+```
+
+方法与已有结论见 [`docs/interaction-spec/README.md`](interaction-spec/README.md) 7.8。
