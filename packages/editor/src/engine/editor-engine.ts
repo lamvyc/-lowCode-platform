@@ -267,6 +267,8 @@ export class EditorEngine {
         parentId: target.parentId,
         slot: target.slot,
         index: target.index,
+        // 与 insertMaterial 保持一致：优先按 beforeId 锚定，避免索引空间不一致时错位
+        beforeId: target.beforeId,
       })
     }, 'move')
   }

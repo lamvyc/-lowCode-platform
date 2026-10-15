@@ -167,3 +167,32 @@ export function computeListDrop(input: ListDropInput): ListDropResult {
     }),
   }
 }
+
+/**
+ * 把「渲染出来的子节点索引」换算成「schema children 索引」。
+ *
+ * 为什么需要：落点索引是按画布上**渲染出来的**子节点算的（`resolveInsertionIndex` 用的是
+ * DOM 矩形），而 schema 的 `children` 里可能还有**不渲染**的节点——`visible` 绑定为假，
+ * 或 `meta.hidden` 为真。它们不在 DOM 里却仍然占着顺序槽位，因此两个索引空间不一致。
+ *
+ * 直接把可见索引当 schema 索引写回，会在有隐藏兄弟时插错位置。
+ * 这与 `docs/questionBug.md` 的 **question3** 是同一根因（那次修了上移/下移，落点这条路径漏了）。
+ *
+ * 换算规则：把新节点插到「第 k-1 个可见节点」之后；`k <= 0` 时插到第一个可见节点之前。
+ * 这样隐藏节点不会让落点整体偏移，且视觉顺序始终正确。
+ *
+ * @param fullIds   schema 的完整子节点顺序（含不渲染的）
+ * @param visibleIds 实际渲染出来的子节点顺序
+ * @param k         可见索引（0..visibleIds.length）
+ */
+export function visibleIndexToSchemaIndex(
+  fullIds: string[],
+  visibleIds: string[],
+  k: number,
+): number {
+  const anchorId = k <= 0 ? visibleIds[0] : visibleIds[k - 1]
+  if (!anchorId) return k
+  const at = fullIds.indexOf(anchorId)
+  if (at < 0) return k
+  return k <= 0 ? at : at + 1
+}

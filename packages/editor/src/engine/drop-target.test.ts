@@ -4,6 +4,7 @@ import {
   computeListDrop,
   resolveIndicatorRect,
   resolveInsertionIndex,
+  visibleIndexToSchemaIndex,
   type DropRect,
 } from './drop-target'
 
@@ -145,5 +146,49 @@ describe('computeListDrop 落点', () => {
     expect(result.target.parentId).toBeNull()
     expect(result.target.position).toBe('root')
     expect(result.index).toBe(1)
+  })
+})
+
+describe('visibleIndexToSchemaIndex：可见索引 → schema 索引', () => {
+  it('没有隐藏节点时是恒等映射', () => {
+    const ids = ['a', 'b', 'c']
+    expect(visibleIndexToSchemaIndex(ids, ids, 0)).toBe(0)
+    expect(visibleIndexToSchemaIndex(ids, ids, 1)).toBe(1)
+    expect(visibleIndexToSchemaIndex(ids, ids, 3)).toBe(3)
+  })
+
+  it('⚠️ 隐藏节点占着 schema 槽位时，索引要相应后移', () => {
+    // schema: a, h(隐藏), b   —— 可见: a, b
+    const full = ['a', 'h', 'b']
+    const visible = ['a', 'b']
+
+    // 插到最前
+    expect(visibleIndexToSchemaIndex(full, visible, 0)).toBe(0)
+    // 插到 a 之后 → schema 索引 1（正好落在隐藏节点 h 之前）
+    expect(visibleIndexToSchemaIndex(full, visible, 1)).toBe(1)
+    // 插到 b 之后 → schema 索引 3（追加到末尾）
+    expect(visibleIndexToSchemaIndex(full, visible, 2)).toBe(3)
+  })
+
+  it('隐藏节点在末尾时，"追加"要落在它之前', () => {
+    // schema: a, b, h(隐藏) —— 可见: a, b
+    const full = ['a', 'b', 'h']
+    const visible = ['a', 'b']
+    expect(visibleIndexToSchemaIndex(full, visible, 2)).toBe(2)
+  })
+
+  it('隐藏节点在最前时，"插到最前"要落在它之后', () => {
+    // schema: h(隐藏), a, b —— 可见: a, b
+    const full = ['h', 'a', 'b']
+    const visible = ['a', 'b']
+    expect(visibleIndexToSchemaIndex(full, visible, 0)).toBe(1)
+  })
+
+  it('可见列表为空时原样返回', () => {
+    expect(visibleIndexToSchemaIndex(['h1', 'h2'], [], 0)).toBe(0)
+  })
+
+  it('锚点不在 schema 列表里时回退为原索引', () => {
+    expect(visibleIndexToSchemaIndex(['a', 'b'], ['x', 'y'], 1)).toBe(1)
   })
 })

@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { defineComponent, h, inject, isRef } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
@@ -193,6 +195,24 @@ describe('第 0 步：radio 的 displayStyle 无条件绑到 CSS display', () =>
     })
     const first = wrapper.find('.el-radio-button').element as HTMLElement
     expect(first.hasAttribute('border')).toBe(false)
+  })
+
+  it('根元素带 .lc-radio，且样式覆盖了 .el-radio-group 的 display', () => {
+    const wrapper = mount(LcRadio, { props: { optionItems: options } })
+    expect(wrapper.find('.lc-radio').exists()).toBe(true)
+
+    // ⚠️ 这里只能做**源码级**守卫。
+    //
+    // 真实缺陷（已在 Chrome 里复现并修复）：Element Plus 把 .el-radio-group 设成
+    // `display: inline-flex`，选项成为 flex item 后其 `display` 会被「块化」，
+    // 导致 displayStyle='block' 时各选项仍挤在同一行——属性面板改了完全没效果。
+    // 修法是把容器恢复成 Element UI 的 `inline-block`（见 Radio.vue 的 style 块）。
+    //
+    // 布局正确性 happy-dom 测不到（没有布局引擎），因此这里只断言"补丁还在"，
+    // 真正的校验走真实浏览器：`node scripts/cdp-inspect.mjs`（见 docs/interaction-spec/README.md 7.8）。
+    const source = readFileSync(join(process.cwd(), 'src/components/Radio.vue'), 'utf8')
+    expect(source).toContain(':deep(.el-radio-group)')
+    expect(source).toMatch(/display:\s*inline-block/)
   })
 })
 

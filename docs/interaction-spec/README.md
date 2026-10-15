@@ -406,7 +406,262 @@ blur/change 上（`update:modelValue` 已先落地），不存在该竞态，因
 | `validate-on-rule-change` 等价开关 | Element 的 `el-form` 有该配置；本实现每次校验都是显式调用，不存在"改规则自动校验"的路径 |
 | `optionData` → `optionItems` 的动态数据源通道 | 目前只能通过 `FieldHandle.loadOptions` 直接写 `optionItems`；绑定到数据源尚未做 |
 
-**当前状态**：全套 **449 项通过**，7 个包 typecheck 通过。
+**当前状态**：全套 **462 项通过**，7 个包 typecheck 通过。
+
+### 7.8 真机验证：已发现并修复一个 happy-dom 测不到的真 bug
+
+**为什么必须做这一步**：`questionBug.md` 记录过"合成事件测不出、真实鼠标可稳定复现"的问题；
+而 happy-dom **没有布局引擎**——`inline` vs `inline-block`、浮层定位、`z-index` 一律测不到。
+
+#### 工具：`scripts/cdp-inspect.mjs`
+
+用 CDP 驱动无头 Chrome。**只用 Node 24 内置的全局 `WebSocket`，不装 puppeteer/playwright**。
+
+```bash
+node scripts/cdp-inspect.mjs --url http://localhost:5174/ --wait ".lc-canvas" \
+  --eval "document.title" --click ".lc-node" --out /tmp/shot.png
+```
+
+支持：等待选择器、多次求值、**真实鼠标点击**（`Input.dispatchMouseEvent`，不是 `element.click()`）、
+逐字符输入（`Input.dispatchKeyEvent`）、失焦、截图、收集 console error/exception/warning。
+
+⚠️ 多步交互必须用 `--steps`（按顺序执行），**不要**用 `--click/--type/--eval` 组合：
+后者是"分阶段"的（所有点击 → 所有输入 → 所有断言），无法表达"点击 → 断言 → 再输入 → 再断言"，
+曾导致"输入发生在失焦之后、输入框根本没聚焦"的假失败。
+
+```bash
+node scripts/cdp-inspect.mjs --url http://localhost:5174/ --wait ".lc-canvas" \
+  --steps '[{"click":"#target-input"},{"type":"abc"},{"click":".lc-preview-bar"},
+            {"wait":300},{"assert":"document.querySelector(\".lc-form-item__error\")?.textContent"}]'
+```
+
+步骤类型：`{eval}` `{assert}` `{click}` `{type}` `{blur}` `{wait}`（毫秒）`{screenshot}`。
+
+⚠️ 两个踩过的坑（已写进脚本注释）：
+1. **Chrome 在受限环境里会以 `SIGTRAP` 崩溃**（自身沙箱起不来），必须加
+   `--no-sandbox --disable-setuid-sandbox --disable-breakpad --disable-crashpad`。
+   崩溃时表现为"脚本静默 exit 0"，所以脚本现在会把 ws 关闭与 Chrome 退出显式报出来。
+2. vite 的 dev server 默认只绑 **IPv6 `[::1]`**，用 `127.0.0.1` 连不上，要用 `localhost`。
+
+#### 如何在真机里构造任意场景（无需改动应用）
+
+dev 模式下 Vue 实例可达：从 `document.querySelector('#app').__vue_app__` 遍历组件树，
+可以拿到 `Designer` 的 `setupState.ctx`（`DesignerContext`），于是能在浏览器里
+`ctx.insertMaterial('radio')` / `ctx.updateProps(id, {...})` / `ctx.togglePreview()` 任意构造与断言。
+注意 `ctx.schema` / `ctx.runtime` 是 `shallowRef`，需要解包。
+
+#### 🔴 发现 1（已修）：radio 的 `displayStyle` 在 Element Plus 上**静默失效**
+
+真实 Chrome 实测（element-plus 2.14.4）：
+
+| 容器 `display` | `displayStyle` | 选项不同行数 | 结论 |
+|---|---|---|---|
+| `inline-flex`（EP 默认） | `block` | **1** | ❌ 三项挤同一行，属性面板改了没效果 |
+| `inline-flex`（EP 默认） | `inline` | 1 | 碰巧对 |
+| `inline-block`（修复后） | `block` | **3** | ✅ 每项独占一行 |
+| `inline-block`（修复后） | `inline` | 1 | ✅ |
+
+**根因**：参考实现里 `.el-radio-group` 是 `display: inline-block`（Element UI 2.x），
+所以 `:style="{display: displayStyle}"` 绑在选项上能真正生效。
+**Element Plus 把容器改成了 `display: inline-flex`** —— 选项成为 flex item 后，
+其 `display` 按 CSS 规范被「块化」（`inline` → `block`），于是 `displayStyle` 完全失去作用。
+
+**修法**：在 `Radio.vue` 里把容器恢复成 `inline-block`（`<style scoped>` + `:deep`）。
+取 `inline-block` 而非 `block`，是因为后者会让选项撑满整行（实测 784px），与参考的收缩行为不一致。
+
+**为什么之前三层测试都没抓到**：
+- happy-dom 没有布局引擎，`getComputedStyle` 不反映真实 flex 布局
+- 单测断言的是 `element.style.display === 'inline'`（inline style 字符串）——**它确实是对的**，
+  失效发生在布局阶段，字符串断言看不见
+- 静态一致性审计更不可能发现（它只看属性是否绑定）
+
+**这正是"测试全绿但实际不对"的又一例**，也是先做真机验证的理由。
+
+#### 🟠 发现 2（待办）：checkbox 的上游 CSS 差异
+
+| | Element UI 2.x | Element Plus 2.14 |
+|---|---|---|
+| `.el-checkbox` | `display: block; margin-right: 5px; margin-bottom: 8px; margin-left: 5px` | `display: inline-flex; margin-right: 30px` |
+| `.el-checkbox-group` | `font-size: 0` | `font-size: 0; line-height: 0` |
+
+`Checkbox.vue` 目前用的是旧写法（`displayStyle === 'block' ? 'display: block' : undefined`）。
+因为 EP 的 `.el-checkbox-group` **不是** flex，所以 `block` 模式实测**能正常换行**（3 行）——
+但 `inline` 模式依赖 EP 的默认 `inline-flex`，且**间距与参考不同**（30px vs 5px/8px）。
+不在本轮三个组件范围内，登记待办。
+
+#### 🟡 发现 3（无害）：`/favicon.ico` 404
+
+控制台里唯一的 error 是 favicon 404，与业务无关，可忽略或在 `index.html` 补一个。
+
+#### ⚠️ 截图说明
+
+`cdp-inspect.mjs` 能截图，但**当前会话的模型不支持读图**，所以截图需要人工查看。
+因此本轮的结论全部来自**可断言的度量**（`getBoundingClientRect` / `getComputedStyle` /
+`elementFromPoint`），而不是"看图觉得对"——这反而更严格。
+
+#### 真机验证结果（V2–V6）
+
+全部用**真实鼠标**（`Input.dispatchMouseEvent`）与**真实键盘**（`Input.dispatchKeyEvent`），
+在真实布局引擎下断言 `getBoundingClientRect` / `getComputedStyle` / `elementFromPoint`。
+
+| # | 验证项 | 结果 |
+|---|---|---|
+| **V2** | input 的 `placeholder` 默认值 | schema `""`、DOM `placeholder=""` ✅（不再强插"请输入"）；`updateProps` 设为 `"请输入姓名"` 后 attr 同步 ✅ |
+| **V2** | select 的 `placeholder` 为空时兜底 | 渲染出 `"请选择"` ✅ |
+| **V3** | FormItem 不再常显 `requiredHint`/`validationHint` | `.lc-form-item__hint` 不存在、两个文案都不在 DOM ✅；必填星号仍在 ✅ |
+| **V4** | 预览模式：空值失焦 | 出现 `"字段值不可为空"` ✅（正是参考实现的文案） |
+| **V4** | 预览模式：输入值后失焦 | 错误**被清除**（`errors: []`，输入值 `"abc"`）✅ |
+| **V5** | 真实鼠标点上移/下移（`questionBug` question2 回归） | 选中 **不跳走**：点击「下移」后 `selectedNodeId` 仍是 `n_title`，顺序变为 `[n_select, n_title, …]` ✅ |
+| **V6** | 下拉浮层是否遮挡操作条（`questionBug.md` 遗留项） | **当前不复现**，详见下 |
+
+**V6 细节（值得记一笔——它是"潜伏"而非"已解决"）**：
+
+```
+打开下拉后：可见浮层 1 个，矩形 {x:293, y:177, w:814, h:82}
+          上移按钮中心 {x:1008, y:156}，操作条底边 ≈ y:166
+          重叠：false ；该点最上层仍是 lc-node__action
+```
+
+操作条定位是 `bottom: -2px; right: -2px; z-index: 10`（节点右下角），
+而 EP 的下拉默认**在节点下方展开**（`y:177`），与操作条底边（≈166）**只差约 11px**。
+水平方向两者是重叠的（浮层 x 跨度 293–1107，按钮 x=1008）。
+
+**所以它没被遮住只是因为那 11px 的垂直余量**，而 EP 的 popper z-index 远高于 10
+（一旦重叠，浮层必然盖住操作条 → 就是 `questionBug.md` 描述的现象）。
+改主题 offset、改操作条定位、或节点变矮，都可能让它复现。**建议登记为已知脆弱点。**
+
+#### 🔴 发现 4（已修）：拖拽落点在**有隐藏节点时插错位置**
+
+拖拽落点必须用真实拖拽手势验证——HTML5 DnD 由浏览器原生手势触发，合成事件驱动不了。
+本仓库的插入逻辑不依赖 `dataTransfer`，而是用 `state.dragState`（dragstart 设置）
+与 `state.dropTarget`（dragover 按坐标算），所以"真实手势 + 坐标断言"能完整覆盖。
+
+**修复前实测（demo schema，`n_input` 的 `visible` 绑定为假所以不渲染）**：
+
+| 落点 | 拖拽中算出的 target | 实际插入后的 schema 根顺序 |
+|---|---|---|
+| 画布中心（所有节点之下，应追加到末尾） | `index: 4` | `[n_title, n_select, **n_input**, n_table, **NEW**, n_button]` ❌ |
+
+NEW 插在了 `n_table` 与 `n_button` **之间**，而不是末尾。
+
+**根因**：落点索引由 `computeListDrop` 按画布上**渲染出来的**子节点计算（用 DOM 矩形），
+却直接当成 **schema 的 children 索引**使用。而 schema 里还有**不渲染**的节点
+（`visible` 绑定为假 / `meta.hidden`）——它们不在 DOM 里，却仍占着顺序槽位。
+demo 的 `n_input` 正好在中间，于是每个落点都整体偏移一格。
+
+**这与 `docs/questionBug.md` 的 question3 是同一个根因**：
+那次修了上移/下移（给 `moveNodeUp/moveNodeDown` 加了 `isVisible` 参数），
+**但落点这条路径漏了**——同一个坑，只堵了一半。
+
+**修法**：新增纯函数 `visibleIndexToSchemaIndex(fullIds, visibleIds, k)`
+（`engine/drop-target.ts`），把可见索引换算成 schema 索引：
+插到"第 k-1 个可见节点之后"，这样隐藏节点不会让落点整体偏移。
+`Canvas.computeDrop` 在算出落点后用它对 `target.index` / `target.beforeId` 做换算
+（指示条仍用可见索引，它本来就是视觉量）。
+
+**修复后实测**：
+
+| 落点 | schema 根顺序 | 可见顺序 |
+|---|---|---|
+| 画布中心 | `[n_title, n_select, n_input, n_table, n_button, **NEW**]` ✅ 追加到末尾 | `[…, n_button, NEW]` |
+| 顶部 | `[**NEW**, n_title, n_select, n_input, n_table, n_button]` ✅ | `[NEW, n_title, …]` |
+
+新增 6 个纯函数单测覆盖该换算（含隐藏节点在前/在中/在后、可见列表为空、锚点缺失）。
+
+#### 🔴 发现 5（已修）：画布内拖拽排序 —— 暴露了 core 里一个潜伏 bug
+
+物料拖入验完后，顺手验**画布内拖拽排序**（`source: 'canvas'` 分支，代码路径不同）。
+结果抓出两个问题，且都是"只堵了一半"的同类：
+
+**5a. 我自己在发现 4 的修法里引入的回归**
+
+物料拖入与画布内移动的索引空间**不一样**：
+
+| 场景 | 被拖节点在不在列表里 |
+|---|---|
+| 物料拖入（INSERT） | 不在——只需要按隐藏节点数偏移 |
+| 画布内移动（MOVE） | `NodeTree.move` **先 detach 再插入**，而 `collectLists` 也已把被拖节点滤掉 → 基准列表必须同样排除它 |
+
+我第一版换算用的是含被拖节点的完整列表，于是移动排序会整体偏一位。
+修法：`schemaChildrenOf(containerId).filter((id) => id !== draggedId)`
+（物料拖入时 `draggedId` 为 undefined，此过滤是空操作）。
+
+**5b. `NodeTree.resolveIndex` 的 `beforeId` 对根级永远是空操作**
+
+为了稳，我给 `moveNode` 补上了 `beforeId`（`insertMaterial` 早就优先用它）。
+补完发现"把最后一个节点拖到最前"**完全没反应**。定位到：
+
+```ts
+// resolveIndex 里
+const index = list.findIndex((id) => id === options.beforeId)
+```
+
+而两种列表的**元素类型不同**：
+- 根级：`move` 传的是 `this.nodes` → **`PageNode[]`（对象）**
+- 容器插槽：`getSlotList` 返回 **`string[]`（id）**
+
+所以根级比较 `对象 === 'n_title'` 永远为 false → 退化成 `list.length` → **总是追加到末尾**。
+`insertMaterial` 之所以没踩到，是因为它自己先用 `getPosition(beforeId)` 解析成 index，从不把
+`beforeId` 传进 `insert`。也就是说这个分支**此前从未被走到过**，属于潜伏 bug。
+
+修法：按元素类型分别取 id（`typeof item === 'string' ? item : item.id`），并补 3 个单测。
+
+**实测（画布内拖拽排序）**：
+
+| 场景 | 修复前 | 修复后 |
+|---|---|---|
+| 最后 → 最前（拖 `n_button` 到顶部） | 顺序**完全不变** ❌ | `[n_button, n_title, n_select, n_input, n_table]` ✅ |
+| 最前 → 最后（拖 `n_title` 到底部） | `[n_select, n_input, n_table, n_button, n_title]` ✅ | 同样 ✅ |
+
+反向验证：把 `resolveIndex` 回退成旧的比较，2 个根级用例立即变红。
+
+> **这一条是本轮最有价值的教训**：如果不是坚持"新改动也要用真机验一遍"，5a 会把一个回归
+> 直接提交进去；而 5b 会继续潜伏，直到有人把节点拖到最前时才发现"没反应"。
+
+#### ✅ 发现 6（非 bug）：拖到非 `droppable` 容器上会落到根级
+
+实测把输入框拖到 demo 的 `n_table`（数据表格）上，落成了**根级兄弟**而非表格内部。
+核对清单后确认这是**设计如此**：`droppable: true` 只有 4 个物料——
+`card` / `grid-col` / `layout-table-cell` / `tab-pane`；`table`（数据表格）不是布局容器。
+
+用真正的可放置容器（卡片）复测：新节点归属为 `{ 父: <卡片 id>, 槽: 'children' }` ✅。
+
+#### ✅ 发现 7：跨容器拖拽两个方向都正确
+
+| 场景 | 结果 |
+|---|---|
+| **根层节点 → 拖进卡片** | 归属 `{父: <卡片>, 槽: 'children'}`、卡片 children = `[n_title]`、根层不再含它 ✅ |
+| **卡片内节点 → 拖出到根层** | 归属 `{父: null, 槽: 'root'}`、卡片 children = `[]`、根层末位是它 ✅ |
+
+节点总数 6 → 7，无重复、无丢失（扁平存储下 `nodes` 与 `children` 引用保持一致）。
+
+#### ✅ 发现 8：拖入 `grid-col` 正确（顺带发现一个潜在限制）
+
+拖输入框进栅格第 1 列 → 归属 `{父: <col0>, 槽: 'children'}`，`col0.children=[新节点]`、`col1.children=[]` ✅
+
+| 元素 | computed display | `axisOf` 结果 |
+|---|---|---|
+| `.el-row`（栅格行） | `flex` / `row` | 会返回 `'x'` |
+| `.el-col`（列） | `block` | `'y'` ✅ 正确（列内子节点纵向堆叠） |
+
+🟡 **潜在限制（非当前 bug）**：`computeDrop` 传给 `axisOf` 的是
+`document.querySelector('[data-node-id="…"]')`，也就是**编辑器自己的 `.lc-node` 包裹层**，
+而不是物料自身的根元素。实测该包裹层与 `.lc-runtime-root` 都是 `display: block`，
+因此 **`axisOf` 恒返回 `'y'`，`'x'` 分支在当前接线下不可达**。
+
+现有的 4 个可放置容器（`card` / `grid-col` / `layout-table-cell` / `tab-pane`）内部都是纵向堆叠，
+所以行为正确。但**将来若加入横向容器**（如行内布局 / flex-row 容器），
+落点索引会按 y 轴计算 → 插入位置错误。
+`drop-target.ts` 的 `'x'` 分支本身有单测覆盖，缺的是接线；届时需要让 `axisOf` 看到物料的真实根元素。
+
+
+#### 仍然只能在真机做的验证
+
+| 项 | 说明 |
+|---|---|
+| 纯视觉观感 | 当前会话的模型不支持读图，间距/对齐是否"好看"需要人工看截图 |
+| 更多组件的浮层与定位 | 本轮的浮层检查只覆盖了 select；date/time/cascader 的 popper 未验 |
+| 拖拽落点 | 画布用 HTML5 DnD，合成鼠标事件驱动不了；本轮走的是"点击物料添加"路径 |
 
 ---
 

@@ -88,6 +88,7 @@ const optionStyle = computed(() => ({ display: props.displayStyle }))
 
 <template>
   <FormItem
+    class="lc-radio"
     :label="label"
     :label-width="labelWidth"
     :label-hidden="labelHidden"
@@ -136,3 +137,25 @@ const optionStyle = computed(() => ({ display: props.displayStyle }))
     </ElRadioGroup>
   </FormItem>
 </template>
+
+<style scoped>
+/*
+ * ⚠️ 恢复参考实现的**容器语义**，否则 `displayStyle` 会静默失效。
+ *
+ * 参考实现（Element UI 2.x）里 `.el-radio-group` 是 `display: inline-block`，
+ * 所以 `:style="{display: displayStyle}"` 绑在选项上能真正生效。
+ * Element Plus 把容器改成了 `display: inline-flex` —— 选项一旦成为 flex item，
+ * 其 `display` 会按 CSS 规范被「块化」（`inline` → `block`），于是：
+ *   `displayStyle: 'block'` 时各选项**仍旧挤在同一行**，属性面板改了没有任何效果。
+ *
+ * 真实 Chrome 实测（element-plus 2.14.4，见 scripts/cdp-inspect.mjs）：
+ *   容器 inline-flex  + displayStyle=block → 3 个选项同行      ❌
+ *   容器 inline-block + displayStyle=block → 3 行（宽度按内容收缩）✅
+ *   容器 inline-block + displayStyle=inline → 1 行              ✅
+ * 取 `inline-block` 是因为它与 Element UI 的容器取值一致，收缩行为也对得上；
+ * 用 `block` 会让选项撑满整行（784px），与参考不一致。
+ */
+.lc-radio :deep(.el-radio-group) {
+  display: inline-block;
+}
+</style>

@@ -166,3 +166,36 @@ describe('NodeTree 节点树', () => {
     expect(new NodeTree(next).getParent('b')).toBeUndefined()
   })
 })
+
+describe('resolveIndex 的 beforeId：根级与容器插槽两种列表', () => {
+  function flatNodes(): PageNode[] {
+    return [
+      { id: 'a', type: 'card', props: {} },
+      { id: 'b', type: 'card', props: {} },
+      { id: 'c', type: 'card', props: {} },
+    ]
+  }
+
+  it('⚠️ 根级：beforeId 要真的定位（根级列表存的是对象，不是 id 字符串）', () => {
+    const tree = new NodeTree(flatNodes())
+    tree.move('c', { parentId: null, beforeId: 'a' })
+    expect(tree.getRoot().map((n) => n.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('根级：beforeId 指向末尾节点时插到它之前', () => {
+    const tree = new NodeTree(flatNodes())
+    tree.move('a', { parentId: null, beforeId: 'c' })
+    expect(tree.getRoot().map((n) => n.id)).toEqual(['b', 'a', 'c'])
+  })
+
+  it('容器插槽：beforeId 仍然按 id 字符串定位', () => {
+    const tree = new NodeTree([
+      { id: 'box', type: 'card', props: {}, children: ['x', 'y', 'z'] },
+      { id: 'x', type: 'text', props: {} },
+      { id: 'y', type: 'text', props: {} },
+      { id: 'z', type: 'text', props: {} },
+    ])
+    tree.move('z', { parentId: 'box', beforeId: 'x' })
+    expect(tree.get('box').children).toEqual(['z', 'x', 'y'])
+  })
+})

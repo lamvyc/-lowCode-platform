@@ -277,10 +277,16 @@ export class NodeTree {
     list: unknown[],
   ): number {
     if (options.beforeId !== undefined) {
-      const index = list.findIndex((id) => id === options.beforeId)
+      // ⚠️ 两种列表的元素类型不同：根级是 `PageNode[]`（见 `move` 里传的 `this.nodes`），
+      // 容器插槽是 `string[]`（`getSlotList` 返回 id 数组）。原先只按 `id === beforeId`
+      // 比较，对根级的对象元素**永远不匹配**，于是静默退化成"追加到末尾"——
+      // 表现为"把节点拖到最前没有任何反应"。这里按元素类型分别取 id。
+      const index = list.findIndex((item) =>
+        typeof item === 'string' ? item === options.beforeId : (item as PageNode | null)?.id === options.beforeId,
+      )
       return index < 0 ? list.length : index
     }
-    let index = options.index ?? list.length
+    const index = options.index ?? list.length
     return Math.max(0, index)
   }
 

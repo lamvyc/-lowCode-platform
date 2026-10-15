@@ -15,7 +15,12 @@ import { RuntimeRenderer } from '@lowcode/runtime'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
 import { DEVICE_BORDER, deviceDimension } from '../device'
 import { materialRegistry } from '../../platform'
-import { computeListDrop, type DropAxis, type DropRect } from '../../engine/drop-target'
+import {
+  computeListDrop,
+  visibleIndexToSchemaIndex,
+  type DropAxis,
+  type DropRect,
+} from '../../engine/drop-target'
 import {
   beginDragGhost,
   endDragGhost,
@@ -363,6 +368,26 @@ function toDropRect(rect: DOMRect): DropRect {
   return { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
 }
 
+/**
+ * 容器在 schema 里的**完整**子节点顺序（含不渲染的节点）。
+ *
+ * 根层没有显式 children，渲染器的判定是"未被任何节点的 children/slots 引用"，
+ * 这里保持一致，否则根层落点会与渲染顺序对不上。
+ */
+function schemaChildrenOf(containerId: string | null): string[] {
+  if (containerId) {
+    return schema.value.nodes.find((node) => node.id === containerId)?.children ?? []
+  }
+  const referenced = new Set<string>()
+  for (const node of schema.value.nodes) {
+    for (const childId of node.children ?? []) referenced.add(childId)
+    for (const ids of Object.values(node.slots ?? {})) {
+      for (const childId of ids) referenced.add(childId)
+    }
+  }
+  return schema.value.nodes.filter((node) => !referenced.has(node.id)).map((node) => node.id)
+}
+
 /** 计算落点与插入指示条 */
 function computeDrop(event: DragEvent): { target: DropTarget; indicator: DropRect } | null {
   const dragState = state.dragState
@@ -389,7 +414,7 @@ function computeDrop(event: DragEvent): { target: DropTarget; indicator: DropRec
     ? toDropRect(containerEl.getBoundingClientRect())
     : toDropRect(canvasRef.value?.getBoundingClientRect() ?? new DOMRect())
 
-  return computeListDrop({
+  const result = computeListDrop({
     containerId,
     childIds: childEls.map((el) => el.dataset.nodeId ?? ''),
     childRects: childEls.map((el) => toDropRect(el.getBoundingClientRect())),
@@ -397,7 +422,22 @@ function computeDrop(event: DragEvent): { target: DropTarget; indicator: DropRec
     axis: axisOf(containerEl),
     pointer: { x: event.clientX, y: event.clientY },
   })
-}
+  if (!result) return null
+
+  // ⚠️ 可见索引 → schema 索引。
+  // `computeListDrop` 的索引是按画布上**渲染出来的**子节点算的（用 DOM 矩形），
+  // 而 schema 的 children 里可能还有不渲染的节点（`visible` 绑定为假 / `meta.hidden`）——
+  // 它们不在 DOM 里却仍占着顺序槽位。直接用可见索引写回会插错位置。
+  // 这与 docs/questionBug.md 的 question3 同根因（那次修了上移/下移，落点这条路径漏了）。
+  //
+  // ⚠️ 另外：画布内拖动排序时 `NodeTree.move` 会**先 detach 再插入**，而
+  // `collectLists` 也已经把被拖节点滤掉了。因此基准列表必须同样**排除被拖节点**，
+  // 否则索引会整体偏一位（物料拖入时 draggedId 为 undefined，此过滤是空操作）。
+  const visibleIds = childEls.map((el) => el.dataset.nodeId ?? '').filter(Boolean)
+  const fullIds = schemaChildrenOf(containerId).filter((id) => id !== draggedId)
+  result.target.index = visibleIndexToSchemaIndex(fullIds, visibleIds, result.target.index)
+  result.target.beforeId = fullIds[result.target.index]
+  return result}
 
 /* ---------------- 自动滚动：拖到画布边缘时滚动容器 ---------------- */
 
