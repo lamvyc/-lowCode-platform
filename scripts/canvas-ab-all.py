@@ -24,8 +24,11 @@ import sys
 from pathlib import Path
 
 REPO = Path('/Users/unravel/ lowCode-platform')
-REF = {'url': 'http://localhost:8090/', 'wait': '#app', 'form': "document.querySelector('.widget-form')", 'item': '.el-form-item'}
-OURS = {'url': 'http://localhost:5174/', 'wait': '.lc-canvas', 'form': "document.querySelector('.lc-runtime-root')", 'item': '.lc-form-item'}
+REF = {'url': 'http://localhost:8090/', 'wait': '#app', 'form': "document.querySelector('.widget-form')",
+       'item': '.el-form-item', 'wrap': "document.querySelector('.widget-form .field-wrapper')"}
+OURS = {'url': 'http://localhost:5174/', 'wait': '.lc-canvas', 'form': "document.querySelector('.lc-runtime-root')",
+        'item': '.lc-form-item',
+        'wrap': "[...document.querySelectorAll('.lc-canvas [data-node-id]')].find((e) => e.dataset.nodeId === window.__newId)"}
 
 # 面板标签（两边一致），与 docs/palette-diff.md 的清单对应
 ALL_MATERIALS = [
@@ -54,9 +57,16 @@ SKETCH = r'''(() => {
     }
   }
   const controls = []
+  // 编辑器自身的浮层：整棵子树都要跳过。
+  // 参考：.field-action（操作条）/ .drag-handler（拖拽手柄）
+  // 我们：.lc-node__badges / .lc-node__actions
+  // ⚠️ 只过滤元素自身不够——里面的 el-icon-* 会漏进来，让容器类物料的
+  //    "控件结构" 看起来差很多（静态文字曾报成 el-icon-back/delete…）。
+  const CHROME = /(^|\s)(lc-node__badges|lc-node__actions|field-action|drag-handler)(\s|$)/
   const visit = (el, depth) => {
     if (depth > 8) return
     for (const c of el.children) {
+      if (CHROME.test(String(c.className || ''))) continue
       const cls = String(c.className || '')
       // ⚠️ 必须取**完整**类名：用 /el-[a-z0-9-]+/ 会把 BEM 的 __ 后缀截掉，
       // el-form-item__content / el-input__wrapper / el-input__inner 会一起塌缩成块名，
@@ -71,13 +81,13 @@ SKETCH = r'''(() => {
         'lc-form-item__error': 'el-form-item__error',
         'lc-form-item__required': 'el-form-item__required',
       }
+      // 只保留 el-*（Element 的类），外加**明确登记过的别名**。
+      // ⚠️ 不能把所有 lc-* 都收进来：那是本仓库自己的根类（lc-card / lc-static-text …），
+      //    参考没有对应物，会把"我们的组件多了个根类"报成结构差异。
+      //    静态文字因此曾报成「控件 0 vs 1」——参考那个组件是纯 div，压根没有 el- 元素。
       const names = String(cls || '').split(/\s+/)
-        .filter((c) => c.startsWith('el-') || c.startsWith('lc-'))
-        // 排除编辑器自身的画布浮层（操作条 / 拖拽手柄 / 徽标），它们不属于物料渲染结果。
-        // 不排除的话，容器类物料的素描里会混进 lc-node__badges / lc-node__action 这些，
-        // 造成"控件数 3 vs 10"这类假差异。
-        .filter((c) => !c.startsWith('lc-node'))
         .map((c) => ALIAS[c] || c)
+        .filter((c) => c.startsWith('el-'))
       const b = c.getBoundingClientRect()
       if (names.length && (b.width > 0 || b.height > 0)) {
         controls.push({ el: names.join('.'), depth, ...box(c) })
@@ -85,8 +95,13 @@ SKETCH = r'''(() => {
       visit(c, depth + 1)
     }
   }
-  visit(root, 0)
-  return JSON.stringify({ item: box(root), controls })
+  // 控件序列从"表单项"这一级往下（两边同级，序列才对得上）；
+  // item 盒子按**节点包裹层**测——参考的 .el-form-item 比它的包裹层还窄 6px
+  // （margin/padding/border 全为 0，机制未定论），在表单项这一级比较会混进那 6px。
+  const controlsRoot = root.querySelector('%s') || root
+  visit(controlsRoot, 0)
+  const wrap = %s
+  return JSON.stringify({ item: box(wrap || root), controls })
 })()'''
 
 
@@ -137,33 +152,80 @@ def insert_and_sketch(app, is_ref, label):
     if not is_ref:
         steps.append({'eval': "(() => { const ids = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map(e => e.dataset.nodeId);"
                               " window.__newId = ids.find(i => !window.__beforeIds.includes(i)); return window.__newId || 'NONE' })()"})
-    steps.append({'assert': SKETCH % sketch_root})
+    steps.append({'assert': SKETCH % (sketch_root, app['item'], app['wrap'])})
     return ev(app, steps)
+
+
+# 已知的**机制差异**：两边实现手法不同、但渲染效果等价，不该计入"差异"。
+# 单列出来（而不是静默丢弃），这样报告仍然看得见，只是不污染计数。
+KNOWN_MECHANISM = {
+    # EU：label 浮动 + content 用 margin-left 让出宽度；我们：flex 布局。
+    # 参考 content.margin = 0 0 0 80px，我们 = 0，但两者的 content 左边界一致。
+    ('el-form-item__content', 'margin'),
+}
 
 
 def diff_controls(ref, ours):
     """对比控件序列：逐位比 el 名与宽高；数量不同也报出来。"""
     issues = []
+    mechanisms = []
     rc, oc = ref.get('controls', []), ours.get('controls', [])
-    if [c['el'] for c in rc] != [c['el'] for c in oc]:
+    # 结构比较前先把"上游档位类"剔掉，否则 el-range-editor--medium 这类差异
+    # 会把整条结构序列判为不同（而它已在下面按"已知差异"处理）。
+    STAGE = ('--medium', '--mini')
+
+    def shape(controls):
+        out = []
+        for c in controls:
+            parts = [t for t in c['el'].split('.') if not any(t.endswith(x) for x in STAGE)]
+            out.append('.'.join(parts))
+        return out
+
+    if shape(rc) != shape(oc):
         issues.append(('控件结构', ' → '.join(c['el'] for c in rc)[:150], ' → '.join(c['el'] for c in oc)[:150]))
+    def block_of(el):
+        """取块名（第一个 el- 类）：el-button--primary → el-button"""
+        return el.split('.')[0]
+
     for i in range(min(len(rc), len(oc))):
         a, b = rc[i], oc[i]
-        if a['el'] != b['el']:
+        # ⚠️ 这里曾经是 `if a['el'] != b['el']: continue` —— 只要类名不完全相同就
+        # **跳过该元素的全部属性比较**。于是当我们的元素多了个 lc-* 修饰类时
+        # （如 el-divider--horizontal.lc-divider），它的 margin/height 等差异
+        # 被静默吞掉，报告显示"没问题"。
+        # 修法：只在**块名**都不同时才认为不是同一元素而跳过；
+        # 仅修饰类不同时，照常比较属性，并把修饰类差异单独报出来。
+        if block_of(a['el']) != block_of(b['el']):
             continue
+        if a['el'] != b['el']:
+            # 上游档位类差异不算渲染偏差：Element UI 有 medium/small/mini 三档类，
+            # Element Plus 只有 large/default/small。我们用 CSS 变量模拟 medium 的度量
+            # （--el-component-size / --el-input-height），因此不会出现 `--medium` 类，
+            # 但**尺寸是对的**。属上游 API 差异。
+            only_stage_classes = (
+                {t for t in a['el'].split('.') if '--' in t} - {t for t in b['el'].split('.') if '--' in t}
+            ) <= {'el-range-editor--medium', 'el-input--medium', 'el-cascader--medium', 'el-form-item--medium',
+                  'el-select--medium', 'el-textarea--medium', 'el-input-number--medium', 'el-date-editor--medium'}
+            if only_stage_classes:
+                mechanisms.append((f'上游档位类 @ {block_of(a["el"])}', a['el'], b['el']))
+            else:
+                issues.append((f'修饰类 @ {block_of(a["el"])}', a['el'], b['el']))
         for k in ('w', 'h', 'display', 'height', 'fontSize', 'borderRadius'):
             if a[k] != b[k]:
                 issues.append((f'{a["el"]}.{k}', a[k], b[k]))
         for k in ('padding', 'margin'):
             if a[k] != b[k]:
-                issues.append((f'{a["el"]}.{k}', a[k], b[k]))
+                target = mechanisms if (a['el'], k) in KNOWN_MECHANISM else issues
+                target.append((f'{a["el"]}.{k}', a[k], b[k]))
     ri, oi = ref.get('item'), ours.get('item')
     if ri and oi:
         if ri['w'] != oi['w']:
             issues.append(('form-item.w', ri['w'], oi['w']))
+        # 间距机制不同：参考放在**节点包裹层**（.field-wrapper + design-time-bottom-margin），
+        # 我们放在 .lc-form-item。同一件事、不同层，属机制差异。
         if ri['margin'] != oi['margin']:
-            issues.append(('form-item.margin', ri['margin'], oi['margin']))
-    return issues
+            mechanisms.append(('节点包裹.margin', ri['margin'], oi['margin']))
+    return issues, mechanisms
 
 
 def main():
@@ -176,12 +238,13 @@ def main():
             print(f'{label:8s} ⚠️ 取数失败'); summary.append((label, -1, [])); continue
         if ref.get('error') or ours.get('error'):
             print(f'{label:8s} ⚠️ 画布为空（拖拽未生效）'); summary.append((label, -1, [])); continue
-        issues = diff_controls(ref, ours)
+        issues, mechanisms = diff_controls(ref, ours)
         rc = len(ref.get('controls', [])); oc = len(ours.get('controls', []))
         if not issues:
             print(f'{label:8s} ✅ 一致（控件 {rc} 个）')
         else:
-            print(f'{label:8s} ❌ {len(issues)} 处差异（控件 {rc} vs {oc}）')
+            extra = f'，{len(mechanisms)} 处已知机制差异' if mechanisms else ''
+            print(f'{label:8s} ❌ {len(issues)} 处差异（控件 {rc} vs {oc}）{extra}')
             for name, a, b in issues[:8]:
                 print(f'          {name:26s} 参考={str(a)[:38]:<38} 我们={str(b)[:38]}')
         summary.append((label, len(issues), issues))

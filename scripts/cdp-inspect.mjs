@@ -247,8 +247,28 @@ async function realClick(client, selector) {
  *
  * spec: { from: 选择器, to: 选择器 | {x,y}, steps?: number }
  */
+/**
+ * 把元素滚进视口再取中心点。
+ *
+ * ⚠️ 物料面板靠下的项（富文本 / 级联选择 / 提示）在 900px 高的视口里不可见，
+ * 直接取 `getBoundingClientRect` 会拿到视口外的坐标，拖拽起点无效、
+ * 表现为"画布为空（拖拽未生效）"。所以先把源滚进视口。
+ */
+async function scrollIntoViewAndCenter(client, selector) {
+  await evaluate(
+    client,
+    `(() => {
+      const el = document.querySelector(${JSON.stringify(selector)})
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'center' })
+      return 'ok'
+    })()`,
+  )
+  await sleep(180)
+  return centerOf(client, selector)
+}
+
 async function realDrag(client, spec, options = {}) {
-  const fromBox = await centerOf(client, spec.from)
+  const fromBox = await scrollIntoViewAndCenter(client, spec.from)
   if (!fromBox) throw new Error(`拖拽源未命中: ${spec.from}`)
   // to 支持三种写法：选择器 / 字面量坐标 / 运行时求值（用于"按当前布局算落点"）
   let toBox
