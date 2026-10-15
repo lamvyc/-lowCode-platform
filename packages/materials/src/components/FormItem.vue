@@ -120,6 +120,9 @@ const controlStyle = computed(() => ({
   box-sizing: border-box;
   width: 100%;
   margin-bottom: 22px;
+  /* 基线字号 14px：参考实现的 .el-form-item__content 是 14px，我们此前继承到 16px。
+     全量 A/B 显示这一条在 17 个物料上被报出来（控件内部字号/行高跟着差）。 */
+  font-size: 14px;
 }
 .lc-form-item--left {
   flex-direction: row;
