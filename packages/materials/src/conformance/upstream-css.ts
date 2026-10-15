@@ -132,6 +132,12 @@ export const REVIEWED_DIVERGENCES: Record<string, string> = {
     '不适用：列宽拖拽时的临时提示层；本仓库未使用该交互（列宽走属性面板）',
   '.el-tabs__nav|z-index':
     '不适用：标签导航层级变化未观测到影响（真机实测 2 个标签项同行渲染正常）',
+  '.el-alert__content|display':
+    '不适用：新增「提示」物料带进来的差异（EP 把 .el-alert__content 从 table-cell 改成 flex）。' +
+    '我们只在 ElAlert 上透传属性，没有在它的子项上绑 display。真机实测提示条渲染正常' +
+    '（el-alert--info is-center is-light、标题为默认文案、关闭按钮存在、空描述不渲染）',
+  '.el-alert|display':
+    '不适用：同上。参考实现的 alert 是扩展字段示例，我们按它的 alertSchema.options 逐项对齐默认值',
 }
 
 export interface UpstreamDiffReport {

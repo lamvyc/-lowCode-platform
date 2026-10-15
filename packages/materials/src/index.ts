@@ -3,6 +3,7 @@ import { LOCAL_MATERIALS } from './materials'
 
 export { LOCAL_MATERIALS, MATERIAL_COMPONENTS } from './materials'
 export { MATERIAL_MANIFESTS, type MaterialManifest } from './manifest'
+export { MATERIAL_ICONS, ICON_GROUPS, type MaterialIcon } from './icons'
 export { createFormWidgetResolver } from './form'
 export { useRuntimeContext } from './use-runtime'
 export { useFieldContext } from './use-field'

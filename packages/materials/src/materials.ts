@@ -26,6 +26,7 @@ import LcFileUpload from './components/FileUpload.vue'
 import LcRichEditor from './components/RichEditor.vue'
 import LcImage from './components/Image.vue'
 import LcTable from './components/Table.vue'
+import LcAlert from './components/Alert.vue'
 import LcCard from './components/Card.vue'
 import LcGrid from './components/Grid.vue'
 import LcGridCol from './components/GridCol.vue'
@@ -53,6 +54,8 @@ export const MATERIAL_COMPONENTS: Record<string, Component> = {
   button: LcButton,
   divider: LcDivider,
   image: LcImage,
+  // 自定义扩展字段
+  alert: LcAlert,
   // 表单字段
   input: LcInput,
   textarea: LcTextarea,

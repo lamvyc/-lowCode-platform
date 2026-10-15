@@ -10,6 +10,7 @@ import {
   ElMessageBox,
 } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import { MATERIAL_ICONS } from '@lowcode/materials'
 import { normalizePageSchema, type Material } from '@lowcode/schema'
 import { materialRegistry } from '../../platform'
 import { DESIGNER_KEY, type DesignerContext } from '../useDesigner'
@@ -20,19 +21,30 @@ import { beginDragGhost, endDragGhost, transparentDragImage } from '../drag-ghos
 const ctx = inject<DesignerContext>(DESIGNER_KEY)!
 const { setDragState, setDropTarget, schema } = ctx
 
+/**
+ * 物料的 `icon` 字段存的是**图标键**（如 `text-field`），不是可直接显示的字符。
+ * 键查不到时回退成显示原始值（保留旧行为，便于渐进迁移）。
+ */
+function iconOf(material: Material) {
+  const key = material.icon
+  return key ? MATERIAL_ICONS[key] : undefined
+}
+
 const activeTab = ref<'components' | 'templates'>('components')
 const keyword = ref('')
 const collapsedGroups = ref<string[]>([])
 
-/** 分组展示顺序与标题（未声明的分类按出现顺序追加） */
-const CATEGORY_ORDER = ['布局', '基础', '表单', '高级', '数据', '反馈']
+/** 分组展示顺序与标题。
+ *
+ * 分组名与顺序对齐参考实现（`variant-form`）：容器 / 基础字段 / 高级字段 / 自定义扩展字段。
+ * 参考实现里没有的物料（数据表格）归入「自定义扩展字段」——那一组在参考里的语义就是扩展位。
+ */
+const CATEGORY_ORDER = ['容器', '基础字段', '高级字段', '自定义扩展字段']
 const CATEGORY_LABELS: Record<string, string> = {
-  布局: '容器组件',
-  基础: '基础组件',
-  表单: '表单字段',
-  高级: '高级字段',
-  数据: '数据组件',
-  反馈: '反馈组件',
+  容器: '容器',
+  基础字段: '基础字段',
+  高级字段: '高级字段',
+  自定义扩展字段: '自定义扩展字段',
 }
 
 const groups = computed(() => {
@@ -246,13 +258,22 @@ async function saveCurrentAsTemplate(): Promise<void> {
                 v-for="material in group.materials"
                 :key="material.type"
                 class="lc-material-item"
-                :title="material.description ? `${material.name}：${material.description}` : material.name"
+                :title="material.name"
                 draggable="true"
                 @click="addMaterial(material)"
                 @dragstart="onDragStart($event, material)"
                 @dragend="onDragEnd"
               >
-                <span class="lc-material-item__icon">{{ material.icon ?? '◇' }}</span>
+                <span class="lc-material-item__icon">
+                  <svg
+                    v-if="iconOf(material)"
+                    class="lc-material-item__svg"
+                    viewBox="0 0 1024 1024"
+                    aria-hidden="true"
+                    v-html="iconOf(material)!.inner"
+                  />
+                  <template v-else>{{ material.icon ?? '◇' }}</template>
+                </span>
                 <span class="lc-material-item__name">{{ material.name }}</span>
               </div>
             </div>
@@ -416,6 +437,15 @@ async function saveCurrentAsTemplate(): Promise<void> {
 }
 .lc-material-item__icon {
   font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 图标内联 SVG：跟随容器尺寸与文字颜色（参考实现同样靠 currentColor 取色） */
+.lc-material-item__svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
 }
 .lc-material-item__name {
   overflow: hidden;

@@ -10,13 +10,13 @@
 
 | 指标 | 数值 |
 | --- | --- |
-| 物料用到的根选择器 | 29 |
-| 两边都有、参与比对的选择器 | 421 |
-| 🔴 语义变化 | 17 |
+| 物料用到的根选择器 | 30 |
+| 两边都有、参与比对的选择器 | 423 |
+| 🔴 语义变化 | 18 |
 | 🟠 布局差异 | 1 |
-| ⚪ 前缀噪音 | 11 |
+| ⚪ 前缀噪音 | 12 |
 | ⛔ 其中**会让我们失效**的（见下） | 1 |
-| ✅ 已复核（有结论，见下） | 18 |
+| ✅ 已复核（有结论，见下） | 20 |
 | ⬜ 尚未复核 | 0 |
 
 ## 判定口径
@@ -31,12 +31,13 @@
   - `.el-checkbox-group` —— Checkbox.vue 在 .el-checkbox / .el-checkbox-button 上绑 displayStyle
 - **🔴 其余语义变化**：只进报告供人工判断，多半与我们无关（我们没在它们的子项上绑 display）
 
-## 🔴 语义变化（17）
+## 🔴 语义变化（18）
 
 > 容器从 block/inline-block 变成 flex —— 子项的 `display` 会被 CSS 规范「块化」（`inline` → `block`），凡是在子项上绑 `display` 的实现都会静默失效（radio 的 `displayStyle` 就是这么坏的）
 
 | 选择器 | 属性 | Element UI | Element Plus | 归属根 | 状态 |
 | --- | --- | --- | --- | --- | --- |
+| `.el-alert__content` | display | `table-cell` | `flex` | `.el-alert` | ✅ 已复核 |
 | `.el-button` | display | `inline-block` | `inline-flex` | `.el-button` | ✅ 已复核 |
 | `.el-checkbox` | display | `inline-block` | `inline-flex` | `.el-checkbox` | ✅ 已复核 |
 | `.el-checkbox__input` | display | `inline-block` | `inline-flex` | `.el-checkbox` | ✅ 已复核 |
@@ -63,14 +64,15 @@
 | --- | --- | --- | --- | --- | --- |
 | `.el-slider__button-wrapper` | z-index | `1001` | `1` | `.el-slider` | ✅ 已复核 |
 
-## ⚪ 前缀噪音（11）
+## ⚪ 前缀噪音（12）
 
 > 只是 -webkit-box / -webkit-flex 之类的前缀现代化，无行为差异，可忽略
 
-<details><summary>展开（11 条，无需处理）</summary>
+<details><summary>展开（12 条，无需处理）</summary>
 
 | 选择器 | 属性 | Element UI | Element Plus | 归属根 | 状态 |
 | --- | --- | --- | --- | --- | --- |
+| `.el-alert` | display | `-webkit-box` | `flex` | `.el-alert` | ✅ 已复核 |
 | `.el-cascader-node` | display | `-webkit-box` | `flex` | `.el-cascader` | — |
 | `.el-cascader-panel` | display | `-webkit-box` | `flex` | `.el-cascader` | — |
 | `.el-cascader__suggestion-item` | display | `-webkit-box` | `flex` | `.el-cascader` | — |
@@ -123,6 +125,8 @@
 | `.el-checkbox__inner` | z-index | 不适用：层级只在组件内部生效，未观测到遮挡（复选框渲染正常） |
 | `.el-table__column-resize-proxy` | z-index | 不适用：列宽拖拽时的临时提示层；本仓库未使用该交互（列宽走属性面板） |
 | `.el-tabs__nav` | z-index | 不适用：标签导航层级变化未观测到影响（真机实测 2 个标签项同行渲染正常） |
+| `.el-alert__content` | display | 不适用：新增「提示」物料带进来的差异（EP 把 .el-alert__content 从 table-cell 改成 flex）。我们只在 ElAlert 上透传属性，没有在它的子项上绑 display。真机实测提示条渲染正常（el-alert--info is-center is-light、标题为默认文案、关闭按钮存在、空描述不渲染） |
+| `.el-alert` | display | 不适用：同上。参考实现的 alert 是扩展字段示例，我们按它的 alertSchema.options 逐项对齐默认值 |
 
 真机取证方法：`scripts/cdp-inspect.mjs`（见 `docs/interaction-spec/README.md` 7.8）。
 
