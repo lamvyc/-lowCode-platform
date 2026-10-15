@@ -531,6 +531,7 @@ function onDragLeave(event: DragEvent): void {
         :schema="schema"
         :context="runtime"
         :wrap-node="wrapNode"
+        design-mode
       />
       <div v-if="isEmpty" class="lc-canvas__empty">
         <p class="lc-canvas__empty-title">从左侧拖入或点击组件</p>
@@ -553,6 +554,7 @@ function onDragLeave(event: DragEvent): void {
           :schema="schema"
           :context="runtime"
           :wrap-node="wrapNode"
+          design-mode
         />
         <div v-if="isEmpty" class="lc-canvas__empty">
           <p class="lc-canvas__empty-title">从左侧拖入或点击组件</p>

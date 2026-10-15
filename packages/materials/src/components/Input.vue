@@ -22,8 +22,8 @@ const props = withDefaults(
     requiredHint?: string
     validationHint?: string
     columnWidth?: string
-    /** 输入类型：单行文本 / 密码 / 多行文本 */
-    type?: 'text' | 'password' | 'textarea'
+    /** 输入类型：单行文本 / 密码 / 多行文本 / 数字（数字见 inputType 的说明） */
+    type?: 'text' | 'password' | 'textarea' | 'number'
     /** 字段值（设计器里作为「默认值」，运行时为实时值） */
     modelValue?: string
     placeholder?: string
@@ -54,12 +54,12 @@ const props = withDefaults(
     columnWidth: '',
     type: 'text',
     modelValue: '',
-    placeholder: '请输入',
+    placeholder: '',
     clearable: true,
     disabled: false,
     readonly: false,
     showPassword: false,
-    size: 'default',
+    size: '',
     minLength: null,
     maxLength: null,
     showWordLimit: false,
@@ -82,6 +82,18 @@ const emit = defineEmits<{
 }>()
 
 const sizeProp = computed(() => (props.size === '' ? undefined : props.size))
+
+/**
+ * 渲染用的 input 类型。
+ *
+ * `number` 被**有意屏蔽为 `text`**——这是参考实现的既有取舍，不要"修正"：
+ * 若真用原生 `type="number"`，用户输入非数字字符时 `v-model` 拿到的是空字符串，
+ * 非法输入被浏览器直接吞掉，导致 `validation: 'number'` 之类的格式校验**永远拿不到值、给不出提示**。
+ * 屏蔽为 text 后非法内容会留在输入框里，交给校验层报错。
+ *
+ * 参考：variant-form `input-widget.vue:71-78`。
+ */
+const inputType = computed(() => (props.type === 'number' ? 'text' : props.type))
 
 const modelText = computed(() => {
   const value = props.modelValue
@@ -109,7 +121,7 @@ const minLength = computed(() => (props.minLength && props.minLength > 0 ? props
   >
     <ElInput
       :model-value="modelText"
-      :type="type"
+      :type="inputType"
       :size="sizeProp"
       :placeholder="placeholder"
       :clearable="clearable"

@@ -39,9 +39,9 @@ const props = withDefaults(
     displayStyle?: 'inline' | 'block'
     /** 是否使用按钮样式（ElRadioButton） */
     buttonStyle?: boolean
-    /** 是否带边框（按钮样式下 Element Plus 不支持，将忽略） */
+    /** 是否带边框；⚠️ 仅对普通单选生效，按钮样式下 Element Plus 不支持（见下方说明） */
     border?: boolean
-    /** 选项列表 */
+    /** 选项列表；初始选项由物料清单 defaultProps 提供，组件自身不设默认 */
     optionItems?: Array<{ label: string; value: string | number | boolean; disabled?: boolean }>
   }>(),
   {
@@ -55,15 +55,11 @@ const props = withDefaults(
     columnWidth: '',
     modelValue: null,
     disabled: false,
-    size: 'default',
+    size: '',
     displayStyle: 'inline',
     buttonStyle: false,
     border: false,
-    optionItems: () => [
-      { label: 'radio 1', value: 1 },
-      { label: 'radio 2', value: 2 },
-      { label: 'radio 3', value: 3 },
-    ],
+    optionItems: () => [],
   },
 )
 
@@ -78,8 +74,16 @@ const sizeProp = computed(() => (props.size === '' ? undefined : props.size))
 /** Element Plus 的空值是 undefined，本组件统一用 null 表示未选中 */
 const radioValue = computed(() => props.modelValue ?? undefined)
 
-/** 块状排列时每个选项独占一行 */
-const optionStyle = computed(() => (props.displayStyle === 'block' ? 'display: block' : undefined))
+/**
+ * 选项排列方式：**无条件**把 `displayStyle` 的值绑到 CSS `display` 上。
+ *
+ * 参考实现就是 `:style="{display: field.options.displayStyle}"`
+ * （variant-form `radio-widget.vue:11,16`）。
+ *
+ * ⚠️ 不要写成"只有 `block` 才设样式"——那样 `inline` 时元素会保持 Element 默认的
+ * `inline-block`，与参考的 `inline` 在**折行行为与元素间距上并不等价**。
+ */
+const optionStyle = computed(() => ({ display: props.displayStyle }))
 </script>
 
 <template>
@@ -104,6 +108,13 @@ const optionStyle = computed(() => (props.displayStyle === 'block' ? 'display: b
       @change="emit('change', $event ?? null)"
     >
       <template v-for="(option, index) in optionItems" :key="`${option.value}-${index}`">
+        <!--
+          按钮样式分支：**不绑 border**。
+          参考实现在 el-radio-button 上也绑了 :border，但 Element Plus 已移除该属性：
+          RadioButtonProps extends RadioPropsBase，而 border 只声明在 RadioProps 上
+          （已核对 element-plus 2.14.4 的 radio-button.d.ts / radio.d.ts）。
+          绑上去只会作为 fallthrough attribute 落到根 DOM 上，因此这里有意省略。
+        -->
         <ElRadioButton
           v-if="buttonStyle"
           :value="option.value"

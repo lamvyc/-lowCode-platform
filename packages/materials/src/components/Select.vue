@@ -62,6 +62,16 @@ const props = withDefaults(
     multiple?: boolean
     /** 多选时最多可选数量，0 表示不限制 */
     multipleLimit?: number
+    /**
+     * 远程搜索回调。
+     *
+     * **只有它存在时才会把 `remote-method` 绑给 ElSelect**——与参考实现的
+     * `remoteMethod` computed 一致（variant-form `select-widget.vue:77-83`）。
+     * 节点声明 `remoteQuery` 事件时，渲染器会以 `onRemoteQuery` 作为 prop 传入。
+     * 若 `remote: true` 但没有这个回调，必须绑 `undefined`（而不是空函数），
+     * 否则每次输入都会触发一次"空查询"。
+     */
+    onRemoteQuery?: (keyword: string) => void
   }>(),
   {
     label: '',
@@ -73,11 +83,11 @@ const props = withDefaults(
     validationHint: '',
     columnWidth: '',
     modelValue: '',
-    placeholder: '请选择',
+    placeholder: '',
     options: () => [],
     optionItems: () => [],
     disabled: false,
-    size: 'default',
+    size: '',
     clearable: true,
     filterable: false,
     allowCreate: false,
@@ -94,7 +104,6 @@ const emit = defineEmits<{
   (e: 'focus', event: FocusEvent): void
   (e: 'blur', event: FocusEvent): void
   (e: 'clear'): void
-  (e: 'remoteQuery', keyword: string): void
 }>()
 
 /** Element Plus 不接受空字符串尺寸，'' 统一转为 undefined */
@@ -111,10 +120,29 @@ const automaticDropdownProp = computed(
   () => props.automaticDropdown && (props.multiple || !props.filterable),
 )
 
-/** 远程搜索：把 Element Plus 的 remote-method 回调转成 remoteQuery 事件 */
+/**
+ * 「回车选中第一个匹配项」。
+ *
+ * 参考实现里它是从 `filterable && allowCreate` **推导**出来的，属性面板里没有独立开关
+ * （variant-form `select-widget.vue:73-75`），所以这里同样用 computed，不新增 prop。
+ */
+const allowDefaultFirstOption = computed(() => props.filterable && props.allowCreate)
+
+/** 占位文案：为空时回落到默认「请选择」（参考实现用 i18n('render.hint.selectPlaceholder')） */
+const placeholderText = computed(() => props.placeholder || '请选择')
+
+/** 远程搜索回调透传 */
 function handleRemoteQuery(keyword: string) {
-  emit('remoteQuery', keyword)
+  props.onRemoteQuery?.(keyword)
 }
+
+/**
+ * 远程搜索方法：**条件不满足时必须是 `undefined`**（不能是空函数）。
+ * 参考实现 `select-widget.vue:77-83` 正是返回 `undefined`。
+ */
+const remoteMethod = computed(() =>
+  props.remote && props.onRemoteQuery ? handleRemoteQuery : undefined,
+)
 </script>
 
 <template>
@@ -133,14 +161,15 @@ function handleRemoteQuery(keyword: string) {
   >
     <ElSelect
       :model-value="modelValue"
-      :placeholder="placeholder"
+      :placeholder="placeholderText"
       :size="sizeProp"
       :disabled="disabled"
       :clearable="clearable"
       :filterable="filterable"
       :allow-create="allowCreate"
+      :default-first-option="allowDefaultFirstOption"
       :remote="remote"
-      :remote-method="handleRemoteQuery"
+      :remote-method="remoteMethod"
       :automatic-dropdown="automaticDropdownProp"
       :multiple="multiple"
       :multiple-limit="multipleLimit"

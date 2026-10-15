@@ -5,6 +5,7 @@ export { LOCAL_MATERIALS, MATERIAL_COMPONENTS } from './materials'
 export { MATERIAL_MANIFESTS, type MaterialManifest } from './manifest'
 export { createFormWidgetResolver } from './form'
 export { useRuntimeContext } from './use-runtime'
+export { useFieldContext } from './use-field'
 
 // 容器
 export { default as LcCard } from './components/Card.vue'

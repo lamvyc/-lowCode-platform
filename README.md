@@ -20,5 +20,6 @@ pnpm build
 - [设计器界面（导航栏 / 组件库 / 页面模板 / 结构树 / 生成 SFC）](docs/designer-ui.md)
 - [组件库（物料清单与移植说明）](docs/material-library.md)
 - [组件库一致性基线（自动比对参考实现）](docs/conformance.md)
+- [组件交互设计报告（参考实现的行为面规格）](docs/interaction-spec/README.md) —— 一致性基线只覆盖声明面，这里是行为面
 - [设置面板（组件设置 / 表单设置）](docs/setting-panel.md)
 - [五层架构企业级实践反推与基建优化](docs/五层架构企业级实践反推与基建优化.md)

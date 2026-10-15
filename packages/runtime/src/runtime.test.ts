@@ -1,10 +1,20 @@
-import { createSSRApp, defineComponent, h } from 'vue'
+import {
+  createSSRApp,
+  defineComponent,
+  effect,
+  h,
+  inject,
+  isRef,
+  type PropType,
+  type VNode,
+} from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, it } from 'vitest'
 import { ActionRegistry, createBuiltinActions } from '@lowcode/core'
 import { createUnifiedPageSchema, type PageSchema } from '@lowcode/schema'
 import { SCHEMA_VERSION } from '@lowcode/schema'
-import { RuntimeContext, RuntimeRenderer } from '@lowcode/runtime'
+import { RuntimeContext, RuntimeRenderer, renderNode } from '@lowcode/runtime'
+import { RUNTIME_CONTEXT_KEY } from './context'
 import type { IComponentResolver } from './resolver'
 
 /** 测试用物料：纯 render 函数，避免依赖 SFC 编译 */
@@ -32,14 +42,36 @@ function makeBoxComponent() {
   })
 }
 
+/** 测试用字段物料：受控组件，值由 modelValue 决定，变更时 emit update:modelValue */
+function makeFieldComponent() {
+  return defineComponent({
+    name: 'Field',
+    props: {
+      modelValue: { type: [String, Number, Boolean] as PropType<unknown>, default: '' },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+      return () =>
+        h('input', {
+          class: 'field',
+          value: String(props.modelValue ?? ''),
+          onInput: (event: Event) =>
+            emit('update:modelValue', (event.target as HTMLInputElement).value),
+        })
+    },
+  })
+}
+
 const resolver: IComponentResolver = {
   resolve: (type) =>
     type === 'text'
       ? makeTextComponent()
       : type === 'box'
         ? makeBoxComponent()
-        : undefined,
-  has: (type) => type === 'text' || type === 'box',
+        : type === 'field'
+          ? makeFieldComponent()
+          : undefined,
+  has: (type) => type === 'text' || type === 'box' || type === 'field',
 }
 
 function makeSchema(nodes: PageSchema['nodes']): PageSchema {
@@ -334,5 +366,122 @@ describe('Runtime Renderer', () => {
     expect(metrics['render'].count).toBeGreaterThanOrEqual(1)
     expect(metrics['render.nodes'].count).toBeGreaterThanOrEqual(1)
     expect(context.errors.items.some((e) => e.scope === 'expression' && e.nodeId === 'n1')).toBe(true)
+  })
+})
+
+describe('字段值写回（v-model → 运行时值存储）', () => {
+  function makeContext(nodes: PageSchema['nodes']) {
+    return new RuntimeContext({
+      schema: makeSchema(nodes),
+      resolver,
+      actionRegistry: new ActionRegistry(),
+    })
+  }
+
+  /**
+   * 字段节点会被渲染器包一层 FieldContextProvider（用于 provide 节点身份），
+   * 因此要取物料组件自身的 vnode 需要往下走一层插槽。
+   */
+  function innerVNode(vnode: VNode | null): VNode {
+    expect(vnode).not.toBeNull()
+    const children = (vnode as VNode).children as
+      | Record<string, (() => VNode) | undefined>
+      | null
+    return children?.default ? children.default() : (vnode as VNode)
+  }
+
+  it('声明了 modelValue 的节点会被接上 update:modelValue', () => {
+    const context = makeContext([{ id: 'f1', type: 'field', props: { modelValue: 'init' } }])
+    const vnode = renderNode('f1', context, (_node, inner) => inner)
+    expect(typeof innerVNode(vnode).props?.['onUpdate:modelValue']).toBe('function')
+  })
+
+  it('未声明 modelValue 的节点不接 update:modelValue', () => {
+    const context = makeContext([{ id: 't1', type: 'text', props: { text: 'hi' } }])
+    const vnode = renderNode('t1', context, (_node, inner) => inner)
+    expect((vnode as VNode).props?.['onUpdate:modelValue']).toBeUndefined()
+  })
+
+  it('字段节点会被包一层 FieldContextProvider，且节点身份传给了物料', () => {
+    const context = makeContext([
+      { id: 'f1', name: 'userName', type: 'field', props: { modelValue: 'init' } },
+    ])
+    const outer = renderNode('f1', context, (_node, inner) => inner) as VNode
+    const providerProps = outer.props as Record<string, unknown>
+    expect(providerProps?.nodeId).toBe('f1')
+    expect(providerProps?.fieldName).toBe('userName')
+    expect(innerVNode(outer).props?.['modelValue']).toBe('init')
+  })
+
+  it('值变化写回运行时，且**不改写 schema**', () => {
+    const context = makeContext([{ id: 'f1', type: 'field', props: { modelValue: 'init' } }])
+    const node = context.getNode('f1')
+    expect(node).toBeDefined()
+    const vnode = renderNode('f1', context, (_n, inner) => inner)
+    const onUpdate = innerVNode(vnode).props?.['onUpdate:modelValue'] as (value: unknown) => void
+
+    onUpdate('typed')
+
+    expect(context.getNodeValue('f1')).toBe('typed')
+    // schema 里的"默认值"必须原样保留：否则用户敲进去的内容会变成默认值，并污染撤销历史
+    expect(node?.props.modelValue).toBe('init')
+  })
+
+  it('写回是响应式的，且每次写入只触发一次更新', () => {
+    const context = makeContext([{ id: 'f1', type: 'field', props: { modelValue: 'a' } }])
+    const node = context.getNode('f1')
+    expect(node).toBeDefined()
+    const seen: unknown[] = []
+    const stop = effect(() => {
+      seen.push(context.resolveProp(node!, 'modelValue'))
+    })
+    expect(seen).toEqual(['a'])
+
+    // 逐个断言，而不是先累积再比较总次数：Vue 3.5 里 stop() 自身会再触发一次求值，
+    // 把它算进来会淹没"一次写入只触发一次更新"这个真正要保证的性质。
+    context.setNodeValue('f1', 'b')
+    expect(seen).toEqual(['a', 'b'])
+
+    context.setNodeValue('f1', 'c')
+    expect(seen).toEqual(['a', 'b', 'c'])
+
+    stop()
+  })
+
+  it('受控渲染：写回后重新渲染得到新值', async () => {
+    const schema = makeSchema([{ id: 'f1', type: 'field', props: { modelValue: 'init' } }])
+    const context = new RuntimeContext({ schema, resolver, actionRegistry: new ActionRegistry() })
+    context.setNodeValue('f1', 'typed')
+    const app = createSSRApp({
+      render: () => h(RuntimeRenderer, { schema, context }),
+    })
+    expect(await renderToString(app)).toContain('value="typed"')
+  })
+
+  it('RUNTIME_CONTEXT_KEY 注入的是 ref（上下文重建后下游不会拿到陈旧对象）', async () => {
+    // 编辑器每次 schema 变更都会重建 RuntimeContext，而 provide 只在 setup 执行一次。
+    // 因此注入值必须是 ref 并由渲染器同步；若回退成直接 provide 上下文对象，用例会失败。
+    const probe: IComponentResolver = {
+      resolve: (type) =>
+        type === 'probe'
+          ? defineComponent({
+              name: 'Probe',
+              setup() {
+                const injected = inject(RUNTIME_CONTEXT_KEY, undefined)
+                return () =>
+                  h('span', { class: 'probe' }, isRef(injected) && injected.value ? 'REF_OK' : 'NOT_REF')
+              },
+            })
+          : undefined,
+      has: (type) => type === 'probe',
+    }
+    const schema = makeSchema([{ id: 'p1', type: 'probe', props: {} }])
+    const context = new RuntimeContext({
+      schema,
+      resolver: probe,
+      actionRegistry: new ActionRegistry(),
+    })
+    const app = createSSRApp({ render: () => h(RuntimeRenderer, { schema, context }) })
+    expect(await renderToString(app)).toContain('REF_OK')
   })
 })

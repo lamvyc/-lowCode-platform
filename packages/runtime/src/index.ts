@@ -3,7 +3,15 @@ export {
   RUNTIME_CONTEXT_KEY,
   type RuntimeContextOptions,
   type LoopResolution,
+  type FieldRule,
+  type FieldTrigger,
 } from './context'
+export {
+  createFieldHandle,
+  FIELD_CONTEXT_KEY,
+  type FieldContext,
+  type FieldHandle,
+} from './field'
 export {
   ErrorCollector,
   type RuntimeError,
@@ -16,6 +24,7 @@ export {
 export {
   RuntimeRenderer,
   renderNode,
+  type RenderNodeOptions,
   type RuntimeRendererProps,
 } from './renderer'
 export { MaterialRegistryResolver, CompositeResolver } from './resolver'
