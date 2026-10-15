@@ -15,6 +15,7 @@ import {
 } from '@lowcode/runtime'
 import { MATERIAL_COMPONENTS } from '../materials'
 import { useRuntimeContext } from '../use-runtime'
+import LcCheckbox from './Checkbox.vue'
 import LcRadio from './Radio.vue'
 import LcSelect from './Select.vue'
 
@@ -213,6 +214,34 @@ describe('第 0 步：radio 的 displayStyle 无条件绑到 CSS display', () =>
     const source = readFileSync(join(process.cwd(), 'src/components/Radio.vue'), 'utf8')
     expect(source).toContain(':deep(.el-radio-group)')
     expect(source).toMatch(/display:\s*inline-block/)
+  })
+})
+
+describe('第 0 步（补）：checkbox 的 displayStyle 也要无条件绑到 CSS display', () => {
+  const options = [
+    { label: 'A', value: 1 },
+    { label: 'B', value: 2 },
+  ]
+
+  it("inline 时显式设成 'inline'（而不是留空、落到 Element Plus 的 inline-flex 默认值）", () => {
+    const wrapper = mount(LcCheckbox, { props: { displayStyle: 'inline', optionItems: options } })
+    const first = wrapper.find('.el-checkbox').element as HTMLElement
+    // 参考实现是 :style="{display: displayStyle}" —— 无条件绑定，inline 时给的就是 inline
+    expect(first.style.display).toBe('inline')
+  })
+
+  it("block 时显式设成 'block'", () => {
+    const wrapper = mount(LcCheckbox, { props: { displayStyle: 'block', optionItems: options } })
+    const first = wrapper.find('.el-checkbox').element as HTMLElement
+    expect(first.style.display).toBe('block')
+  })
+
+  it('按钮样式分支同样无条件绑定', () => {
+    const wrapper = mount(LcCheckbox, {
+      props: { displayStyle: 'inline', buttonStyle: true, optionItems: options },
+    })
+    const first = wrapper.find('.el-checkbox-button').element as HTMLElement
+    expect(first.style.display).toBe('inline')
   })
 })
 

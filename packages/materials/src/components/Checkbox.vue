@@ -78,8 +78,22 @@ const sizeProp = computed(() => (props.size === '' ? undefined : props.size))
 /** Element Plus 的 CheckboxGroup 值类型为 (string | number)[]，这里做一次类型收敛 */
 const checkboxValue = computed(() => props.modelValue as Array<string | number>)
 
-/** 块状排列时每个选项独占一行 */
-const optionStyle = computed(() => (props.displayStyle === 'block' ? 'display: block' : undefined))
+/**
+ * 选项排列方式：**无条件**把 `displayStyle` 的值绑到 CSS `display` 上。
+ *
+ * 参考实现就是 `:style="{display: field.options.displayStyle}"`
+ * （variant-form `checkbox-widget.vue:11,16`）。
+ *
+ * ⚠️ 不要写成"只有 `block` 才设样式"：那样 `inline` 时会落到 Element Plus 的默认
+ * `inline-flex`，而参考实现给的是 `inline` —— 两者在**间距与基线对齐**上不等价
+ * （`inline-flex` 是原子内联盒，不参与父级行内排版）。
+ *
+ * 真机实测（element-plus 2.14.4，`.el-checkbox-group` 是 `display: block` 而非 flex，
+ * 所以这里的 `display` 不会被块化）：
+ *   修复前 inline → computed `inline-flex`（未设样式，落默认值）
+ *   修复后 inline → computed `inline`      ✅
+ */
+const optionStyle = computed(() => ({ display: props.displayStyle }))
 </script>
 
 <template>
