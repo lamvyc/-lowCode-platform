@@ -52,6 +52,7 @@ function parseArgs(argv) {
       case '--height': args.height = Number(next()); break
       case '--port': args.port = Number(next()); break
       case '--steps': args.steps = JSON.parse(next()); break
+      case '--json': args.json = true; break
       case '--keep-open': args.keepOpen = true; break
       default:
         throw new Error(`未知参数: ${key}`)
@@ -313,6 +314,7 @@ function print(label, value, error) {
  */
 async function runSteps(client, steps, args) {
   let heldAt = null
+  const checks = []
   for (const [index, step] of steps.entries()) {
     const tag = `#${index + 1}`
     if (typeof step.wait === 'number') {
@@ -357,11 +359,28 @@ async function runSteps(client, steps, args) {
       const { value, error } = await evaluate(client, step.assert)
       print(`${tag} assert ${step.assert}`, value, error)
     }
+    // 机器可读的断言：表达式需返回 { ok: boolean, detail?: unknown }
+    // 与 `assert` 的区别是它会参与退出码——套件（scripts/browser-checks.mjs）靠它判通过/失败。
+    if (step.check !== undefined) {
+      const { value, error } = await evaluate(client, step.check)
+      let ok = false
+      let detail = value
+      if (error) {
+        detail = { error: String(error).slice(0, 300) }
+      } else if (value && typeof value === 'object' && 'ok' in value) {
+        ok = Boolean(value.ok)
+        detail = value.detail ?? null
+      }
+      const label = step.label ?? step.check.replace(/\s+/g, ' ').slice(0, 60)
+      checks.push({ label, ok, detail })
+      console.log(`[${tag} check] ${ok ? '✅' : '❌'} ${label} → ${JSON.stringify(detail)}`)
+    }
     if (step.screenshot !== undefined) {
       await capture(client, step.screenshot)
     }
   }
   if (args.out) await capture(client, args.out)
+  return checks
 }
 
 async function main() {
@@ -426,8 +445,23 @@ async function main() {
     }
 
     if (args.steps) {
-      await runSteps(client, args.steps, args)
+      const checks = await runSteps(client, args.steps, args)
       await reportConsole(client)
+      if (args.json) {
+        const consoleErrors = client.logs.filter(
+          (l) => l.level === 'error' || l.level === 'exception',
+        )
+        const failures = checks.filter((c) => !c.ok)
+        console.log(
+          `__RESULT__ ${JSON.stringify({
+            checks,
+            failures: failures.length,
+            consoleErrors: consoleErrors.map((l) => String(l.text).split('\n')[0].slice(0, 200)),
+          })}`,
+        )
+        // 有失败断言就以非零码退出，套件据此判定
+        if (failures.length > 0) process.exitCode = 2
+      }
       return
     }
 

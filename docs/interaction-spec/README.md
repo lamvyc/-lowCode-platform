@@ -450,6 +450,11 @@ dev 模式下 Vue 实例可达：从 `document.querySelector('#app').__vue_app__
 `ctx.insertMaterial('radio')` / `ctx.updateProps(id, {...})` / `ctx.togglePreview()` 任意构造与断言。
 注意 `ctx.schema` / `ctx.runtime` 是 `shallowRef`，需要解包。
 
+> ℹ️ 发现 1 这类「上游 CSS 语义变化」后来被**机械化**了：见
+> [`docs/upstream-diff-report.md`](../upstream-diff-report.md) 与 `docs/conformance.md` 第八节。
+> 那份审计几秒钟就能标红 radio 这个坑，不必再靠逐个真机探针去找。
+> 真机验证仍然必要——它负责确认**到底有没有影响**，审计只负责**列出嫌疑**。
+
 #### 🔴 发现 1（已修）：radio 的 `displayStyle` 在 Element Plus 上**静默失效**
 
 真实 Chrome 实测（element-plus 2.14.4）：

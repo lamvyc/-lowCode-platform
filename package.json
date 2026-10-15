@@ -9,6 +9,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "conformance": "pnpm --filter @lowcode/materials test",
+    "verify:browser": "node scripts/browser-checks.mjs",
+    "inspect:browser": "node scripts/cdp-inspect.mjs",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
