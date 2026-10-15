@@ -106,7 +106,11 @@ function onDragStart(event: DragEvent, material: Material): void {
     // 用自有浮层替代浏览器默认影像，与画布内拖拽保持一致
     event.dataTransfer.setDragImage(transparentDragImage(), 0, 0)
   }
-  beginDragGhost({ sourceEl: event.currentTarget as HTMLElement | null, label: material.name })
+  beginDragGhost({
+    sourceEl: event.currentTarget as HTMLElement | null,
+    label: material.name,
+    point: { x: event.clientX, y: event.clientY },
+  })
   setDragState({ source: 'material', materialType: material.type })
 }
 

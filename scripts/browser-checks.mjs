@@ -291,6 +291,54 @@ const CHECKS = [
   },
 
   {
+    name: 'drag-ghost-follows-pointer',
+    why: '拖拽浮层曾在创建时落在 (0,0)、再被 60ms transition 补间到指针——肉眼就是"从左上角飘过来"。这里断言拖拽**进行中**浮层贴在指针旁、且没有 transition。只有真实鼠标拖拽 + 真实布局才测得到',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      { eval: `(() => {
+          const f = document.querySelector('.lc-runtime-root').getBoundingClientRect()
+          window.__end = { x: Math.round(f.left + 300), y: Math.round(f.top + 200) }
+          return 'ok'
+        })()` },
+      { dragHold: { from: '[title="单行输入"]', toExpr: 'window.__end', steps: 18 } },
+      {
+        label: '浮层贴在指针旁、不倾斜、无 transition 补间；透明拖拽影像已挂载',
+        check: `(() => {
+          const g = document.querySelector('.lc-drag-ghost')
+          if (!g) return { ok: false, detail: { error: '未找到拖拽浮层' } }
+          const b = g.getBoundingClientRect()
+          const c = getComputedStyle(g)
+          const want = { x: window.__end.x + 12, y: window.__end.y + 12 }
+          const dist = Math.round(Math.hypot(b.left - want.x, b.top - want.y))
+          const atOrigin = b.left < 40 && b.top < 40
+          const hasTransition = c.transitionDuration !== '0s'
+          // 从 transform 矩阵解出旋转角：matrix(a,b,c,d,e,f) → atan2(b, a)
+          const m = new DOMMatrixReadOnly(c.transform)
+          const tilt = Math.abs(Math.atan2(m.b, m.a) * 180 / Math.PI)
+          // 顶掉浏览器默认拖拽影像的 1×1 透明元素必须**已挂载且可渲染**
+          // （未挂载 / display:none / visibility:hidden 都会被 Chrome 忽略，默认影像就会露出来）
+          const carrier = [...document.querySelectorAll('body > img[aria-hidden="true"]')]
+            .find((i) => i.src.startsWith('data:image/gif'))
+          const carrierOk = !!carrier && carrier.width === 1 && carrier.height === 1
+            && getComputedStyle(carrier).display !== 'none'
+            && getComputedStyle(carrier).visibility === 'visible'
+          return {
+            ok: dist <= 12 && !atOrigin && !hasTransition && tilt < 0.01 && carrierOk,
+            detail: { 距指针: dist, 在左上角: atOrigin, transition: c.transitionDuration,
+                      倾斜角度: Math.round(tilt * 100) / 100, 透明影像已挂载: carrierOk },
+          }
+        })()`,
+      },
+      { release: true },
+      { wait: 300 },
+      {
+        label: '释放后浮层已清理',
+        check: `(() => ({ ok: !document.querySelector('.lc-drag-ghost'), detail: { 残留: !!document.querySelector('.lc-drag-ghost') } }))()`,
+      },
+    ],
+  },
+
+  {
     name: 'drop-at-bottom-appends',
     why: '落点索引曾按「可见子节点」算却当 schema 索引用，demo 的隐藏 n_input 占着槽位导致落点整体偏移（与 questionBug.md question3 同根因）',
     steps: [

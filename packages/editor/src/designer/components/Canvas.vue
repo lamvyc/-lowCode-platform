@@ -481,7 +481,7 @@ function onNodeDragStart(event: DragEvent, node: PageNode): void {
   const handle = event.currentTarget as HTMLElement
   const nodeEl = handle.closest('[data-node-id]') as HTMLElement | null
   const typeLabel = materialRegistry.get(node.type)?.name ?? node.type
-  beginDragGhost({ sourceEl: nodeEl, label: typeLabel })
+  beginDragGhost({ sourceEl: nodeEl, label: typeLabel, point: { x: event.clientX, y: event.clientY } })
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('application/x-lc-node', node.id)

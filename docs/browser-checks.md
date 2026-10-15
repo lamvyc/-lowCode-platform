@@ -44,11 +44,38 @@ pnpm verify:browser -- --url http://localhost:5174/ --only radio   # 只跑名�
 | `input-placeholder` | `placeholder` 默认是空串（参考实现如此，无兜底文案），设置后透传到原生 `input` |
 | `formitem-no-hint` | `requiredHint` / `validationHint` 是**校验失败时的错误文案**，不是常显提示 |
 | `validation-in-preview` | 预览态：空值失焦出现错误、填值后失焦清除过期错误（纯 UI 时序） |
+| `drag-ghost-follows-pointer` | 拖拽浮层的三处观感问题：① 创建时落在 (0,0) 再被 60ms transition 补间到指针（「从左上角飘过来」）② 浮层带 `rotate(1.5deg)` 导致倾斜 ③ 屏蔽浏览器默认拖拽影像的 1×1 透明元素**未挂载**，被 Chrome 忽略（「浏览器小图标」）。逐条断言 |
 | `drop-at-bottom-appends` | 落点索引必须换算到 **schema children 空间**，否则隐藏兄弟（demo 的 `n_input`）会让落点整体偏移 |
 | `material-drag-to-top` | 物料拖入的顶部落点 |
 | `node-reorder-to-front` | `NodeTree.resolveIndex` 的 `beforeId` 对根级 `PageNode[]` 列表必须真的能匹配（否则退化成"总是追加末尾"，表现为拖不到最前） |
 | `node-move-real-mouse` | 真实鼠标点上移/下移后选中态**不跳到相邻组件** |
 | `cross-container-drag` | 根层节点拖进卡片后成为其子节点 |
+
+## 三个"看起来像 UI 小毛病、其实是机制问题"的例子
+
+都出在同一个组件上，值得放在一起看——**它们的表象都不是根因所在**：
+
+| 表象 | 真因 |
+| --- | --- |
+| 浮层从左上角飘过来 | 创建时没设初始 `transform`（先在 (0,0) 渲染一帧）+ `transition: transform 60ms` 把它补间过去 |
+| 浮层倾斜 | 我们自己在 `ghostTransform` 里写了 `rotate(1.5deg)` |
+| 出现浏览器自带的"小图标" | `setDragImage(1×1 canvas, 0, 0)` 里的 canvas **从未 append 到 DOM**；Chrome 忽略未渲染元素，静默回退到默认影像 |
+
+第三条尤其值得记：**代码"看着是对的"**（确实调了 `setDragImage` 去屏蔽），
+但因为传入的元素不可渲染，整条调用被静默忽略。
+`display:none` / `visibility:hidden` 同理会失效——必须"移出视口但保持已渲染"。
+
+## 一个诚实的边界：瞬态效果测不到
+
+`drag-ghost-follows-pointer` 断言的是**成因**（有没有 transition、浮层在不在指针旁），
+**不是那一帧的视觉效果**——因为测量发生在拖拽稳定之后，而"从左上角飘过来"是瞬态。
+
+回退修复后复测可以印证：`距指针` 仍是 2px、`在左上角` 仍是 false，只有
+`transition` 变成 `0.06s` 才暴露出问题。
+
+要直接观测瞬态需要"在 dragstart 与首次 mousemove 之间求值"的能力，
+当前 `--steps` 的步骤粒度表达不了。**这类"只能靠成因断言"的情况要显式写清楚**，
+免得后人以为它守住了视觉效果。
 
 ## 反向验证（套件本身的可信度）
 
