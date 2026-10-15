@@ -130,6 +130,43 @@ const CHECKS = [
   },
 
   {
+    name: 'palette-alignment',
+    why: '物料面板的分组/标签/图标要对齐参考实现。manifest 层已由 palette.test.ts 守住，这里守**渲染层**——图标是否真的渲染成 SVG、title 是否只放标签，都只有真实 DOM 能验',
+    steps: [
+      {
+        label: '4 个分组、参考的 18 项基础字段顺序一致、每项有 SVG 图标、title 等于标签',
+        check: `(() => {
+          const t = (el) => (el && el.textContent ? el.textContent.trim() : '')
+          const groups = [...document.querySelectorAll('.lc-material-panel__list .el-collapse-item')].map((g) => {
+            const head = g.querySelector('.lc-group__header > span:first-child')
+            return {
+              group: head ? t(head) : '?',
+              items: [...g.querySelectorAll('.lc-material-item')].map((el) => ({
+                label: t(el.querySelector('.lc-material-item__name')),
+                title: el.getAttribute('title'),
+                hasSvg: !!el.querySelector('svg'),
+              })),
+            }
+          })
+          const groupNames = groups.map((g) => g.group)
+          const expectGroups = ['容器', '基础字段', '高级字段', '自定义扩展字段']
+          const all = groups.flatMap((g) => g.items)
+          const noSvg = all.filter((i) => !i.hasSvg).map((i) => i.label)
+          const badTitles = all.filter((i) => i.title !== i.label).map((i) => i.label)
+          const base = groups[1] ? groups[1].items.slice(0, 18).map((i) => i.label) : []
+          const expectBase = ['单行输入','多行输入','计数器','单选项','多选项','下拉选项','时间','时间范围','日期','日期范围','开关','评分','颜色选择器','滑块','静态文字','HTML','按钮','分隔线']
+          return {
+            ok: JSON.stringify(groupNames) === JSON.stringify(expectGroups)
+              && noSvg.length === 0 && badTitles.length === 0
+              && JSON.stringify(base) === JSON.stringify(expectBase),
+            detail: { groupNames, noSvg, badTitles, 基础字段前18项: base },
+          }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'radio-displayStyle',
     why: 'Element Plus 把 .el-radio-group 改成 inline-flex 会让选项 display 被块化，displayStyle 静默失效（已用 :deep 恢复 inline-block）',
     steps: [
@@ -259,7 +296,7 @@ const CHECKS = [
     steps: [
       { eval: GETCTX_EVAL() },
       { eval: `window.__before = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId); 'ok'` },
-      { eval: tagMaterial('输入框') },
+      { eval: tagMaterial('单行输入') },
       {
         eval: `(() => {
           const r = document.querySelector('.lc-canvas').getBoundingClientRect()
@@ -281,7 +318,7 @@ const CHECKS = [
     why: '物料拖入的顶部落点：应插到最前',
     steps: [
       { eval: GETCTX_EVAL() },
-      { eval: tagMaterial('输入框') },
+      { eval: tagMaterial('单行输入') },
       {
         eval: `(() => {
           const rr = document.querySelector('.lc-runtime-root').getBoundingClientRect()
@@ -397,6 +434,12 @@ function GETCTX_EVAL() {
   return GETCTX
 }
 
+/**
+ * 按面板文案找到物料项并打标记。
+ *
+ * ⚠️ 文案与参考实现对齐后（「输入框」→「单行输入」）这里会失效——
+ * 面板改名时记得同步本文件。测试 `palette-alignment` 与 `palette.test.ts` 会先报出改名。
+ */
 function tagMaterial(nameFragment) {
   return `(() => {
     const it = [...document.querySelectorAll('.lc-material-item')].find((e) => e.textContent.includes('${nameFragment}'))
