@@ -623,6 +623,13 @@ function onDragLeave(event: DragEvent): void {
 .lc-canvas-wrap--pc {
   padding: 0;
   background: #fff;
+  /* 对齐参考实现：中栏两侧各有一条 2px 点线分隔
+     （参考是 `.el-container.center-layout-container` 的 border-left/right:
+       2px dotted #EBEEF5，它同时把内容宽从 1040 压到 1036）。
+     `.lc-canvas-wrap` 是 border-box，所以这两条边框会等量吃掉画布宽度——
+     这正是我们缺的那 4px。 */
+  border-left: 2px dotted #ebeef5;
+  border-right: 2px dotted #ebeef5;
 }
 
 .lc-canvas-wrap--pad,
@@ -651,12 +658,16 @@ function onDragLeave(event: DragEvent): void {
   padding: 10px;
 }
 
-/* 白色"表单面"：对应参考实现的 .widget-form（白底 + 3px 内边距 + 撑满容器）。
-   参考的表单是 full-height，所以白面铺满整个画布高度；此前我们只有内容高。 */
+/* 白色"表单面"：对应参考实现的 .widget-form（白底 + 撑满容器）。
+ *
+ * ⚠️ 内边距是 6px 而不是 3px：参考在这一层之下还有一层
+ *    `.form-widget-list { padding: 3px }`（节点列表），我们没有那一层 DOM。
+ *    两层合起来 6px，所以这里用 6px 等价——**白面到节点的距离与参考一致**。
+ *    参考：`.widget-form` 1016 → 3px → `.form-widget-list` 1010 → 3px → 节点 1004。 */
 .lc-canvas--pc :deep(.lc-runtime-root) {
   box-sizing: border-box;
   min-height: 100%;
-  padding: 3px;
+  padding: 6px;
   background: #fff;
 }
 
