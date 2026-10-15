@@ -117,6 +117,7 @@ function handleChange(value: unknown) {
     :column-width="columnWidth"
   >
     <ElDatePicker
+      style="--el-date-editor-width: 100%; width: 100%; box-sizing: border-box"
       class="lc-date-range"
       :model-value="modelValue"
       :type="type"
@@ -139,7 +140,57 @@ function handleChange(value: unknown) {
 </template>
 
 <style scoped>
-.lc-date-range {
-  width: 100%;
+  /*
+   * ⚠️ 这里**不能**靠 scoped 样式改宽度 —— 原因有两层：
+   *
+   * ① 元素上没有 scope 属性：ElTimePicker / ElDatePicker 不是本组件模板的根
+   *    （根是 FormItem），它们落在 FormItem 的插槽里，Vue 不给它们加 data-v-*。
+   *    实测该元素属性只有 ["class","tabindex"]，`matches('.lc-time-range[data-v-x]')` 为 false
+   *    —— 所以 scoped 规则**从未匹配过**。
+   *    （Divider.vue 能用 scoped，是因为 ElDivider 是它模板的根。）
+   *
+   * ② 宽度是变量驱动的，直接写 width 会和 EP 打成平手：
+   *      .el-date-editor.el-input__wrapper { width: var(--el-date-editor-width) }  (0,2,0)
+   *      .el-date-editor--timerange { --el-date-editor-width: 350px }              (0,1,0)
+   *    同为 (0,2,0) 时靠源码顺序决胜负，我们输（实测 computed width 仍是 350px）。
+   *
+   * 因此宽度改用**内联样式**给在模板上（见 style 属性）：权重最高、且组件局部。
+   * box-sizing 也要一起给 border-box：EP 的 `.el-input__wrapper` 是 content-box，
+   * width:100% 之外还会再加上 padding 10px×2，实测 924 的容器里量出 944（溢出 20px）。
+   * 参考实现（Element UI）的 .el-range-editor 没有固定宽度，本来就是撑满的。
+   */
+</style>
+
+<style>
+/*
+ * ⚠️ 这个块**故意不加 scoped**：上面 <style scoped> 的注释说明了原因——
+ * ElTimePicker / ElDatePicker 及其内部元素上都没有 scope 属性，
+ * scoped 规则（`.lc-xxx[data-v-x] .el-yyy`）永远匹配不到。
+ * 因此用我们自己的类名 `.lc-date-range` 限定作用域，写成全局规则。
+ *
+ * 三条都是对齐参考实现（Element UI）的实测值：
+ *
+ * 1) .el-range-separator —— EP 加了 flex:1，分隔符撑满剩余空间（实测 171px），
+ *    参考只有 55px（收缩到内容宽）。这是我们侧最显眼的一处偏差。
+ * 2) .el-range-input —— EP 写死 height/line-height: 30px，参考（medium）是 28px。
+ * 3) .el-range-editor 的竖向内边距 —— 参考是 3px，EP 是 0。
+ */
+.lc-date-range.el-range-editor {
+  padding: 3px 10px;
+}
+.lc-date-range .el-range-separator {
+  /* 参考：`.el-date-editor .el-range-separator { width: 5% }` —— 5% × 904 = 45.2px，
+     正是参考实测的那个"对 '-' 来说不合理"的内容宽 45.09px。
+     EP 去掉了 width、改成 flex:1，于是分隔符撑满剩余空间（实测 171px，参考 55px）。 */
+  flex: none;
+  width: 5%;
+  /* 参考是 display: inline-block（作为 flex item 会被块化成 block）；EP 是 inline-flex */
+  display: inline-block;
+  line-height: 28px;
+  height: 28px;   /* 参考（medium）是 28px；EP 的 height:100% 会跟着编辑器内容高变成 30px */
+}
+.lc-date-range .el-range-input {
+  height: 28px;
+  line-height: 28px;
 }
 </style>
