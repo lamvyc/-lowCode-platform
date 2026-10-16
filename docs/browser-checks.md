@@ -65,6 +65,15 @@ pnpm verify:browser -- --url http://localhost:5174/ --only radio   # 只跑名�
 但因为传入的元素不可渲染，整条调用被静默忽略。
 `display:none` / `visibility:hidden` 同理会失效——必须"移出视口但保持已渲染"。
 
+## 检查不依赖演示数据
+
+画布**初始为空**（对齐参考实现），因此所有检查都**自己造数据**——
+新增的 `insertMaterials()` 辅助函数负责连续插入物料并把新节点 id 记到 `window.__ids`。
+
+此前有 4 条检查依赖固定的演示节点 id（`n_title` / `n_button`），
+画布变空后立刻失效。这本来就是个隐患：**检查一旦依赖演示数据，
+演示数据一变它就变成假失败**（或更糟——继续通过但验的是别的东西）。
+
 ## 一个诚实的边界：瞬态效果测不到
 
 `drag-ghost-follows-pointer` 断言的是**成因**（有没有 transition、浮层在不在指针旁），

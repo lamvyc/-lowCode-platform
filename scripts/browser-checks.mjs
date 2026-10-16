@@ -65,6 +65,47 @@ const insertMaterial = (type) => `(async () => {
   return window.__t || 'NO_NODE'
 })()`
 
+/**
+ * 连续插入多个物料，新节点 id 依次记到 `window.__ids`。
+ *
+ * ⚠️ 画布初始是**空的**（对齐参考实现），所以检查必须自己造数据，
+ * 不能再依赖固定的演示节点 id（此前用的是 n_title / n_button）。
+ */
+const insertMaterials = (types) => `(async () => {
+  ${GETCTX}
+  const ctx = __getCtx()
+  const ids = () => [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId)
+  window.__ids = []
+  for (const type of ${JSON.stringify(types)}) {
+    const before = new Set(ids())
+    ctx.insertMaterial(type)
+    await new Promise((r) => setTimeout(r, 800))
+    const id = ids().find((x) => !before.has(x))
+    if (!id) return 'NO_NODE:' + type
+    window.__ids.push(id)
+  }
+  return JSON.stringify(window.__ids)
+})()`
+
+/**
+ * 把节点用 `bindings.visible` 隐藏：**不渲染，但仍占着 schema 的顺序槽位**。
+ *
+ * 这正是 `drop-at-bottom-appends` 要复现的场景（原 bug 与 questionBug.md question3 同根因）。
+ * 此前这条检查是靠演示 schema 里那个隐藏的 `n_input` 制造场景的——
+ * 画布改为初始为空后场景就没了，检查会**悄悄失去牙齿**（继续通过，但什么也没验）。
+ * 现在它自己造隐藏兄弟。
+ */
+const hideNode = (indexExpr) => `(() => {
+  ${GETCTX}
+  const ctx = __getCtx()
+  const id = window.__ids[${indexExpr}]
+  ctx.updateNode(id, (n) => ({
+    ...n,
+    bindings: { ...(n.bindings ?? {}), visible: { type: 'expression', value: 'false' } },
+  }))
+  return 'ok'
+})()`
+
 const setProps = (patch) =>
   `(() => { ${GETCTX} __getCtx().updateProps(window.__t, ${JSON.stringify(patch)}); return 'ok' })()`
 
@@ -114,16 +155,28 @@ const orderCheck = (expectFn, label) => ({
 const CHECKS = [
   {
     name: 'canvas-smoke',
-    why: '画布能渲染出节点，且没有降级成错误占位（渲染器包 provider / 加 designMode 后的基础回归）',
+    why: '画布初始为空并显示空态（与参考实现一致），且插入物料后能正常渲染、不降级成错误占位',
     steps: [
       {
-        label: '节点渲染出来且无 .lc-render-error / .lc-missing',
+        label: '初始画布为空且显示空态提示',
         check: `(() => {
           const root = !!document.querySelector('.lc-runtime-root')
+          const empty = !!document.querySelector('.lc-canvas__empty')
+          const nodes = document.querySelectorAll('.lc-canvas [data-node-id]').length
+          return { ok: root && empty && nodes === 0, detail: { root, empty, nodes } }
+        })()`,
+      },
+      { eval: insertMaterials(['input']) },
+      { wait: 300 },
+      {
+        label: '插入物料后渲染出来，且无 .lc-render-error / .lc-missing',
+        check: `(() => {
           const errs = document.querySelectorAll('.lc-render-error').length
           const missing = document.querySelectorAll('.lc-missing').length
           const nodes = document.querySelectorAll('.lc-canvas [data-node-id]').length
-          return { ok: root && errs === 0 && missing === 0 && nodes >= 4, detail: { root, errs, missing, nodes } }
+          const empty = !!document.querySelector('.lc-canvas__empty')
+          const input = !!document.querySelector('.lc-canvas .lc-runtime-root input')
+          return { ok: errs === 0 && missing === 0 && nodes === 1 && !empty && input, detail: { errs, missing, nodes, empty, input } }
         })()`,
       },
     ],
@@ -340,10 +393,26 @@ const CHECKS = [
 
   {
     name: 'drop-at-bottom-appends',
-    why: '落点索引曾按「可见子节点」算却当 schema 索引用，demo 的隐藏 n_input 占着槽位导致落点整体偏移（与 questionBug.md question3 同根因）',
+    why: '落点索引曾按「可见子节点」算却当 schema 索引用——中间夹一个隐藏兄弟就会整体偏移（与 questionBug.md question3 同根因）。这里自己造出"中间有隐藏节点"的场景',
     steps: [
       { eval: GETCTX_EVAL() },
-      { eval: `window.__before = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId); 'ok'` },
+      { eval: insertMaterials(['input', 'textarea', 'input']) },
+      { eval: hideNode(1) },
+      { wait: 500 },
+      {
+        label: '中间那个节点已隐藏（DOM 里 2 个，schema 里仍是 3 个）',
+        check: `(() => {
+          ${GETCTX}
+          const dom = document.querySelectorAll('.lc-canvas [data-node-id]').length
+          const schema = __unref(__getCtx().schema).nodes.length
+          return { ok: dom === 2 && schema === 3, detail: { dom, schema } }
+        })()`,
+      },
+      {
+        // ⚠️ 必须取 **schema** 的 id 而不是 DOM 的：隐藏节点不在 DOM 里，
+        // 用 DOM id 求差集会把它误判成"新插入的节点"（实测踩过，反向验证因此假红）。
+        eval: `(() => { ${GETCTX} window.__before = __unref(__getCtx().schema).nodes.map((n) => n.id); return 'ok' })()`,
+      },
       { eval: tagMaterial('单行输入') },
       {
         eval: `(() => {
@@ -354,9 +423,19 @@ const CHECKS = [
       },
       { drag: { from: '#drag-source', toExpr: 'window.__drop', steps: 16 } },
       { wait: 500 },
+      {
+        eval: `(() => {
+          const ctx = __getCtx()
+          const ids = __unref(ctx.schema).nodes.map((n) => n.id)
+          window.__newId2 = ids.find((i) => !window.__before.includes(i))
+          return window.__newId2 || 'NONE'
+        })()`,
+      },
       orderCheck(
-        `(rootIds) => rootIds[rootIds.length - 1].startsWith('node_')`,
-        '拖到画布底部 → 新节点落在 schema 根层**末尾**（而不是插到隐藏节点前后）',
+        // ⚠️ 不能写 `rootIds.at(-1).startsWith('node_')` —— 生成 id **全都**以 node_ 开头，
+        // 那样断言恒真，检查等于没写（回退修复都不会变红，实测踩过）。
+        `(rootIds) => rootIds[rootIds.length - 1] === window.__newId2`,
+        '拖到画布底部 → 新节点落在 schema 根层**末尾**（而不是被中间的隐藏节点挤偏）',
       ),
     ],
   },
@@ -366,6 +445,7 @@ const CHECKS = [
     why: '物料拖入的顶部落点：应插到最前',
     steps: [
       { eval: GETCTX_EVAL() },
+      { eval: `window.__before = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId); 'ok'` },
       { eval: tagMaterial('单行输入') },
       {
         eval: `(() => {
@@ -376,8 +456,17 @@ const CHECKS = [
       },
       { drag: { from: '#drag-source', toExpr: 'window.__drop', steps: 16 } },
       { wait: 500 },
+      {
+        eval: `(() => {
+          const ctx = __getCtx()
+          const ids = __unref(ctx.schema).nodes.map((n) => n.id)
+          window.__newId2 = ids.find((i) => !(window.__before || []).includes(i))
+          return window.__newId2 || 'NONE'
+        })()`,
+      },
       orderCheck(
-        `(rootIds, visible) => visible[0] && visible[0].startsWith('node_')`,
+        // 同上：必须断言"可见顺序首位就是这个新节点"，不能只断言它像一个新 id
+        `(rootIds, visible) => visible[0] === window.__newId2`,
         '拖到画布顶部 → 新节点可见顺序在**最前**',
       ),
     ],
@@ -388,13 +477,15 @@ const CHECKS = [
     why: 'NodeTree.resolveIndex 的 beforeId 对根级 PageNode[] 列表永远不匹配，退化成"总是追加到末尾"——表现为把节点拖到最前没反应',
     steps: [
       { eval: GETCTX_EVAL() },
+      { eval: insertMaterials(['input', 'textarea']) },
       {
         eval: `(async () => {
           ${GETCTX}
           const ctx = __getCtx()
-          ctx.selectNode('n_button')
+          const target = window.__ids[1]
+          ctx.selectNode(target)
           await new Promise((r) => setTimeout(r, 500))
-          const h = document.querySelector('[data-node-id="n_button"] .lc-node__badges')
+          const h = document.querySelector('[data-node-id="' + target + '"] .lc-node__badges')
           if (!h) return 'NO_HANDLE'
           h.id = 'node-handle'
           const rr = document.querySelector('.lc-runtime-root').getBoundingClientRect()
@@ -405,7 +496,7 @@ const CHECKS = [
       { drag: { from: '#node-handle', toExpr: 'window.__drop', steps: 16 } },
       { wait: 500 },
       orderCheck(
-        `(rootIds) => rootIds[0] === 'n_button'`,
+        `(rootIds) => rootIds[0] === window.__ids[1]`,
         '真实鼠标把最后一个节点拖到最前 → schema 根顺序首位变成它',
       ),
     ],
@@ -416,21 +507,29 @@ const CHECKS = [
     why: 'questionBug.md question2：点击上移/下移后选中态会跳到相邻组件（合成 click 测不出，必须真实鼠标）',
     steps: [
       { eval: GETCTX_EVAL() },
-      { click: '.lc-canvas [data-node-id="n_title"]' },
+      { eval: insertMaterials(['input', 'textarea']) },
+      {
+        eval: `(() => {
+          // 真实鼠标点击需要稳定的选择器，给第一个节点打个 id
+          document.querySelector('[data-node-id="' + window.__ids[0] + '"]').id = 'target-node'
+          return 'ok'
+        })()`,
+      },
+      { click: '#target-node' },
       { wait: 300 },
       {
-        label: '点击后选中 n_title',
-        check: `(() => { ${GETCTX} const s = __getCtx().state.selectedNodeId; return { ok: s === 'n_title', detail: { selected: s } } })()`,
+        label: '点击后选中该节点',
+        check: `(() => { ${GETCTX} const s = __getCtx().state.selectedNodeId; return { ok: s === window.__ids[0], detail: { selected: s, want: window.__ids[0] } } })()`,
       },
       { click: 'button[title="下移"]' },
       { wait: 500 },
       {
-        label: '下移后选中态仍停在 n_title（未跳到相邻组件）',
+        label: '下移后选中态仍停在原节点（未跳到相邻组件）',
         check: `(() => {
           ${GETCTX}
           const s = __getCtx().state.selectedNodeId
           const order = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId)
-          return { ok: s === 'n_title' && order.indexOf('n_title') === 1, detail: { selected: s, order } }
+          return { ok: s === window.__ids[0] && order.indexOf(window.__ids[0]) === 1, detail: { selected: s, order } }
         })()`,
       },
     ],
@@ -441,19 +540,15 @@ const CHECKS = [
     why: '跨容器拖拽同时涉及索引空间与 beforeId 两条路径',
     steps: [
       { eval: GETCTX_EVAL() },
+      { eval: insertMaterials(['input', 'card']) },
       {
         eval: `(async () => {
           ${GETCTX}
           const ctx = __getCtx()
-          const ids = () => [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId)
-          const before = new Set(ids())
-          ctx.insertMaterial('card')
-          await new Promise((r) => setTimeout(r, 800))
-          const cardId = ids().find((x) => !before.has(x))
-          window.__card = cardId
-          ctx.selectNode('n_title')
+          const [inputId, cardId] = window.__ids
+          ctx.selectNode(inputId)
           await new Promise((r) => setTimeout(r, 500))
-          const h = document.querySelector('[data-node-id="n_title"] .lc-node__badges')
+          const h = document.querySelector('[data-node-id="' + inputId + '"] .lc-node__badges')
           if (!h) return 'NO_HANDLE'
           h.id = 'node-handle'
           const r = document.querySelector('[data-node-id="' + cardId + '"]').getBoundingClientRect()
@@ -468,9 +563,9 @@ const CHECKS = [
         check: `(() => {
           ${GETCTX}
           const nodes = __unref(__getCtx().schema).nodes
-          const card = nodes.find((n) => n.id === window.__card)
-          const kids = card?.children ?? []
-          return { ok: kids.includes('n_title'), detail: { cardChildren: kids } }
+          const [inputId, cardId] = window.__ids
+          const kids = nodes.find((n) => n.id === cardId)?.children ?? []
+          return { ok: kids.includes(inputId), detail: { cardChildren: kids, want: inputId } }
         })()`,
       },
     ],

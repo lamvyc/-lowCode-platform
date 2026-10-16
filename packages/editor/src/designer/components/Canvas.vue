@@ -566,8 +566,12 @@ function onDragLeave(event: DragEvent): void {
       @drop="onDrop"
       @dragover="onDragOver"
     >
+      <!-- ⚠️ 即使画布为空也要渲染渲染器：参考实现**始终**渲染白色表单面
+           （`.widget-form`），空态提示是它内部的一个元素。
+           此前用 `v-if="!isEmpty"` 把渲染器整个换掉，于是空画布下 `.lc-runtime-root`
+           根本不存在——既与参考不一致，也让"从画布取落点"的验证无从下手。 -->
       <RuntimeRenderer
-        v-if="schema && runtime && !isEmpty"
+        v-if="schema && runtime"
         :schema="schema"
         :context="runtime"
         :wrap-node="wrapNode"
@@ -590,7 +594,7 @@ function onDragLeave(event: DragEvent): void {
         @dragover="onDragOver"
       >
         <RuntimeRenderer
-          v-if="schema && runtime && !isEmpty"
+          v-if="schema && runtime"
           :schema="schema"
           :context="runtime"
           :wrap-node="wrapNode"
@@ -684,14 +688,32 @@ function onDragLeave(event: DragEvent): void {
   overflow: hidden;
 }
 
+/*
+ * ⚠️ `.lc-canvas--empty` 曾经是 `display: flex; align-items: center; justify-content: center`，
+ * 用来居中那个空态提示。但画布现在是**始终**渲染 `.lc-runtime-root` 的
+ * （与参考实现一致），把画布设成 flex 会让渲染器变成收缩到内容的 flex item ——
+ * 空画布下实测只有 12px 宽（= padding 6×2），白面塌成一条。
+ * 空态已改为绝对定位自居中，这里不再需要任何布局声明；
+ * 类名保留作为状态标记。
+ */
 .lc-canvas--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* 无布局副作用，见上 */
+}
+/* 空态浮在白色表单面之上：`.lc-runtime-root` 始终存在（与参考一致），
+   提示只是它上面的一层。`pointer-events: none` 保证画布仍能接收 drop。 */
+.lc-canvas {
+  position: relative;
 }
 .lc-canvas__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   color: #86909c;
+  pointer-events: none;
 }
 .lc-canvas__empty-title {
   font-size: 15px;

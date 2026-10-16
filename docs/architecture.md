@@ -123,7 +123,7 @@ DOM 更新（Vue 响应式驱动重渲染）
 
 | 流程步骤 | 实际位置 | 关键代码 |
 | --- | --- | --- |
-| Schema JSON | `packages/schema`：页面协议定义 + 校验 + 序列化 | `types/page.ts`（PageSchema）、`playground/src/demo-schema.ts` |
+| Schema JSON | `packages/schema`：页面协议定义 + 校验 + 序列化 | `types/page.ts`（PageSchema）、`schema/src/empty-page.ts`（画布初始的空页面） |
 | Schema 解析器 | 格式校验在 schema 包，结构消费在 runtime 包 | `validation/validate.ts`（parsePageSchema）、`runtime/src/renderer.ts`（renderNode） |
 | AST（抽象语法树） | 运行时路径无 AST；codegen 路径有真 AST | `codegen/src/ast.ts`（TemplateNode）、`codegen/src/generator.ts`（schema → Vue SFC） |
 | 组件映射器 | `runtime/src/resolver.ts` + `core/src/material/registry.ts` | `IComponentResolver` / `MaterialRegistryResolver` / `CompositeResolver` → `MaterialRegistry` |

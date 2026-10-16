@@ -69,6 +69,41 @@ python3 scripts/canvas-ab.py
 | `Toolbar.vue` | `box-sizing: border-box`（48px 含 1px 边框） |
 | `MaterialPanel.vue` / `PropsPanel.vue` | `box-sizing: border-box`（260 / 300 含边框） |
 
+## 一点五、画布初始为空（对齐参考实现）
+
+参考实现启动时画布是**空的**，只显示一条提示：
+
+> 请从左侧列表中选择一个组件, 然后用鼠标拖动组件放置于此处.
+
+而本仓库的 playground 此前直接注入一份「用户管理示例」的完整 schema，
+于是"新打开设计器"看到的是一个**已经搭好的页面**——既不忠实于参考，也容易让人
+误以为那些节点是自动生成的。
+
+### 改动
+
+| 项 | 说明 |
+| --- | --- |
+| 删除 `playground/src/demo-schema.ts` | 演示页面整体移除（需要时从 git 历史取回） |
+| 新增 `schema/src/empty-page.ts` | `createEmptyPageSchema()`，带单测（空画布的定义 + 形状合法性 + meta 默认值 + 引用隔离） |
+| `App.vue` 改为空 schema | 要演示能力应走「页面模板」标签页（`templateRegistry`），而不是默认塞进画布 |
+
+### ⚠️ 顺带修掉一个结构问题：画布**始终**渲染白色表单面
+
+此前是 `v-if="schema && runtime && !isEmpty"` —— 空画布时把整个渲染器换掉，
+`.lc-runtime-root` **根本不存在**。而参考实现**始终**渲染 `.widget-form`，
+空态提示（`.no-widget-hint`）只是它内部的一个元素。
+
+已改为始终渲染渲染器，空态改为绝对定位浮在其上（`pointer-events: none`，不影响接收 drop）。
+
+连带发现 `.lc-canvas--empty` 上的 `display: flex`（旧的居中方案）会让渲染器变成
+**收缩到内容的 flex item**——空画布下实测白面只有 **12px 宽**（= padding 6×2），
+白面塌成一条。空态改为绝对定位后这块已无用，已移除。
+
+### 对真机套件的影响
+
+有 4 条检查原先依赖固定演示节点 id（`n_title` / `n_button`），画布变空后失效。
+已改为**自己造数据**（新增 `insertMaterials()` 辅助函数）——检查本来就不该依赖演示数据。
+
 ## 二、画布结构
 
 | | 参考 | 本仓库（修复前） | 本仓库（修复后） |
@@ -115,7 +150,7 @@ labelWidth: 80,  labelPosition: 'left',  size: '',   // '' 在运行时按 mediu
 | `labelPosition` `top` → **`left`**、`labelWidth` `100` → **`80`** | `packages/schema/src/form-settings.ts` |
 | 条目 `margin-bottom: 22px`；label 字号 14 / 行高 36 / padding-right 12 / 颜色 `#606266` | `FormItem.vue` |
 | 控件高 36px：`--el-component-size: 36px`（EP 无 36px 档位，直接给变量） | `FormItem.vue` |
-| demo schema 里显式写的 `labelPosition: 'top'` / `labelWidth: 100` 改为参考默认；去掉自定义 CSS 里的 `max-width: 960px`（把 demo 收窄了，失去可比性） | `packages/playground/src/demo-schema.ts` |
+| demo schema 里显式写的 `labelPosition: 'top'` / `labelWidth: 100` 改为参考默认；去掉自定义 CSS 里的 `max-width: 960px`（把 demo 收窄了，失去可比性） | ~~`packages/playground/src/demo-schema.ts`~~（**该文件后来整体删除**，画布改为初始为空，见下） |
 | 默认标签 `label = name` → **`label = label \|\| type.toLowerCase()`** | `packages/editor/src/engine/editor-engine.ts` |
 
 参考的 label 规则（`designer.js: copyNewFieldWidget()`）：
