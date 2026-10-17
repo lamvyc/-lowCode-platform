@@ -1040,7 +1040,8 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       max: 100,
       step: 10,
       range: false,
-      showStops: false,
+      // 参考的 slider 默认 showStops: true（实测它渲染了 9 个 `__stop` 刻度点，我们一个都没有）
+      showStops: true,
       vertical: false,
       height: null,
       size: '',

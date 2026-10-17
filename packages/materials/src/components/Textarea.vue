@@ -87,6 +87,7 @@ const minLength = computed(() => (props.minLength && props.minLength > 0 ? props
 
 <template>
   <FormItem
+    class="lc-textarea"
     :label="label"
     :label-width="labelWidth"
     :label-hidden="labelHidden"
@@ -119,3 +120,17 @@ const minLength = computed(() => (props.minLength && props.minLength > 0 ? props
     />
   </FormItem>
 </template>
+
+<style>
+/*
+ * ⚠️ 非 scoped：ElInput 不是本组件模板的根（根是 FormItem），
+ * 它落在插槽里、拿不到 scope 属性（同 TabPane / ElUpload 那一类问题）。
+ * 用 `.lc-textarea` 这个落在 FormItem 根上的类名做锚点。
+ *
+ * 实测参考 `el-textarea__inner` 的 padding 是 `5px 15px`，我们是 `5px 11px`
+ * —— 文字离左右边框近了 4px，这个在视觉上是能看出来的。
+ */
+.lc-textarea .el-textarea__inner {
+  padding: 5px 15px;
+}
+</style>

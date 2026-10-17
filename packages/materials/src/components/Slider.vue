@@ -123,5 +123,13 @@ const heightProp = computed(() =>
 <style scoped>
 .lc-slider {
   width: 100%;
+  /* 参考（EU 的 medium 档）滑块的 computed height 是 38px，EP 是 32px */
+  height: 38px;
+}
+
+/* 参考的 `__runway` 有 `margin: 16px 0`（实测），我们 EP 是 0，
+   于是整体高度 32 vs 38、轨道上下没有留白，比参考更贴紧邻近元素。 */
+.lc-slider :deep(.el-slider__runway) {
+  margin: 16px 0;
 }
 </style>
