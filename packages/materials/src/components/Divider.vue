@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ElDivider } from 'element-plus'
 
 defineOptions({ name: 'LcDivider' })
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /**
      * 生命周期钩子（与参考实现一致）。
@@ -12,6 +13,8 @@ withDefaults(
      */
     onCreated?: string
     onMounted?: string
+    /** 组件宽度（参考实现有这一项） */
+    columnWidth?: string | number
     /** 分割线文案 */
     label?: string
     /** 分割线方向 */
@@ -23,7 +26,15 @@ withDefaults(
     label: '',
     direction: 'horizontal',
     contentPosition: 'center',
+    columnWidth: '100%',
   },
+)
+
+// 参考实现的 divider 有 columnWidth（组件宽度），这里落成 style
+const dividerStyle = computed(() =>
+  props.columnWidth === undefined || props.columnWidth === ''
+    ? undefined
+    : { width: typeof props.columnWidth === 'number' ? `${props.columnWidth}%` : props.columnWidth },
 )
 </script>
 
@@ -32,6 +43,7 @@ withDefaults(
     class="lc-divider"
     :direction="direction"
     :content-position="contentPosition"
+    :style="dividerStyle"
   >
     {{ label }}
   </ElDivider>

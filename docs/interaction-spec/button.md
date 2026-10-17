@@ -18,7 +18,7 @@
 
 ```json
 {
-  "text": "按钮",
+  "label": "按钮",
   "type": "",
   "size": "default",
   "plain": false,
@@ -38,7 +38,7 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
-| `text` | 按钮文案 | `input` | `按钮` |  |
+| `label` | 按钮文案 | `input` | `按钮` |  |
 | `type` | 按钮类型 | `select` | `` |  选项：默认/主要/成功/警告/危险/信息 |
 | `displayStyle` | 显示样式 | `radio-button` | `inline` |  选项：行内/块级 |
 
@@ -66,7 +66,8 @@
 | --- | --- | --- | --- | --- |
 | 1 | `render` | 渲染为 `.el-button` | 默认 | ✅ |
 | 2 | `default-type` | 默认类型是 Element 的"默认"样式（白底灰边），不是蓝色实心 primary | 默认 | ✅ |
-| 3 | `prop-text` | `text` 设置后，按钮文案随之变化 | `{"text": "提交X"}` | ✅ |
+| 3 | `prop-label` | `label` 设置后，按钮文案随之变化 | `{"label": "提交X"}` | ✅ |
+| 4 | `common-label` | `label` 设置后，该物料的文本里出现这个值 | `{"label": "标签X"}` | ✅ |
 
 ## 五、怎么跑
 

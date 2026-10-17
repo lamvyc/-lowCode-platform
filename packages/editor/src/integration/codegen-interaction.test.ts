@@ -88,7 +88,15 @@ function compileRender(code: string) {
  * 生成物脚本里只有两类 import（vue 的 API、物料组件），前者由这里注入，
  * 后者只被模板用到、脚本里并不引用，所以剥掉 import 不影响求值。
  */
-function evalScript(code: string): Record<string, (...args: unknown[]) => unknown> {
+/**
+ * 把生成的 `<script setup>` 包成一个**在 setup() 内执行**的工厂。
+ *
+ * ⚠️ 必须在 `setup()` 里调用，不能在 setup 外面先算好：
+ * 脚本里会用到组合式 API（`onMounted(() => ...)` 等），
+ * 在组件实例之外调用时没有活动实例，**回调根本不会注册**——
+ * 表现为"生成的 onMounted 没执行"，其实是测试脚手架的问题。
+ */
+function makeScriptFactory(code: string): () => Record<string, unknown> {
   const { descriptor } = parse(code, { filename: 'page.vue' })
   const raw = descriptor.scriptSetup!.content
   // 除了 `function`，还要收集顶层 `const`（如 `formData`）——
@@ -101,17 +109,18 @@ function evalScript(code: string): Record<string, (...args: unknown[]) => unknow
     'ref',
     'onMounted',
     body + `\nreturn { ${names.join(', ')} }`,
-  ) as (...a: unknown[]) => Record<string, (...args: unknown[]) => unknown>
-  return factory(reactive, ref, onMounted)
+  ) as (...a: unknown[]) => Record<string, unknown>
+  return () => factory(reactive, ref, onMounted)
 }
 
 async function mountGenerated(code: string) {
   const render = compileRender(code)
-  const handlers = evalScript(code)
+  const runScript = makeScriptFactory(code)
   const Page = defineComponent({
     components: materials as unknown as Record<string, Component>,
+    // 在 setup 内执行生成脚本：组合式 API 的注册才有效
     setup() {
-      return handlers
+      return runScript()
     },
     render,
   })
@@ -154,6 +163,37 @@ describe('生成的代码交互可用', () => {
     // 关键：输入的内容**留在框里**。若生成的是静态 modelValue，
     // 这里会被父组件重新下发的空串覆盖回去。
     expect(input.value).toBe('用户输入的内容')
+  })
+
+  it('**onCreated / onMounted 会被生成并执行**（不是只在设计器里有效）', async () => {
+    const schema = {
+      version: '1.0.0',
+      meta: { id: 'p', name: '钩子', route: '/' },
+      nodes: [
+        {
+          id: 'input1',
+          type: 'input',
+          name: 'f',
+          props: {
+            label: '姓名',
+            modelValue: '',
+            onCreated: 'this.setValue(this.value + "C")',
+            onMounted: 'this.setValue(this.value + "M")',
+          },
+        },
+      ],
+      materials: [],
+      dataSources: [],
+      variables: [],
+      rules: [],
+    } as never
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('onCreated')
+    expect(code).toContain('onMounted')
+    const el = await mountGenerated(code)
+    await new Promise((r) => setTimeout(r, 40))
+    // onCreated 先跑（追加 C），onMounted 后跑（再追加 M）
+    expect(el.querySelector<HTMLInputElement>('input')!.value).toBe('CM')
   })
 
   it('没有动作的按钮点一下什么也不发生（也不报错）', async () => {

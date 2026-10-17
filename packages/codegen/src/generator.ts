@@ -145,6 +145,15 @@ function resolvePropBinding(node: PageNode, propName: string): unknown {
   return raw
 }
 
+/** 把一段用户代码按给定缩进原样嵌入生成脚本 */
+function indentCode(code: string, spaces = 2): string {
+  const pad = ' '.repeat(spaces)
+  return code
+    .split('\n')
+    .map((line) => (line.trim() === '' ? '' : pad + line))
+    .join('\n')
+}
+
 /** 节点 id → 合法 JS 标识符（与事件处理器命名用同一规则） */
 function sanitizeId(nodeId: string): string {
   return nodeId.replace(/[^a-zA-Z0-9_$]/g, '_')
@@ -363,12 +372,40 @@ function buildScript(
     }
   }
 
-  const loads = schema.dataSources
+  // ---- 生命周期钩子（onCreated / onMounted）----
+  // 与运行时同语义：`new Function(code).call(self)`，self 提供 value / setValue。
+  // 组件里对应的字段是 `formData.<nodeId>`（见上面的 v-model 生成）。
+  const hookNode = (node: PageNode) => sanitizeId(node.id)
+  const hookSelf = (node: PageNode) =>
+    `{ node: ${toJson(node.id)}, get value() { return formData.${hookNode(node)} }, ` +
+    `setValue(v) { formData.${hookNode(node)} = v }, ` +
+    `getValue() { return formData.${hookNode(node)} } }`
+
+  for (const node of schema.nodes) {
+    const code = node.props.onCreated
+    if (typeof code !== 'string' || code.trim() === '') continue
+    lines.push(`// 节点 ${node.id} 的 onCreated`)
+    lines.push('try {')
+    lines.push(`  ;(function () {\n${indentCode(code)}\n}).call(${hookSelf(node)})`)
+    lines.push("} catch (e) { console.warn('[codegen] onCreated 执行失败', e) }")
+    lines.push('')
+  }
+
+  const mountCalls: string[] = schema.dataSources
     .filter((source) => source.type !== 'static')
     .map((source) => `  load${pascalCase(source.id)}()`)
-  if (loads.length > 0) {
+  for (const node of schema.nodes) {
+    const code = node.props.onMounted
+    if (typeof code !== 'string' || code.trim() === '') continue
+    mountCalls.push(`  try {`)
+    mountCalls.push(`    ;(function () {\n${indentCode(code, 4)}\n}).call(${hookSelf(node)})`)
+    mountCalls.push(
+      `  } catch (e) { console.warn('[codegen] onMounted 执行失败', e) }`,
+    )
+  }
+  if (mountCalls.length > 0) {
     lines.push('onMounted(() => {')
-    lines.push(loads.join('\n'))
+    lines.push(mountCalls.join('\n'))
     lines.push('})')
   }
 

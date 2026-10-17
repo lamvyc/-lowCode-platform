@@ -39,7 +39,7 @@ const GLOBAL_OPTION_ALIASES: Record<string, string> = {
 
 /** 参考 option → 本仓库属性（逐 widget 重命名） */
 const WIDGET_OPTION_ALIASES: Record<string, Record<string, string>> = {
-  button: { label: 'text' },
+  // 按钮文案已改回与参考同名（`label`），这条别名不再需要
   'tab-pane': { name: 'paneName' },
 }
 

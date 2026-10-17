@@ -926,7 +926,7 @@ const CHECKS = [
             return id
           }
           const inputId = await insert('input', { label: '目标', placeholder: '等待动作写入' })
-          const buttonId = await insert('button', { text: '点我写值' })
+          const buttonId = await insert('button', { label: '点我写值' })
           // 事件 → 动作链：点击按钮把目标节点的 modelValue 改成固定值。
           // ⚠️ 这里必须是**统一动作格式** { id, type, target, params }：
           //    id 是 Schema 校验的必填项（漏了会抛 zod 的
@@ -1010,7 +1010,7 @@ const CHECKS = [
             return id
           }
           const inputId = await insert('input', { label: '目标' })
-          const buttonId = await insert('button', { text: '跑链' })
+          const buttonId = await insert('button', { label: '跑链' })
 
           // 一条链里放三个动作，验证：
           //   ① when 为假 → 跳过
@@ -1195,7 +1195,7 @@ const CHECKS = [
           ctx.insertMaterial('button')
           await tick(150)
           const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
-          ctx.updateProps(id, { text: '别点我' })
+          ctx.updateProps(id, { label: '别点我' })
           ctx.updateNodeEvents(id, { click: [{ id: 'a1', kind: 'navigate', config: { route: '#/design-should-not-nav' } }] })
           await tick(200)
           location.hash = ''
@@ -1259,7 +1259,7 @@ const CHECKS = [
           ctx.insertMaterial('button')
           await tick(150)
           const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
-          ctx.updateProps(id, { text: '拉数据' })
+          ctx.updateProps(id, { label: '拉数据' })
           ctx.updateNodeEvents(id, {
             click: [
               {
@@ -1328,7 +1328,7 @@ const CHECKS = [
             return id
           }
           await insert('input', { label: '邮箱', required: true })
-          const buttonId = await insert('button', { text: '提交表单' })
+          const buttonId = await insert('button', { label: '提交表单' })
           ctx.updateNodeEvents(buttonId, {
             click: [{ id: 'a-submit', kind: 'submit', config: { formId: 'page' } }],
           })
@@ -1387,7 +1387,7 @@ const CHECKS = [
           })
           await tick(150)
           // 触发方：按钮点击时派发同一个事件
-          const buttonId = await insert('button', { text: '派发事件' })
+          const buttonId = await insert('button', { label: '派发事件' })
           ctx.updateNodeEvents(buttonId, {
             click: [{ id: 'a-emit', kind: 'emitEvent', config: { event: 'myEvent', payload: { from: 'button' } } }],
           })

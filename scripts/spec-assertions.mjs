@@ -313,8 +313,8 @@ export const SPEC_ASSERTIONS = {
              return !b.classList.contains('el-button--primary')`,
     },
     effect(
-      '`text` 设置后，按钮文案随之变化',
-      { text: '提交X' },
+      '`label` 设置后，按钮文案随之变化',
+      { label: '提交X' },
       `const b = root.querySelector('.el-button'); return !!b && b.textContent.includes('提交X')`,
     ),
   ],

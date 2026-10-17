@@ -108,6 +108,7 @@
       "extraOptions": [
         "label",
         "paneName",
+        "active",
         "disabled"
       ],
       "waived": []
@@ -642,6 +643,7 @@
       "extraOptions": [
         "onCreated",
         "onMounted",
+        "columnWidth",
         "direction"
       ],
       "waived": [

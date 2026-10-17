@@ -20,7 +20,8 @@
 {
   "label": "",
   "direction": "horizontal",
-  "contentPosition": "center"
+  "contentPosition": "center",
+  "columnWidth": "100%"
 }
 ```
 
@@ -42,6 +43,7 @@
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
 | `class` | 自定义类名 | `custom-class` | `None` |  |
+| `columnWidth` | 组件宽度 | `radio-button` | `100%` |  选项：25%/50%/75%/100% |
 
 ## 四、验收标准
 

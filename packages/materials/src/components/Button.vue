@@ -14,6 +14,12 @@ const props = withDefaults(
     onCreated?: string
     onMounted?: string
     /** 按钮文案 */
+    /**
+     * 按钮文案。与参考实现同名（`label`）——参考渲染的是 `{{field.options.label}}`。
+     * 旧字段 `text` 仍作为兜底，保证既有 schema 不炸。
+     */
+    label?: string
+    /** @deprecated 用 label */
     text?: string
     /** 按钮类型 */
     /** 空串 = Element 的默认按钮（白底灰边）——参考实现的默认值就是 '' */
@@ -31,7 +37,11 @@ const props = withDefaults(
     columnWidth?: string
   }>(),
   {
-    text: '按钮',
+    // ⚠️ 这里**不能**给 label 默认值：给了默认值 `label ?? text` 就永远取 label，
+    //    旧 schema 里的 `text` 会被静默忽略。默认文案由 manifest 的
+    //    defaultValue 在插入节点时落到 schema 上，不靠组件兜底。
+    label: undefined,
+    text: undefined,
     type: '',
     size: 'default',
     plain: false,
@@ -66,7 +76,7 @@ const style = computed(() => ({
     :style="style"
     @click="emit('click', $event)"
   >
-    {{ text }}
+    {{ label ?? text ?? '按钮' }}
   </ElButton>
 </template>
 

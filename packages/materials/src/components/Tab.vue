@@ -56,6 +56,14 @@ function onTabClick(): void {
   userPicked.value = true
 }
 
+/**
+ * 面板上显式标了 `active: true` 时，它就是**默认激活项**（参考实现用
+ * `options.active` 标记当前激活面板）。没标的话退回"最后注册的那个"。
+ */
+provide('lcTabPreferredPane', () => {
+  userPicked.value = true // 显式指定即视为用户选择，不再被自动逻辑覆盖
+})
+
 watch(
   () => props.activeName,
   (value) => {

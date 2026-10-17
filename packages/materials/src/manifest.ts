@@ -432,6 +432,15 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       ...systemProps(),
       { name: 'label', label: '标签文本', control: 'label', group: 'common', defaultValue: '标签页' },
       { name: 'paneName', label: '标签标识', control: 'input', group: 'common', defaultValue: '', placeholder: '用于默认选中，如 tab1' },
+      // 与参考实现一致：`options.active` 标记"默认激活面板"
+      {
+        name: 'active',
+        label: '默认激活',
+        control: 'switch',
+        group: 'common',
+        defaultValue: false,
+        description: '打开后该面板为默认显示的面板',
+      },
       { name: 'disabled', label: '禁用', control: 'switch', group: 'advanced', defaultValue: false },
     ],
   },
@@ -1207,7 +1216,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       { name: 'click', label: 'onClick', params: ['event'], description: '点击按钮时触发动作链' },
     ],
     defaultProps: {
-      text: '按钮',
+      label: '按钮',
       type: '',
       size: 'default',
       plain: false,
@@ -1220,7 +1229,8 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
-      { name: 'text', label: '按钮文案', control: 'input', group: 'common', defaultValue: '按钮' },
+      // 与参考实现同名：参考里按钮文案的字段就是 `label`（渲染 `{{field.options.label}}`）
+      { name: 'label', label: '按钮文案', control: 'input', group: 'common', defaultValue: '按钮' },
       {
         name: 'type',
         label: '按钮类型',
@@ -1274,11 +1284,25 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     icon: 'divider',
     description: '内容分隔线',
     version: '1.0.0',
-    defaultProps: { label: '', direction: 'horizontal', contentPosition: 'center' },
+    defaultProps: { label: '', direction: 'horizontal', contentPosition: 'center', columnWidth: '100%' },
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
       { name: 'label', label: '分割线文案', control: 'label', group: 'common', defaultValue: '' },
+      // 与参考实现一致：分隔线也有「组件宽度」（参考的 divider options 里有 columnWidth）
+      {
+        name: 'columnWidth',
+        label: '组件宽度',
+        control: 'radio-button',
+        group: 'advanced',
+        options: [
+          { label: '25%', value: '25%' },
+          { label: '50%', value: '50%' },
+          { label: '75%', value: '75%' },
+          { label: '100%', value: '100%' },
+        ],
+        defaultValue: '100%',
+      },
       {
         name: 'direction',
         label: '方向',
