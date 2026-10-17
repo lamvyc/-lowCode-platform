@@ -536,6 +536,65 @@ const CHECKS = [
   },
 
   {
+    name: 'rich-editor',
+    why: '富文本从「自建 contenteditable + document.execCommand」换成了 Quill（@vueup/vue-quill）。三件事都只有真实浏览器能验：Quill 工具栏是否渲染、输入是否回写到运行期值、工具栏按钮是否真的生效',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      { eval: insertMaterials(['rich-editor']) },
+      { wait: 400 },
+      {
+        label: 'Quill 工具栏渲染出来，编辑区可编辑',
+        check: `(() => {
+          const tb = document.querySelector('.lc-canvas .ql-toolbar')
+          const ed = document.querySelector('.lc-canvas .ql-editor')
+          const count = tb ? tb.querySelectorAll('button, .ql-picker').length : 0
+          return {
+            ok: !!tb && !!ed && ed.getAttribute('contenteditable') === 'true' && count >= 15,
+            detail: { 工具栏: !!tb, 按钮数: count, 编辑区: !!ed, contenteditable: ed ? ed.getAttribute('contenteditable') : null },
+          }
+        })()`,
+      },
+      { eval: `(() => { const ed = document.querySelector('.lc-canvas .ql-editor'); if (!ed) return 'NO_EDITOR'; ed.id = 'rte'; return 'ok' })()` },
+      { click: '#rte' },
+      { type: 'Hello' },
+      { wait: 500 },
+      {
+        label: '输入的内容回写到运行期值（getNodeValue）',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const id = window.__ids[0]
+          const rt = __unref(ctx.runtime)
+          const value = String(rt.getNodeValue(id) ?? '')
+          return { ok: value.includes('Hello'), detail: { value: value.slice(0, 60) } }
+        })()`,
+      },
+      {
+        label: '点工具栏「加粗」后继续输入，内容带上 <strong>',
+        check: `(() => {
+          const tb = document.querySelector('.lc-canvas .ql-toolbar')
+          const bold = tb && tb.querySelector('button.ql-bold')
+          return { ok: !!bold, detail: { 加粗按钮: !!bold } }
+        })()`,
+      },
+      { click: '.lc-canvas .ql-toolbar button.ql-bold' },
+      { click: '#rte' },
+      { type: 'Bold' },
+      { wait: 500 },
+      {
+        label: '加粗生效（HTML 里出现 strong 或 font-weight）',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const value = String(__unref(ctx.runtime).getNodeValue(window.__ids[0]) ?? '')
+          const ok = /<strong|font-weight:\s*bold/i.test(value)
+          return { ok, detail: { value: value.slice(0, 90) } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
