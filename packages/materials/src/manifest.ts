@@ -341,7 +341,9 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     droppable: false,
     groupable: true,
     slots: ['default'],
-    defaultChildren: [{ type: 'tab-pane', count: 2 }],
+    // 参考拖入「标签页」后只有 **1 个**面板（实测 nav 里 1 个 `.el-tabs__item`），
+    // 我们此前建了 2 个 → nav 宽度 166 vs 参考 74，几乎翻倍。
+    defaultChildren: [{ type: 'tab-pane', count: 1 }],
     defaultProps: { displayType: 'border-card', activeName: '' },
     propConfigs: [
       ...systemProps(),
