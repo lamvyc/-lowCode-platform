@@ -25,7 +25,8 @@ from pathlib import Path
 
 REPO = Path('/Users/unravel/ lowCode-platform')
 REF = {'url': 'http://localhost:8090/', 'wait': '#app', 'form': "document.querySelector('.widget-form')",
-       'item': '.el-form-item', 'wrap': "document.querySelector('.widget-form .field-wrapper')"}
+       'item': '.el-form-item', 'wrap': "document.querySelector('.widget-form .field-wrapper')"
+              " || document.querySelector('.widget-form .container-wrapper')"}
 OURS = {'url': 'http://localhost:5174/', 'wait': '.lc-canvas', 'form': "document.querySelector('.lc-runtime-root')",
         'item': '.lc-form-item',
         'wrap': "[...document.querySelectorAll('.lc-canvas [data-node-id]')].find((e) => e.dataset.nodeId === window.__newId)"}
@@ -58,11 +59,13 @@ SKETCH = r'''(() => {
   }
   const controls = []
   // 编辑器自身的浮层：整棵子树都要跳过。
-  // 参考：.field-action（操作条）/ .drag-handler（拖拽手柄）
+  // 参考：.field-action（字段操作条）/ .container-action（**容器**操作条）/ .drag-handler（拖拽手柄）
   // 我们：.lc-node__badges / .lc-node__actions
   // ⚠️ 只过滤元素自身不够——里面的 el-icon-* 会漏进来，让容器类物料的
-  //    "控件结构" 看起来差很多（静态文字曾报成 el-icon-back/delete…）。
-  const CHROME = /(^|\s)(lc-node__badges|lc-node__actions|field-action|drag-handler)(\s|$)/
+  //    "控件结构" 看起来差很多（表格/卡片曾报成 el-icon-back/copy-document/delete…）。
+  // ⚠️ 容器用的是 **container-action**，与字段的 field-action 不是一个类名，
+  //    第一版只过滤了后者，于是容器类物料的差异全是编辑器浮层造成的假象。
+  const CHROME = /(^|\s)(lc-node__badges|lc-node__actions|field-action|container-action|drag-handler)(\s|$)/
   const visit = (el, depth) => {
     if (depth > 8) return
     for (const c of el.children) {
@@ -172,13 +175,23 @@ def diff_controls(ref, ours):
     rc, oc = ref.get('controls', []), ours.get('controls', [])
     # 结构比较前先把"上游档位类"剔掉，否则 el-range-editor--medium 这类差异
     # 会把整条结构序列判为不同（而它已在下面按"已知差异"处理）。
-    STAGE = ('--medium', '--mini')
-
     def shape(controls):
+        """结构键：**与类名顺序、修饰类无关**。
+
+        ⚠️ 早先直接拼整串类名，于是同一元素只要类名顺序不同、或 EP 多/少一个
+        档位类（el-input--medium）就会被判成"结构不同"——23 个物料里绝大多数
+        属于这种假象，真结构差异被淹没。
+        取"去掉修饰类后的类集合（排序）"作为键。
+        """
+        import re as _re
+        # 值为 0 的布局辅助类等价于"没有该规则"：Element Plus 去掉了
+        # `el-col-offset-0 / el-col-pull-0 / el-col-push-0`，Element UI 还留着。
+        # 不归一掉的话，栅格这类物料的"结构差异"全是这个造成的假象。
+        noop = _re.compile(r'^el-col-(offset|pull|push)-0$')
         out = []
         for c in controls:
-            parts = [t for t in c['el'].split('.') if not any(t.endswith(x) for x in STAGE)]
-            out.append('.'.join(parts))
+            parts = sorted({t for t in c['el'].split('.') if '--' not in t and not noop.match(t)})
+            out.append('|'.join(parts))
         return out
 
     if shape(rc) != shape(oc):
