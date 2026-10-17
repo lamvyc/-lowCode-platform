@@ -16,3 +16,29 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/**
+ * ⚠️ **字体栈必须显式声明，不能吃浏览器默认。**
+ *
+ * 不声明时 macOS + Chrome + `lang="zh-CN"` 的默认字体是 `"PingFang SC"`，
+ * 而参考实现（`variant-form/src/styles/index.scss`）显式用的是 Element 的字体栈：
+ *
+ *     font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB,
+ *                  Microsoft YaHei, Arial, sans-serif;
+ *
+ * 这两者的**字体度量不同**：14px 的 Helvetica Neue 内容盒约 17px，
+ * PingFang SC 约 20px。于是**每一个 inline 文本盒都高 3px**——
+ * 单选项的选项高 20 vs 17、提示的标题 18 vs 15、多选项的标签 20 vs 14…
+ * 一大片"差几 px"的差异都是这一个原因造成的。
+ *
+ * 这条是**系统性修正**，影响面覆盖所有物料，改一次收益比逐个组件调 CSS 大得多。
+ */
+body {
+  height: 100%;
+  background-color: #ffffff;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei,
+    Arial, sans-serif;
+}
