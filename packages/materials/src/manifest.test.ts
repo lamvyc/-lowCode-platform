@@ -199,3 +199,27 @@ describe('物料清单完整性', () => {
     }
   })
 })
+
+describe('属性面板完整性', () => {
+  it('每个可配置属性都要有属性面板配置项（否则用户改不了）', () => {
+    /**
+     * ⚠️ 这条守卫的由来：属性面板 A/B 发现「单行输入」参考暴露 32 项组件属性、
+     * 我们只有 25 项——差别不只是改名，还有**我们自己有 prop 却没有面板项**的：
+     * `showWordLimit` / `labelIconPosition` / `appendButtonDisabled` / `buttonIcon`。
+     * 即"能力在、入口不在"，用户根本改不到。
+     *
+     * 这里把"能力有、入口没有"变成编译期就能发现的问题。
+     */
+    const SYSTEM_PROPS = new Set(['name', 'hidden', 'modelValue'])
+    const missing: string[] = []
+    for (const material of MATERIAL_MANIFESTS) {
+      if (material.hidden) continue
+      const configured = new Set((material.propConfigs ?? []).map((c) => c.name))
+      for (const key of Object.keys(material.defaultProps ?? {})) {
+        if (SYSTEM_PROPS.has(key)) continue
+        if (!configured.has(key)) missing.push(`${material.name}(${material.type}).${key}`)
+      }
+    }
+    expect(missing, '这些属性可以设值但没有属性面板入口，用户改不到').toEqual([])
+  })
+})

@@ -7,3 +7,7 @@ coverage/
 .vite/
 .idea/
 .vscode/
+
+# Python 脚本（scripts/*.py）运行产生的字节码
+__pycache__/
+*.pyc
