@@ -754,6 +754,137 @@ const CHECKS = [
   },
 
   {
+    name: 'e2e-form-flow',
+    why: '端到端：拖入 → 配置 → 预览 → 填表 → 校验 → 提交 → 退出。现有检查各自只覆盖一段（validation-in-preview 管校验时机、props-effect-precise 管单属性），没有一条把整条链路串起来',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          // 拖入两个字段：一个必填输入、一个下拉
+          // ⚠️ 第二个字段用 textarea 而不是 select：
+          //    下拉框**不能靠打字填值**（要点开面板选选项），
+          //    第一版用 select 导致"值没填进去"被误判成校验失败。
+          for (const type of ['input', 'textarea']) {
+            const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+            ctx.insertMaterial(type)
+            await tick(140)
+            const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+            if (type === 'input') {
+              ctx.updateProps(id, { label: '姓名', required: true, placeholder: '请输入姓名' })
+            } else {
+              ctx.updateProps(id, { label: '备注', required: true })
+            }
+            await tick(120)
+          }
+          window.__e2eIds = __unref(ctx.schema).nodes.map((n) => n.id)
+          return 'ok'
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '① 配置生效：两个字段都在画布上，标签与必填标记正确',
+        check: `(() => {
+          const items = [...document.querySelectorAll('.lc-canvas .lc-form-item')]
+          const labels = items.map((i) => (i.querySelector('.lc-form-item__label')?.textContent || '').replace('*', '').trim())
+          const required = items.filter((i) => !!i.querySelector('.lc-form-item__required')).length
+          return {
+            ok: items.length === 2 && labels.includes('姓名') && labels.includes('备注') && required === 2,
+            detail: { 字段数: items.length, labels, 必填标记数: required },
+          }
+        })()`,
+      },
+      {
+        eval: `(async () => { ${GETCTX} __getCtx().togglePreview(); await new Promise((r) => setTimeout(r, 900)); return 'ok' })()`,
+      },
+      {
+        label: '② 进入预览：两个字段都可编辑',
+        check: `(() => {
+          const inPreview = !!document.querySelector('.lc-designer--preview')
+          const items = [...document.querySelectorAll('.lc-preview-body .lc-form-item')]
+          const inputs = items.map((i) => i.querySelector('input, textarea')).filter(Boolean)
+          // ⚠️ 只判"未被禁用"，不判 readOnly：下拉框的内层 input **天生是 readonly** 的
+          //    （EP 用 readonly 拦截手敲，点击才展开面板）。第一版按 readOnly 判，
+          //    把正常的下拉框误报成"不可编辑"。
+          const notDisabled = inputs.filter((i) => !i.disabled).length
+          return {
+            ok: inPreview && items.length === 2 && notDisabled === inputs.length && inputs.length >= 2,
+            detail: { 预览态: inPreview, 字段数: items.length, 输入框: inputs.length, 未禁用: notDisabled },
+          }
+        })()`,
+      },
+      {
+        eval: `(() => {
+          const items = [...document.querySelectorAll('.lc-preview-body .lc-form-item')]
+          items.forEach((it, i) => { const inp = it.querySelector('input, textarea'); if (inp) inp.id = 'e2e-input-' + i })
+          return 'ok'
+        })()`,
+      },
+      // 空值失焦 → 两个字段都报必填错误
+      { click: '#e2e-input-0' },
+      { click: '.lc-preview-bar' },
+      { wait: 300 },
+      { click: '#e2e-input-1' },
+      { click: '.lc-preview-bar' },
+      { wait: 400 },
+      {
+        label: '③ 空值失焦：两个必填字段都出现错误提示',
+        check: `(() => {
+          const errs = [...document.querySelectorAll('.lc-preview-body .lc-form-item__error')].map((e) => e.textContent.trim())
+          return { ok: errs.length === 2, detail: { 错误数: errs.length, errs } }
+        })()`,
+      },
+      // 填入值 → 错误消失
+      { click: '#e2e-input-0' },
+      { type: '张三' },
+      { click: '#e2e-input-1' },
+      { type: '北京' },
+      { click: '.lc-preview-bar' },
+      { wait: 400 },
+      {
+        label: '④ 填完两个字段：错误全部清除，值写入运行期',
+        check: `(() => {
+          const errs = [...document.querySelectorAll('.lc-preview-body .lc-form-item__error')]
+          const v0 = document.querySelector('#e2e-input-0')?.value || ''
+          const v1 = document.querySelector('#e2e-input-1')?.value || ''
+          return { ok: errs.length === 0 && v0 === '张三' && v1 === '北京', detail: { 错误数: errs.length, v0, v1 } }
+        })()`,
+      },
+      {
+        label: '⑤ 提交能力：当前预览态未注册 FormEngine，submitForm 应「优雅失败」而不是抛异常',
+        check: `(async () => {
+          ${GETCTX}
+          const rt = __unref(__getCtx().runtime)
+          const forms = rt.forms ? rt.forms.size : -1
+          let result = null
+          try {
+            result = await rt.createActionContext().submitForm('any-form')
+          } catch (e) {
+            return { ok: false, detail: { 抛异常: String(e).slice(0, 80) } }
+          }
+          return {
+            ok: forms === 0 && result && result.ok === false && typeof result.error === 'string',
+            detail: { 已注册表单数: forms, submitForm返回: result },
+          }
+        })()`,
+      },
+      {
+        eval: `(async () => { ${GETCTX} __getCtx().togglePreview(); await new Promise((r) => setTimeout(r, 600)); return 'ok' })()`,
+      },
+      {
+        label: '⑥ 退出预览：回到编辑器，两个字段都还在',
+        check: `(() => {
+          const backToEditor = !document.querySelector('.lc-designer--preview') && !!document.querySelector('.lc-canvas')
+          const items = [...document.querySelectorAll('.lc-canvas .lc-form-item')]
+          return { ok: backToEditor && items.length === 2, detail: { 回到编辑器: backToEditor, 字段数: items.length } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
