@@ -536,6 +536,50 @@ const CHECKS = [
   },
 
   {
+    name: 'card-collapse',
+    why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      { eval: insertMaterials(['card']) },
+      { wait: 300 },
+      {
+        label: '渲染成 el-card，带 header 槽与默认标题「card」',
+        check: `(() => {
+          const card = document.querySelector('.lc-canvas .el-card')
+          const header = document.querySelector('.lc-canvas .el-card__header')
+          const title = document.querySelector('.lc-canvas .lc-card__title')
+          const fold = document.querySelector('.lc-canvas .lc-card__fold')
+          return {
+            ok: !!card && !!header && !!title && !!fold && title.textContent === 'card',
+            detail: { card: !!card, header: !!header, 标题: title ? title.textContent : null, 折叠按钮: !!fold },
+          }
+        })()`,
+      },
+      {
+        label: '折叠前 body 可见',
+        check: `(() => {
+          const body = document.querySelector('.lc-canvas .lc-card__body')
+          return { ok: !!body && getComputedStyle(body).display !== 'none', detail: { body: !!body } }
+        })()`,
+      },
+      { click: '.lc-canvas .lc-card__fold' },
+      { wait: 400 },
+      {
+        label: '点击折叠后 body 隐藏，且图标切换',
+        check: `(() => {
+          const body = document.querySelector('.lc-canvas .lc-card__body')
+          const fold = document.querySelector('.lc-canvas .lc-card__fold')
+          const d = fold ? fold.querySelector('path').getAttribute('d') : ''
+          const hidden = !!body && getComputedStyle(body).display === 'none'
+          // 折叠后应换成"向下"的 chevron（M512 704…），折叠前是向上的（M512 320…）
+          const flipped = d.includes('704')
+          return { ok: hidden && flipped, detail: { body隐藏: hidden, 图标: d.slice(0, 16) } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'cross-container-drag',
     why: '跨容器拖拽同时涉及索引空间与 beforeId 两条路径',
     steps: [
