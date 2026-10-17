@@ -27,11 +27,21 @@ afterEach(() => {
   location.hash = ''
 })
 
-function makeSchema(withAction: boolean) {
+function makeSchema(withAction: boolean, withInput = false) {
   return {
     version: '1.0.0',
     meta: { id: 'p', name: '交互', route: '/' },
     nodes: [
+      ...(withInput
+        ? [
+            {
+              id: 'input1',
+              type: 'input',
+              name: 'userName',
+              props: { label: '姓名', modelValue: '默认值' },
+            },
+          ]
+        : []),
       {
         id: 'n1',
         type: 'button',
@@ -81,7 +91,9 @@ function compileRender(code: string) {
 function evalScript(code: string): Record<string, (...args: unknown[]) => unknown> {
   const { descriptor } = parse(code, { filename: 'page.vue' })
   const raw = descriptor.scriptSetup!.content
-  const names = [...raw.matchAll(/^function (\w+)/gm)].map((m) => m[1])
+  // 除了 `function`，还要收集顶层 `const`（如 `formData`）——
+  // 否则模板里的 `formData.xxx` 在 render 上下文里是 undefined。
+  const names = [...raw.matchAll(/^(?:function|const|let) (\w+)/gm)].map((m) => m[1])
   const body = raw.replace(/^import .*$/gm, '')
   // eslint-disable-next-line no-new-func
   const factory = new Function(
@@ -127,6 +139,21 @@ describe('生成的代码交互可用', () => {
     el.querySelector<HTMLButtonElement>('button')!.click()
     await new Promise((r) => setTimeout(r, 30))
     expect(location.hash).toBe('#/detail')
+  })
+
+  it('**输入框可以填写并保持**（生成了 v-model 与 formData，而不是静态 modelValue）', async () => {
+    const { code } = await generateVueSfc(makeSchema(false, true))
+    expect(code).toContain('v-model="formData.')
+    expect(code).toContain('const formData = reactive({')
+    const el = await mountGenerated(code)
+    const input = el.querySelector<HTMLInputElement>('input')!
+    expect(input.value).toBe('默认值')
+    input.value = '用户输入的内容'
+    input.dispatchEvent(new Event('input'))
+    await new Promise((r) => setTimeout(r, 60))
+    // 关键：输入的内容**留在框里**。若生成的是静态 modelValue，
+    // 这里会被父组件重新下发的空串覆盖回去。
+    expect(input.value).toBe('用户输入的内容')
   })
 
   it('没有动作的按钮点一下什么也不发生（也不报错）', async () => {

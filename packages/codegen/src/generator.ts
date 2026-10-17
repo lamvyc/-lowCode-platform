@@ -145,6 +145,11 @@ function resolvePropBinding(node: PageNode, propName: string): unknown {
   return raw
 }
 
+/** 节点 id → 合法 JS 标识符（与事件处理器命名用同一规则） */
+function sanitizeId(nodeId: string): string {
+  return nodeId.replace(/[^a-zA-Z0-9_$]/g, '_')
+}
+
 function toJson(value: unknown): string {
   return JSON.stringify(value, null, 2)
 }
@@ -170,6 +175,13 @@ function nodeToAst(
   // 静态 / 表达式属性
   for (const propName of Object.keys(node.props)) {
     const value = resolvePropBinding(node, propName)
+    // `modelValue` 必须生成 `v-model`，不能生成静态属性——
+    // 否则生成的页面**填不进去**：输入会 emit update:modelValue，
+    // 但静态 prop 永远是空串，用户敲的字立刻被覆盖回去。
+    if (propName === 'modelValue') {
+      attrs[directive('v-model')] = `formData.${sanitizeId(node.id)}`
+      continue
+    }
     if (value && typeof value === 'object' && 'expression' in value) {
       const rewritten = rewriteExpression(
         String((value as { expression: string }).expression),
@@ -283,6 +295,17 @@ function buildScript(
   if (schema.variables.length > 0) lines.push('')
 
   // 弹窗与属性覆盖
+  // 表单数据模型：每个有 modelValue 的节点一个字段，初值取 schema 里的默认值。
+  // ⚠️ 没有它，生成的页面就无法填写——见模板里 modelValue → v-model 的处理。
+  const modelFields = schema.nodes.filter((node) => 'modelValue' in node.props)
+  if (modelFields.length > 0) {
+    const entries = modelFields
+      .map((node) => `${sanitizeId(node.id)}: ${toJson(node.props.modelValue ?? '')}`)
+      .join(', ')
+    lines.push(`const formData = reactive({ ${entries} })`)
+  } else {
+    lines.push('const formData = reactive({})')
+  }
   lines.push('const dialogs = reactive({})')
   lines.push('const propsOverride = reactive({})')
   lines.push('const requestResult = ref(null)')
