@@ -18,6 +18,7 @@
  * 起停服务交给调用方，避免脚本里藏一个难以观察的长驻进程。
  */
 import { spawn } from 'node:child_process'
+import { normalizeAssertions, SPEC_ASSERTIONS } from './spec-assertions.mjs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -661,6 +662,57 @@ const CHECKS = [
           const failed = Object.entries(results).filter(([, ok]) => !ok).map(([k]) => k)
           ctx.removeNode(id)
           return { ok: failed.length === 0, detail: { 失败项: failed, 全部: results } }
+        })()`,
+      },
+    ],
+  },
+
+  {
+    name: 'spec-conformance',
+    why: 'docs/interaction-spec/ 里每条验收标准的真机落地。规范文档由 scripts/spec-assertions.mjs 生成，这里是同一张表的执行器——两边不会漂移',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        label: '所有物料的规范断言',
+        check: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const TABLE = ${JSON.stringify(normalizeAssertions())}
+
+          const failures = []
+          let total = 0
+          for (const [material, list] of Object.entries(TABLE)) {
+            for (const a of list) {
+              total += 1
+              const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+              let id = null
+              try {
+                ctx.insertMaterial(material)
+                await tick(130)
+                id = [...document.querySelectorAll('.lc-canvas [data-node-id]')]
+                  .map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+                if (!id) { failures.push(material + '.' + a.id + ' :: 物料未插入'); continue }
+                if (a.props) { ctx.updateProps(id, a.props); await tick(80) }
+                const root = document.querySelector('[data-node-id="' + id + '"]')
+                let ok = false
+                try {
+                  ok = new Function('root', a.check)(root) === true
+                } catch (e) {
+                  failures.push(material + '.' + a.id + ' :: 断言抛错 ' + String(e).slice(0, 80))
+                  continue
+                }
+                if (!ok) failures.push(material + '.' + a.id + ' :: ' + a.desc)
+              } finally {
+                if (id) { try { ctx.removeNode(id) } catch {} }
+                await tick(50)
+              }
+            }
+          }
+          return {
+            ok: failures.length === 0,
+            detail: { 断言总数: total, 失败数: failures.length, 失败项: failures.slice(0, 25) },
+          }
         })()`,
       },
     ],
