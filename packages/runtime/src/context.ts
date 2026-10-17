@@ -279,11 +279,28 @@ export class RuntimeContext {
     if (rules.length === 0) return
     ruleRunDepths.set(this, depth + 1)
     try {
-      await this.ruleEngine.run(
+      const results = await this.ruleEngine.run(
         rules,
         this.buildExpressionContext(),
         this.createActionContext(),
       )
+      // ⚠️ 必须回读结果：动作失败**不会抛异常**，而是以 `{ok:false, error}` 的形式
+      //    躺在 results 里。原先这里直接丢弃返回值，于是"规则里的动作失败了"完全无声
+      //    ——实测空注册表时 `metrics` 里有 `rules.run`、`errors` 却是空的，
+      //    排查时只能以为是"条件没命中"。
+      for (const result of results) {
+        for (const actionResult of result.results ?? []) {
+          if (actionResult.ok) continue
+          this.errors.add(
+            {
+              scope: 'rule',
+              message: `规则「${result.rule.name}」的动作失败: ${actionResult.error ?? '未知错误'}`,
+              ref: result.rule.id,
+            },
+            `rule:${result.rule.id}:${actionResult.error ?? ''}`,
+          )
+        }
+      }
     } catch (error) {
       this.errors.add({
         scope: 'rule',
