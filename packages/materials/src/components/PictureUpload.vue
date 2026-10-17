@@ -268,10 +268,13 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
      我此前写的 24px 偏小。 */
   font-size: 28px;
   font-style: normal;
-  /* 参考是 inline-block 且盒高正好 28px；EP 是 block，行高把盒子撑到 32px */
-  display: inline-block;
   line-height: 1;
-  vertical-align: middle;
+  /* ⚠️ 这里不要试图用 `display: inline-block` 修盒高。
+     触发器的父元素是 `display: flex`（EP 的 `.el-upload--picture-card`），
+     `<i>` 作为 flex item 会被**强制块化**，声明 inline-block 算出来就是 block
+     （实测：遍历样式表没有任何规则设过 display，但 computed 是 block）。
+     直接给高度，flex 父级会负责居中，不改变布局。 */
+  height: 28px;
   color: #8c939d;
 }
 .lc-picture-upload__plus svg {
