@@ -24,8 +24,8 @@ from pathlib import Path
 REPO = Path('/Users/unravel/ lowCode-platform')
 URL = 'http://localhost:5174/'
 
-# 已人工判定过的"未被下闸却无反应"数量。见 docs/props-effect.md。
-BASELINE_SUSPICIOUS = 39
+# 已人工判定过的"未被下闸却无反应"数量。见 docs/props-effect.md 的分类表。
+BASELINE_SUSPICIOUS = 33
 # 仓库路径含前导空格，URL 里要编码
 MOD = '/@fs' + str(REPO).replace(' ', '%20') + '/packages/materials/src/manifest.ts'
 
@@ -87,7 +87,28 @@ PAGE = r'''
     switchWidth: 60,
   }
 
-  const testValue = (cfg, cur) => {
+  /**
+   * `modelValue` 必须按物料给**合法值**：给通用字符串 'EFFECT' 时，
+   * 日期/时间/单选都渲染不出任何东西，会被误判成"默认值属性没接线"。
+   */
+  const MODEL_VALUE_BY_TYPE = {
+    input: 'EFFECT', textarea: 'EFFECT',
+    number: 7, slider: 60, rate: 3,
+    date: '2024-01-15', 'date-range': ['2024-01-15', '2024-01-20'],
+    time: '12:00:00', 'time-range': ['12:00:00', '13:00:00'],
+    select: 1, checkbox: [1],
+    'rich-editor': '<p>abc</p>',
+  }
+
+  const testValue = (cfg, cur, material, node) => {
+    if (cfg.name === 'modelValue') {
+      const v = MODEL_VALUE_BY_TYPE[material.type]
+      if (v !== undefined) return v
+      // 单选：取第一个选项的值，随便给个字符串匹配不上任何选项
+      const first = (node.props?.optionItems ?? [])[0]
+      if (first) return first.value
+      return undefined
+    }
     // ⚠️ 只在**类型匹配**时才套 override：`width` 在卡片上是 CSS 字符串（'100%'），
     // 在图片物料上是数字（200px 像素值）。无条件套 '300px' 会让图片的 width
     // 变成 `300pxpx`（非法），于是被误判成"没接线"。
@@ -122,6 +143,43 @@ PAGE = r'''
     }
   }
 
+  /**
+   * 前置条件：有些属性**只有在前置状态下才有视觉表现**，直接设它等于什么都没发生。
+   * 例：`clearable` 要选了值才出现清除图标；`format` 要有值才有可格式化的文本。
+   *
+   * 键是 `物料.属性`。值为在**取第一次指纹之前**要打的补丁。
+   * ⚠️ 这不算"作弊"：它模拟的是用户真实的操作顺序（先选值再调清除样式）。
+   */
+  const PREREQ = {
+    'select.clearable': { modelValue: 1 },
+    'select.multiple': { modelValue: [1] },
+    'select.allowCreate': { filterable: true, modelValue: 1 },
+    'select.automaticDropdown': { filterable: true },
+
+    'time.clearable': { modelValue: '12:00:00' },
+    'time.format': { modelValue: '12:00:00' },
+    'time.readonly': { modelValue: '12:00:00' },
+    'time-range.clearable': { modelValue: ['12:00:00', '13:00:00'] },
+    'time-range.format': { modelValue: ['12:00:00', '13:00:00'] },
+    'time-range.readonly': { modelValue: ['12:00:00', '13:00:00'] },
+
+    'date.clearable': { modelValue: '2024-01-15' },
+    'date.format': { modelValue: '2024-01-15' },
+    'date.valueFormat': { modelValue: '2024-01-15' },
+    'date.readonly': { modelValue: '2024-01-15' },
+    'date-range.clearable': { modelValue: ['2024-01-15', '2024-01-20'] },
+    'date-range.format': { modelValue: ['2024-01-15', '2024-01-20'] },
+    'date-range.valueFormat': { modelValue: ['2024-01-15', '2024-01-20'] },
+    'date-range.readonly': { modelValue: ['2024-01-15', '2024-01-20'] },
+
+    'rate.lowThreshold': { modelValue: 3 },
+    'rate.highThreshold': { modelValue: 3 },
+
+    'rich-editor.showWordLimit': { maxLength: 10, modelValue: '<p>abc</p>' },
+    'rich-editor.maxLength': { showWordLimit: true, modelValue: '<p>abc</p>' },
+    'rich-editor.minLength': { showWordLimit: true, modelValue: '<p>abc</p>' },
+  }
+
   const out = []
   for (const material of list) {
     if (ONLY.length && !ONLY.includes(material.type)) continue
@@ -138,11 +196,13 @@ PAGE = r'''
       await tick(30)
       const node = __unref(ctx.schema).nodes.find((n) => n.id === id) || {}
       const cur = (node.props ?? {})[cfg.name]
-      const value = testValue(cfg, cur)
+      const value = testValue(cfg, cur, material, node)
       if (value === undefined) {
         out.push({ material: material.type, prop: cfg.name, control: cfg.control, verdict: 'SKIPPED', cur })
         ctx.removeNode(id); continue
       }
+      const pre = PREREQ[material.type + '.' + cfg.name]
+      if (pre) { ctx.updateProps(id, pre); await tick(70) }
       const before = fingerprint(id)
       ctx.updateProps(id, { [cfg.name]: value })
       await tick(45)

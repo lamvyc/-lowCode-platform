@@ -25,7 +25,7 @@
 
 ## 结果
 
-**513 个属性：396 有反应（77%）/ 64 被 `visibleWhen` 下闸 / 39 需人工判定 / 14 跳过。**
+**513 个属性：406 有反应（79%）/ 63 被 `visibleWhen` 下闸 / 33 需人工判定 / 11 跳过。**
 
 ### 关键分界：有没有被 `visibleWhen` 下闸
 
@@ -34,14 +34,37 @@
 
 只有**没被下闸却没反应**的才是真候选。
 
-### 39 个真候选的归类（全部可解释，无未解之谜）
+### 前置条件支持（把"缺前置"和"真没接线"分开）
+
+有些属性**只有在前置状态下才有视觉表现**，直接设它等于什么都没发生。
+脚本里有一张 `PREREQ` 表，在取第一次指纹**之前**打好前置补丁——这不算作弊，
+它模拟的正是用户真实的操作顺序（先选值，再调清除样式）。
+
+例：`date.format` 要先有 `modelValue` 才有可格式化的文本。
+加前置后，"未被下闸却无反应"从 39 降到 33。
+
+**`modelValue` 还要求按物料给合法值**：给通用字符串 `'EFFECT'` 时，
+日期/时间/单选都渲染不出东西，会被误判成"默认值属性没接线"。
+
+### 剩余 33 个的归类（全部可解释，无未解之谜）
 
 | 类别 | 属性 | 原因 |
 | --- | --- | --- |
-| 需要有值才看得出来 | `clearable`(×6)、`format`(×4)、`valueFormat`(×2)、`modelValue`(×3) | 空选择器不显示清除图标、没有值就没有可格式化的文本 |
-| 上传的服务端参数 | `uploadURL`、`limit`、`fileMaxSize`、`withCredentials`（各 ×2） | 只影响请求，设计态无视觉 |
-| 需要前置条件 | `multiple`、`allowCreate`、`automaticDropdown`、`activeName`、`lowThreshold`、`highThreshold`、`step`、`checkStrictly`、`showAllLevels` | 空的多选与空的单选渲染完全相同；阈值/步长在无数据时无视觉 |
-| 富文本专属 | `placeholder`、`minLength`、`maxLength` | Quill 的 placeholder 走 JS property，不在 `outerHTML` 里 |
+| **交互才出现** | `clearable`(×6)、`readonly`(×4)、`format`(×2)、`modelValue`(×3) | 见下 |
+| **上传的服务端参数** | `uploadURL`、`limit`、`fileMaxSize`、`withCredentials`（各 ×2） | 只影响请求，设计态无视觉 |
+| **需要前置/有数据** | `allowCreate`、`automaticDropdown`、`activeName`、`lowThreshold`、`highThreshold`、`step`、`checkStrictly`、`showAllLevels` | 无选项/无数据时无视觉 |
+| **富文本专属** | `placeholder`、`minLength`、`maxLength` | Quill 的 placeholder 走 JS property，不在 `outerHTML` 里 |
+
+#### 为什么 `clearable` / `readonly` 在日期时间类物料上一定"没反应"
+
+**不是 bug**，实测确认：
+
+- `clearable` —— EP 的清除图标**只在悬停/聚焦时才进 DOM**，静止状态下根本不存在。
+- `readonly` —— 日期选择器的内层 `<input>` **本来就是 `readOnly: true`**
+  （日期是从面板里选的，不允许手敲），所以这个属性控制的是"能不能唤起面板"，
+  是**行为**不是**外观**。
+
+这两条说明：**扫描只能覆盖"静止态的视觉连线"，交互后才出现的效果需要真机检查兜底。**
 
 **结论：没有发现未解释的"改了没反应"。** 说明这一类 bug 在当前代码里并不普遍
 ——真正抓到的只有早先单选项 `displayStyle` 那一个。
@@ -60,7 +83,7 @@
 
 ## 基线守卫
 
-脚本末尾有 `BASELINE_SUSPICIOUS = 39`：**一旦"未被下闸却无反应"的属性变多就以非零码退出**。
+脚本末尾有 `BASELINE_SUSPICIOUS = 33`：**一旦"未被下闸却无反应"的属性变多就以非零码退出**。
 
 这样以后某个属性新出现"改了没反应"，会被立刻抓到。
 
