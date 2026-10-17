@@ -65,7 +65,15 @@ const colStyle = computed<CSSProperties | undefined>(() =>
 <style scoped>
 .lc-grid-col {
   box-sizing: border-box;
-  /* 空格子也要有高度，否则画布上无法作为拖拽落点 */
-  min-height: 24px;
+  /* 空格子也要有高度，否则画布上无法作为拖拽落点。
+     对齐参考（`grid-col-widget.vue`: `.grid-cell { min-height: 38px; padding: 3px }`）：
+     实测参考 el-col 高 38、padding `3px 6px`；我们此前 24 / `0px 6px`
+     （横向 6px 已由栅格 gutter 提供，这里只补纵向 3px）。 */
+  min-height: 38px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  /* EP 的 .el-row 是 flex（EU 是 block），格子作为 flex item 会被拉伸到整行高度
+     （50px），而参考里它只有自己的 38px。align-self 阻止拉伸。 */
+  align-self: flex-start;
 }
 </style>

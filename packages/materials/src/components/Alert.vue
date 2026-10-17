@@ -61,3 +61,28 @@ const emit = defineEmits<{ close: [] }>()
     @close="emit('close')"
   />
 </template>
+
+<style>
+/*
+ * ⚠️ 非 scoped：`ElAlert` 是否把 class 透传到根元素取决于其实现
+ * （ElUpload 就不透传），用非 scoped 块最稳；类名带 lc- 前缀不会误伤。
+ *
+ * 参考的 alert widget 样式块是**空的**，所以下面这些是 EU 与 EP 的**库默认差异**，
+ * 不是参考的业务覆盖（与卡片的 margin 3px 那类不同）：
+ *
+ *   el-alert__title   参考 13px / display inline；我们 14px / block
+ *   el-alert__content 参考 padding `0 8px` / display block；我们 `0` / flex
+ *   el-alert           参考高 36；我们 40
+ */
+.lc-alert .el-alert__title {
+  font-size: 13px;
+  display: inline;
+  /* 标题高度会带着整个提示一起长：参考标题 15px 高 → 内容 20 → 提示 36；
+     我们 18 → 24 → 40。行高是那个多出来的 4px 的源头。 */
+  line-height: 15px;
+}
+.lc-alert .el-alert__content {
+  padding: 0 8px;
+  display: block;
+}
+</style>

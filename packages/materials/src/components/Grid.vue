@@ -48,7 +48,9 @@ const rowStyle = computed<CSSProperties | undefined>(() =>
 <style scoped>
 .lc-grid {
   box-sizing: border-box;
-  /* 空栅格行也要有高度，否则画布上无法作为拖拽落点 */
-  min-height: 24px;
+  /* 空栅格行也要有高度，否则画布上无法作为拖拽落点。
+     50px 对齐参考（`grid-widget.vue`: `.el-row.grid-container { min-height: 50px }`）——
+     实测参考 el-row 高 50、我们此前 24。 */
+  min-height: 50px;
 }
 </style>

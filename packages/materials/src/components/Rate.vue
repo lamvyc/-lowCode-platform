@@ -104,5 +104,13 @@ const emit = defineEmits<{
 <style scoped>
 .lc-rate {
   width: 100%;
+  /* 实测参考：el-rate 高 20、display block、margin-top 8px；__item 是 inline-block。
+     我们此前：高 32、display inline-flex、margin 0、__item 是 flex item（块化）。 */
+  display: block;
+  height: 20px;
+  margin-top: 8px;
+}
+.lc-rate :deep(.el-rate__item) {
+  display: inline-block;
 }
 </style>
