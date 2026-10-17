@@ -17,6 +17,52 @@ import { FIELD_CONTEXT_KEY, type FieldContext } from './field'
 
 type LoopCtx = { itemName: string; indexName?: string; item: unknown; index: number }
 
+/**
+ * 执行组件自定义代码（`onCreated` / `onMounted`）。
+ *
+ * 语义与参考实现一致：`new Function(code).call(self)`——
+ * `self` 提供组件当前值、写回方法与节点信息，`this.value` / `this.setValue()` 即可用。
+ *
+ * ⚠️ 这是**执行用户写的代码**。参考实现这么做（`fieldMixin.js` 的
+ * `handleOnCreated` / `handleOnMounted`），为了功能一致我们也这么做。
+ * 代价是设计态/A 端来源的页面配置会带来任意代码执行能力——属于产品既定的取舍。
+ *
+ * 失败必须隔离：单个钩子抛错不能拖垮整页渲染，记进错误收集器即可。
+ */
+function runNodeCode(
+  ctx: RuntimeContext,
+  node: PageNode,
+  propName: 'onCreated' | 'onMounted',
+): void {
+  const code = ctx.resolveProp(node, propName)
+  if (typeof code !== 'string' || code.trim() === '') return
+  const self = {
+    node,
+    get value() {
+      return ctx.getNodeValue(node.id)
+    },
+    setValue: (value: unknown) => ctx.setNodeValue(node.id, value),
+    getValue: () => ctx.getNodeValue(node.id),
+  }
+  try {
+    // eslint-disable-next-line no-new-func
+    new Function(code).call(self)
+  } catch (error) {
+    ctx.errors.add(
+      {
+        scope: 'render',
+        message: `${propName} 执行失败: ${error instanceof Error ? error.message : String(error)}`,
+        nodeId: node.id,
+        ref: propName,
+      },
+      `code:${node.id}:${propName}`,
+    )
+  }
+}
+
+/** 已跑过 onCreated 的节点（每个节点只跑一次） */
+const createdRan = new WeakMap<RuntimeContext, Set<string>>()
+
 /** DOM 事件名 → Vue onXxx 属性名 */
 function toOnProp(eventName: string): string {
   return `on${eventName.charAt(0).toUpperCase()}${eventName.slice(1)}`
@@ -194,6 +240,26 @@ function buildNode(
     }
 
     const componentVNode = h(component as Component, props, slots)
+
+    // 生命周期钩子（与参考实现一致：onCreated 创建时、onMounted 挂载时）。
+    // 设计态不执行——画布上不该跑用户代码，与事件绑定同一个理由。
+    if (!designMode && (node.props.onCreated || node.props.onMounted)) {
+      let ran = createdRan.get(ctx)
+      if (!ran) {
+        ran = new Set<string>()
+        createdRan.set(ctx, ran)
+      }
+      if (!ran.has(node.id)) {
+        ran.add(node.id)
+        runNodeCode(ctx, node, 'onCreated')
+      }
+      if (node.props.onMounted) {
+        componentVNode.props = {
+          ...componentVNode.props,
+          onVnodeMounted: () => runNodeCode(ctx, node, 'onMounted'),
+        }
+      }
+    }
     // 字段节点包一层无渲染的 provider，让物料侧（含 FormItem 外壳）能拿到自己的节点身份。
     // ⚠️ 必须用独立的 const 捕获组件 vnode：若写成 `let vnode = h(...); vnode = h(Provider, {}, {default: () => vnode})`，
     // 插槽闭包读到的是被重新赋值后的 vnode（即 provider 自己），会无限递归。
