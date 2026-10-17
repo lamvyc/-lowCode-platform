@@ -77,9 +77,11 @@ const emit = defineEmits<{ close: [] }>()
 .lc-alert .el-alert__title {
   font-size: 13px;
   display: inline;
-  /* 标题高度会带着整个提示一起长：参考标题 15px 高 → 内容 20 → 提示 36；
-     我们 18 → 24 → 40。行高是那个多出来的 4px 的源头。 */
-  line-height: 15px;
+  /* 参考的标题行高是 18px（实测）。⚠️ 早先这里写的是 15px——
+     那是**字体栈修正之前**测出来的值，字体一换度量就变了。
+     这类"数值型结论"必须跟着前提一起复核，否则会留下一个看似有依据、
+     实际已经过期的覆盖。 */
+  line-height: 18px;
 }
 .lc-alert .el-alert__content {
   padding: 0 8px;

@@ -147,6 +147,7 @@ const remoteMethod = computed(() =>
 
 <template>
   <FormItem
+    class="lc-select"
     :label="label"
     :label-width="labelWidth"
     :label-hidden="labelHidden"
@@ -190,3 +191,17 @@ const remoteMethod = computed(() =>
     </ElSelect>
   </FormItem>
 </template>
+
+<style>
+/*
+ * ⚠️ 非 scoped：ElSelect 不是本组件模板的根（根是 FormItem），类名落不到
+ * `.el-select` 上。用 `.lc-select` 锚在 FormItem 根上。
+ *
+ * 实测：控件区里 `--el-component-size` 已经是 36px（FormItem 设的），
+ * 但 select 的 `.el-select__wrapper` 仍算出 `min-height: 32px` —— 它不走那个变量。
+ * 于是下拉框比同排的单行输入矮 4px，一眼能看出来。
+ */
+.lc-select .el-select__wrapper {
+  min-height: 36px;
+}
+</style>
