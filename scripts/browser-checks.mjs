@@ -1236,6 +1236,80 @@ const CHECKS = [
   },
 
   {
+    name: 'runtime-request-action',
+    why: '「请求数据」动作在预览态原先**一定失败**（运行时没注入 request）。现在注入了 fetch 实现，用打桩的 fetch 验证：真的发起请求、拿到数据、写进运行时状态',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          // 打桩 fetch：记录调用、返回固定数据
+          window.__fetchLog = []
+          window.fetch = async (url, init) => {
+            window.__fetchLog.push({ url: String(url), method: (init && init.method) || 'GET' })
+            return {
+              ok: true,
+              status: 200,
+              text: async () => JSON.stringify({ list: [1, 2, 3] }),
+            }
+          }
+          const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+          ctx.insertMaterial('button')
+          await tick(150)
+          const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+          ctx.updateProps(id, { text: '拉数据' })
+          ctx.updateNodeEvents(id, {
+            click: [
+              {
+                id: 'a-req',
+                kind: 'request',
+                config: { url: '/api/list', method: 'GET', params: { page: 2 } },
+              },
+            ],
+          })
+          await tick(200)
+          ctx.togglePreview()
+          await tick(800)
+          return 'ok'
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '① 预览态渲染出「拉数据」按钮，且还没发请求',
+        check: `(() => {
+          const btn = [...document.querySelectorAll('.lc-preview-body .el-button')].find((b) => b.textContent.includes('拉数据'))
+          if (btn) btn.id = 'req-btn'
+          return { ok: !!btn && window.__fetchLog.length === 0, detail: { 按钮: !!btn, 已发请求: window.__fetchLog.length } }
+        })()`,
+      },
+      { click: '#req-btn' },
+      { wait: 700 },
+      {
+        label: '② 点击后真的发起了请求（url 带上了 params）',
+        check: `(() => {
+          const log = window.__fetchLog
+          const hit = log.find((x) => x.url.includes('/api/list'))
+          return {
+            ok: !!hit && hit.url.includes('page=2') && hit.method === 'GET',
+            detail: { 请求记录: log },
+          }
+        })()`,
+      },
+      {
+        label: '③ 请求结果写进了运行时状态 requestResult',
+        check: `(() => {
+          ${GETCTX}
+          const rt = __unref(__getCtx().runtime)
+          const v = rt.state.requestResult
+          return { ok: JSON.stringify(v) === JSON.stringify({ list: [1, 2, 3] }), detail: { requestResult: v } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [

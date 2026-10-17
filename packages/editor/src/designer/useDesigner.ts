@@ -108,6 +108,41 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
       navigate: (route: string) => {
         if (typeof window !== 'undefined') window.location.hash = route
       },
+      /**
+       * ⚠️ 必须注入 `request`，否则「请求数据」动作在预览里**一定失败**：
+       * 内置实现里有 `if (!ctx.request) return { ok:false, error:'运行时未提供 request 能力' }`。
+       *
+       * 安全性前提：**设计态已经不再执行节点事件**（见 renderer.ts 的 designMode 守卫），
+       * 所以画布上点按钮不会发请求；只有预览态才会真的发。
+       *
+       * 非 2xx 主动抛错，让动作链返回 `{ok:false}` 并被错误收集器记下来——
+       * 静默拿到一个 HTML 错误页当数据反而是更糟的行为。
+       */
+      request: async (config) => {
+        const method = (config.method ?? 'GET').toUpperCase()
+        const url = new URL(String(config.url ?? ''), window.location.origin)
+        if (config.params) {
+          for (const [key, value] of Object.entries(config.params)) {
+            if (value !== undefined && value !== null) url.searchParams.set(key, String(value))
+          }
+        }
+        const res = await fetch(url.toString(), {
+          method,
+          headers: config.headers,
+          body:
+            config.body !== undefined && method !== 'GET' && method !== 'HEAD'
+              ? JSON.stringify(config.body)
+              : undefined,
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const text = await res.text()
+        if (!text) return null
+        try {
+          return JSON.parse(text) as unknown
+        } catch {
+          return text
+        }
+      },
     },
   })
 
