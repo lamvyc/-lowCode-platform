@@ -317,7 +317,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     ],
   },
   {
-    type: 'layout-table',
+    type: 'table',
     name: '表格',
     category: '容器',
     icon: 'table',
@@ -327,7 +327,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     groupable: true,
     slots: ['default'],
     defaultChildren: [
-      { type: 'layout-table-row', count: 2, children: [{ type: 'layout-table-cell', count: 2 }] },
+      { type: 'table-row', count: 2, children: [{ type: 'table-cell', count: 2 }] },
     ],
     defaultProps: { border: true },
     propConfigs: [
@@ -344,7 +344,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     ],
   },
   {
-    type: 'layout-table-row',
+    type: 'table-row',
     name: '表格行',
     category: '容器',
     icon: 'table',
@@ -353,12 +353,12 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     hidden: true,
     droppable: false,
     slots: ['default'],
-    defaultChildren: [{ type: 'layout-table-cell', count: 2 }],
+    defaultChildren: [{ type: 'table-cell', count: 2 }],
     defaultProps: {},
     propConfigs: [...systemProps()],
   },
   {
-    type: 'layout-table-cell',
+    type: 'table-cell',
     name: '表格单元格',
     category: '容器',
     icon: 'table',
@@ -1586,7 +1586,9 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     events: [{ name: 'close', label: 'onClose', params: [], description: '关闭提示时触发' }],
   },
   {
-    type: 'table',
+    // 参考实现没有"数据表格"，这是本仓库的扩展物料；
+    // `table` 这个名字要让给参考的**布局表格**（保证类型名一致）。
+    type: 'data-table',
     name: '数据表格',
     category: '自定义扩展字段',
     icon: 'data-table',

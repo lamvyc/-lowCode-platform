@@ -174,7 +174,7 @@ def render_summary(materials, assertions) -> str:
         '',
         '## 内部结构件说明',
         '',
-        '`grid-col` / `layout-table-row` / `layout-table-cell` / `tab-pane` **不在本表**：',
+        '`grid-col` / `table-row` / `table-cell` / `tab-pane` **不在本表**：',
         '它们不是可拖拽物料，`insertMaterial` 插不进去；更糟的是**失败的插入会污染引擎状态**',
         '（实测：连续失败 4 次之后，连 `card` 都不再出现在画布上）。',
         '它们的行为归入各自父级物料的验收标准。',

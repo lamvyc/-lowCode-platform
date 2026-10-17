@@ -69,7 +69,7 @@ const nodeIndexOf = computed(() => {
  * el-row 要求直接子级是 el-col、table 要求 tbody>tr>td，插入包裹层会破坏布局。
  * 这类节点改用「嵌入式包裹」：直接把选中态 class 与事件合并到组件根 vnode 上。
  */
-const LAYOUT_TRANSPARENT_PARENTS = new Set(['grid', 'layout-table', 'layout-table-row'])
+const LAYOUT_TRANSPARENT_PARENTS = new Set(['grid', 'table', 'table-row'])
 
 const wrapNode = computed(() => {
   const { parentOf, typeById } = nodeIndexOf.value

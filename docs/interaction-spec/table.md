@@ -1,4 +1,4 @@
-# table · 数据表格
+# table · 表格
 
 > **本文件由 `scripts/gen-interaction-spec.py` 生成，不要手改。**
 > 唯一来源是 `scripts/spec-assertions.mjs` 里的断言表；
@@ -9,32 +9,15 @@
 | 项 | 值 |
 | --- | --- |
 | 类型 | `table` |
-| 名称 | 数据表格 |
-| 分组 | 自定义扩展字段 |
+| 名称 | 表格 |
+| 分组 | 容器 |
 | 可放置容器 | 否 |
-| 说明 | 数据源驱动的表格 |
+| 说明 | 可自由增删行列的布局表格 |
 
 ## 二、默认属性
 
 ```json
 {
-  "data": {
-    "type": "expression",
-    "value": "$datasource.userList.data"
-  },
-  "columns": [
-    {
-      "prop": "name",
-      "label": "姓名",
-      "width": 120
-    },
-    {
-      "prop": "age",
-      "label": "年龄",
-      "width": 80
-    }
-  ],
-  "stripe": true,
   "border": true
 }
 ```
@@ -47,7 +30,7 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
-| `data` | 数据 | `expression` | `$datasource.userList.data` |  |
+| `tableStructure` | 表格结构 | `structure` | `None` |  |
 
 ### 高级设置
 
@@ -55,9 +38,7 @@
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
 | `class` | 自定义类名 | `custom-class` | `None` |  |
-| `columns` | 列配置 | `json` | `[{'prop': 'name', 'label': '姓名', 'width': 120}, {'prop': 'age', 'label': '年龄', 'width': 80}]` |  |
-| `stripe` | 斑马纹 | `switch` | `True` |  |
-| `border` | 边框 | `switch` | `True` |  |
+| `border` | 带有边框 | `switch` | `True` |  |
 
 ## 四、验收标准
 
@@ -67,8 +48,7 @@
 
 | # | 断言 id | 验收标准 | 前置属性 | 状态 |
 | --- | --- | --- | --- | --- |
-| 1 | `render` | 渲染为 `.el-table` | 默认 | ✅ |
-| 2 | `has-columns` | 渲染出至少一列表头 | 默认 | ✅ |
+| 1 | `render` | 渲染出 `<table>` 结构 | 默认 | ✅ |
 
 ## 五、怎么跑
 

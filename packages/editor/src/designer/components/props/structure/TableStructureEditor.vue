@@ -11,7 +11,7 @@ const ctx = inject<DesignerContext>(DESIGNER_KEY)!
 
 const rows = computed(() =>
   childNodesOf(ctx.schema.value.nodes, props.node).filter(
-    (child) => child.type === 'layout-table-row',
+    (child) => child.type === 'table-row',
   ),
 )
 
@@ -21,7 +21,7 @@ const rowCount = computed(() => rows.value.length)
 const columnCount = computed(() =>
   rows.value.length > 0
     ? childNodesOf(ctx.schema.value.nodes, rows.value[0]).filter(
-        (child) => child.type === 'layout-table-cell',
+        (child) => child.type === 'table-cell',
       ).length
     : 0,
 )
@@ -32,8 +32,8 @@ function setRowCount(next: number | undefined): void {
     rows.value.map((row) => row.id),
     next,
   )
-  // layout-table-row 物料声明了默认子结构（2 个单元格），新增行会自动带上单元格
-  if (addCount > 0) ctx.appendChild(props.node.id, 'layout-table-row', addCount)
+  // table-row 物料声明了默认子结构（2 个单元格），新增行会自动带上单元格
+  if (addCount > 0) ctx.appendChild(props.node.id, 'table-row', addCount)
   if (removeIds.length > 0) ctx.removeNodes(removeIds)
 }
 
@@ -42,19 +42,19 @@ function setColumnCount(next: number | undefined): void {
   if (next === undefined) return
   for (const row of rows.value) {
     const cells = childNodesOf(ctx.schema.value.nodes, row).filter(
-      (child) => child.type === 'layout-table-cell',
+      (child) => child.type === 'table-cell',
     )
     const { addCount, removeIds } = planCountChange(
       cells.map((cell) => cell.id),
       next,
     )
-    if (addCount > 0) ctx.appendChild(row.id, 'layout-table-cell', addCount)
+    if (addCount > 0) ctx.appendChild(row.id, 'table-cell', addCount)
     if (removeIds.length > 0) ctx.removeNodes(removeIds)
   }
 }
 
 function addRow(): void {
-  ctx.appendChild(props.node.id, 'layout-table-row')
+  ctx.appendChild(props.node.id, 'table-row')
 }
 
 function selectCell(id: string): void {

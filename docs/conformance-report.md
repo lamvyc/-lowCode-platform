@@ -22,10 +22,10 @@
 | 参考组件 | 本仓库类型 | 状态 | 缺失属性 | 缺失事件 | 缺失 UI 绑定 |
 | --- | --- | --- | --- | --- | --- |
 | grid | grid | ✅ | — | — | — |
-| table | layout-table | ✅ | — | — | — |
+| table | table | ✅ | — | — | — |
 | tab | tab | ✅ | — | — | — |
 | grid-col | grid-col | ✅ | — | — | — |
-| table-cell | layout-table-cell | ✅ | — | — | — |
+| table-cell | table-cell | ✅ | — | — | — |
 | tab-pane | tab-pane | ✅ | — | — | — |
 | input | input | ✅ | — | — | — |
 | textarea | textarea | ✅ | — | — | — |
@@ -70,4 +70,4 @@
 
 ## 本仓库额外物料（信息性）
 
-`card`、`alert`、`image`
+`card`、`alert`、`data-table`、`image`

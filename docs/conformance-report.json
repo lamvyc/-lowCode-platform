@@ -23,7 +23,7 @@
     },
     {
       "referenceType": "table",
-      "ourType": "layout-table",
+      "ourType": "table",
       "componentFile": "LayoutTable.vue",
       "status": "ok",
       "missingOptions": [],
@@ -77,7 +77,7 @@
     },
     {
       "referenceType": "table-cell",
-      "ourType": "layout-table-cell",
+      "ourType": "table-cell",
       "componentFile": "LayoutTableCell.vue",
       "status": "ok",
       "missingOptions": [],
@@ -783,6 +783,7 @@
   "extraWidgets": [
     "card",
     "alert",
+    "data-table",
     "image"
   ],
   "summary": {

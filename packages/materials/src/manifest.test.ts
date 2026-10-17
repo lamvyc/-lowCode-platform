@@ -3,17 +3,20 @@ import type { PropGroup } from '@lowcode/schema'
 import { MATERIAL_MANIFESTS } from './manifest'
 
 /**
- * 期望覆盖的组件类型：参考 variant-form 组件库的 28 个 widget（layout 表格相关按本平台命名）
- * + 本平台为布局表格补充的行容器 layout-table-row。
+ * 期望覆盖的组件类型：参考 variant-form 组件库的 28 个 widget。
+ *
+ * 表格相关：参考的 `table`（布局表格）/ `table-cell` 已对齐同名；
+ * `table-row` 是本平台补充的**行容器**——参考里行不是节点（内嵌在 table 的 rows 数据里），
+ * 我们把它做成了节点，所以多这一个类型。
  */
 const REFERENCE_WIDGET_TYPES = [
   // 容器
   'grid',
-  'layout-table',
+  'table',
   'tab',
   'grid-col',
-  'layout-table-row',
-  'layout-table-cell',
+  'table-row',
+  'table-cell',
   'tab-pane',
   // 基础字段
   'input',

@@ -42,6 +42,13 @@ export const MATERIAL_COMPONENTS: Record<string, Component> = {
   card: LcCard,
   grid: LcGrid,
   'grid-col': LcGridCol,
+  // 布局表格：类型名与参考实现一致（`table` / `table-cell`）。
+  // 参考里行**不是节点**（内嵌在 table 的 rows 数据里），我们把行做成节点，
+  // 所以多一个 `table-row` 类型——这是结构差异，设置面已对齐。
+  table: LcLayoutTable,
+  'table-row': LcLayoutTableRow,
+  'table-cell': LcLayoutTableCell,
+  // 旧类型名保留为别名：既有 schema 仍能解析（不参与物料面板）
   'layout-table': LcLayoutTable,
   'layout-table-row': LcLayoutTableRow,
   'layout-table-cell': LcLayoutTableCell,
@@ -77,7 +84,9 @@ export const MATERIAL_COMPONENTS: Record<string, Component> = {
   'file-upload': LcFileUpload,
   'rich-editor': LcRichEditor,
   // 数据
-  table: LcTable,
+  // 数据表格（参考实现没有这个物料，是我们自己扩展的）
+  // ⚠️ 不能保留旧名 `table`：它已经让给参考的布局表格，重复键会让后者被覆盖
+  'data-table': LcTable,
 }
 
 /** 本地物料清单：清单声明（manifest）与组件实现合并 */

@@ -27,8 +27,8 @@ import {
 
 /** 参考 widget 类型 → 本仓库物料类型 */
 export const WIDGET_TYPE_ALIASES: Record<string, string> = {
-  table: 'layout-table',
-  'table-cell': 'layout-table-cell',
+  // 表格相关已与参考对齐同名（`table` / `table-cell`），不再需要别名。
+  // 这张表保留，供将来出现新的命名差异时登记。
 }
 
 /** 参考 option → 本仓库属性（全局重命名） */

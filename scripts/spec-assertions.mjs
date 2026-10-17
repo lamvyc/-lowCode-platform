@@ -19,7 +19,7 @@
  * ⚠️ 只写**能在真实浏览器里断言**的条目。凡是"需要读源码才能确认"的，
  * 不放进这张表——那属于规范正文，不属于验收标准。
  *
- * ⚠️ **不包含内部结构件**（`grid-col` / `layout-table-row` / `layout-table-cell` / `tab-pane`）。
+ * ⚠️ **不包含内部结构件**（`grid-col` / `table-row` / `table-cell` / `tab-pane`）。
  * 它们不是可拖拽物料，`insertMaterial` 插不进去；更糟的是**失败的插入会污染
  * 引擎状态，导致后续所有物料都插不进来**（实测：前面失败 4 次之后，连 `card`
  * 都不再出现在画布上）。它们的行为归入各自父级物料的规范。
@@ -56,7 +56,7 @@ export const SPEC_ASSERTIONS = {
   ],
 
 
-  'layout-table': [renders('渲染出 `<table>` 结构', 'table')],
+  table: [renders('渲染出 `<table>` 结构', 'table')],
 
 
 
@@ -391,7 +391,7 @@ export const SPEC_ASSERTIONS = {
     ),
   ],
 
-  table: [
+  'data-table': [
     renders('渲染为 `.el-table`', '.el-table'),
     {
       id: 'has-columns',

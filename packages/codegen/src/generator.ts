@@ -56,9 +56,9 @@ const DEFAULT_MATERIALS: CodegenMaterialMap = {
   card: { importName: 'LcCard', from: '@lowcode/materials' },
   grid: { importName: 'LcGrid', from: '@lowcode/materials' },
   'grid-col': { importName: 'LcGridCol', from: '@lowcode/materials' },
-  'layout-table': { importName: 'LcLayoutTable', from: '@lowcode/materials' },
-  'layout-table-row': { importName: 'LcLayoutTableRow', from: '@lowcode/materials' },
-  'layout-table-cell': { importName: 'LcLayoutTableCell', from: '@lowcode/materials' },
+  table: { importName: 'LcLayoutTable', from: '@lowcode/materials' },
+  'table-row': { importName: 'LcLayoutTableRow', from: '@lowcode/materials' },
+  'table-cell': { importName: 'LcLayoutTableCell', from: '@lowcode/materials' },
   tab: { importName: 'LcTab', from: '@lowcode/materials' },
   'tab-pane': { importName: 'LcTabPane', from: '@lowcode/materials' },
   // 基础
@@ -88,8 +88,8 @@ const DEFAULT_MATERIALS: CodegenMaterialMap = {
   'picture-upload': { importName: 'LcPictureUpload', from: '@lowcode/materials' },
   'file-upload': { importName: 'LcFileUpload', from: '@lowcode/materials' },
   'rich-editor': { importName: 'LcRichEditor', from: '@lowcode/materials' },
-  // 数据
-  table: { importName: 'LcTable', from: '@lowcode/materials' },
+  // 数据（参考没有数据表格，是本仓库扩展；`table` 已让给布局表格）
+  'data-table': { importName: 'LcTable', from: '@lowcode/materials' },
 }
 
 function pascalCase(type: string): string {
