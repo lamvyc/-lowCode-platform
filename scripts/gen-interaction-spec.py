@@ -30,9 +30,12 @@ HAND_WRITTEN = {'input', 'radio', 'select'}
 
 DUMP = r'''
 import { MATERIAL_MANIFESTS } from "./packages/materials/src/manifest.ts"
-import { normalizeAssertions } from "./scripts/spec-assertions.mjs"
+import { COMMON_FIELD_ASSERTIONS, normalizeAssertions } from "./scripts/spec-assertions.mjs"
 const assertions = normalizeAssertions()
-const materials = MATERIAL_MANIFESTS.filter((m) => !m.hidden).map((m) => ({
+// ⚠️ 不按 hidden 过滤：hidden 只表示「不在物料面板里」，不代表不可插入。
+//    `text`（文本·旧版）就是 hidden 但仍可插入的物料，断言表里有它。
+//    没有断言的物料在生成时本来就会被跳过，所以这里不必过滤。
+const materials = MATERIAL_MANIFESTS.map((m) => ({
   type: m.type, name: m.name, category: m.category,
   description: m.description ?? '',
   droppable: !!m.droppable,
@@ -44,7 +47,7 @@ const materials = MATERIAL_MANIFESTS.filter((m) => !m.hidden).map((m) => ({
     options: (c.options ?? []).map((o) => o.label ?? String(o.value)),
   })),
 }))
-console.log(JSON.stringify({ materials, assertions }))
+console.log(JSON.stringify({ materials, assertions, common: COMMON_FIELD_ASSERTIONS }))
 '''
 
 
@@ -200,6 +203,20 @@ def main():
     only = set(sys.argv[1:])
     materials = data['materials']
     assertions = data['assertions']
+    common = data.get('common', [])
+
+    # 通用断言按物料的 defaultProps 展开（与 browser-checks 的执行逻辑一致）
+    by_type = {m['type']: m for m in materials}
+    for m in materials:
+        # ⚠️ 只给**已经有自己断言**的物料展开通用断言。
+        #    否则内部结构件（grid-col / tab-pane …）也会因为"有 label 属性"
+        #    被套上 common-label，凭空多出断言——而它们根本不是可拖拽物料。
+        if m['type'] not in assertions:
+            continue
+        keys = set(by_type[m['type']]['defaultProps'].keys())
+        extra = [c for c in common if all(k in keys for k in c['requires'])]
+        if extra:
+            assertions[m['type']] = list(assertions.get(m['type'], [])) + extra
 
     written = 0
     skipped = []

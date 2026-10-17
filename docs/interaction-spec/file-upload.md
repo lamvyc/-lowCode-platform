@@ -96,6 +96,10 @@
 | 1 | `render` | 渲染为文件上传 `.el-upload` | 默认 | ✅ |
 | 2 | `plus-icon` | 触发器是 `el-icon-plus` + 「选择文件」文案 | 默认 | ✅ |
 | 3 | `no-always-on-tip` | 未设 `uploadTip` 时**不显示**"支持 xx 格式"这类常显提示 | 默认 | ✅ |
+| 4 | `common-label` | `label` 设置后，该物料的文本里出现这个值 | `{"label": "标签X"}` | ✅ |
+| 5 | `common-required` | `required` 打开后，标签旁出现必填星号 | `{"required": true}` | ✅ |
+| 6 | `common-label-hidden` | `labelHidden` 打开后，标签元素消失 | `{"labelHidden": true}` | ✅ |
+| 7 | `common-label-width` | `labelWidth` 设为 140 后，标签宽度约为 140px | `{"labelWidth": 140}` | ✅ |
 
 ## 五、怎么跑
 

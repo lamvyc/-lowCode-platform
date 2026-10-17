@@ -84,6 +84,10 @@
 | 1 | `render` | 渲染为 Quill 编辑器（`.ql-container`） | 默认 | ✅ |
 | 2 | `toolbar` | 工具栏渲染出足够多的按钮（≥15 个按钮/选择器） | 默认 | ✅ |
 | 3 | `editable` | 编辑区可编辑（`contenteditable="true"`） | 默认 | ✅ |
+| 4 | `common-label` | `label` 设置后，该物料的文本里出现这个值 | `{"label": "标签X"}` | ✅ |
+| 5 | `common-required` | `required` 打开后，标签旁出现必填星号 | `{"required": true}` | ✅ |
+| 6 | `common-label-hidden` | `labelHidden` 打开后，标签元素消失 | `{"labelHidden": true}` | ✅ |
+| 7 | `common-label-width` | `labelWidth` 设为 140 后，标签宽度约为 140px | `{"labelWidth": 140}` | ✅ |
 
 ## 五、怎么跑
 

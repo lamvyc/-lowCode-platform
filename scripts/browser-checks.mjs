@@ -18,12 +18,16 @@
  * 起停服务交给调用方，避免脚本里藏一个难以观察的长驻进程。
  */
 import { spawn } from 'node:child_process'
-import { normalizeAssertions, SPEC_ASSERTIONS } from './spec-assertions.mjs'
+import { COMMON_FIELD_ASSERTIONS, normalizeAssertions, SPEC_ASSERTIONS } from './spec-assertions.mjs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const INSPECT = join(HERE, 'cdp-inspect.mjs')
+/** 物料清单的 dev server URL（`/@fs/` + 绝对路径，路径里的空格要编码） */
+const MANIFEST_URL =
+  '/@fs' +
+  join(HERE, '..', 'packages', 'materials', 'src', 'manifest.ts').replace(/ /g, '%20')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -678,7 +682,25 @@ const CHECKS = [
           ${GETCTX}
           const ctx = __getCtx()
           const tick = (ms) => new Promise((r) => setTimeout(r, ms))
-          const TABLE = ${JSON.stringify(normalizeAssertions())}
+          // 自己的断言 + **适用于本物料**的通用断言。
+          // 通用断言按 requires 过滤：物料没有那个属性就跳过
+          // （如 static-text 没有 label，就不该跑 label 断言）。
+          // 物料清单从 dev server 动态导入，和运行时用的是同一份源码，不会漂移。
+          const OWN = ${JSON.stringify(normalizeAssertions())}
+          const COMMON = ${JSON.stringify(COMMON_FIELD_ASSERTIONS)}
+          const MANIFEST_URL = ${JSON.stringify(MANIFEST_URL)}
+          let byType = new Map()
+          try {
+            const mod = await import(MANIFEST_URL)
+            byType = new Map(mod.MATERIAL_MANIFESTS.filter((m) => !m.hidden).map((m) => [m.type, m]))
+          } catch (e) {
+            return { ok: false, detail: { 错误: '导入物料清单失败: ' + String(e).slice(0, 120) } }
+          }
+          const TABLE = {}
+          for (const [type, own] of Object.entries(OWN)) {
+            const keys = new Set(Object.keys(byType.get(type)?.defaultProps ?? {}))
+            TABLE[type] = [...own, ...COMMON.filter((c) => c.requires.every((k) => keys.has(k)))]
+          }
 
           const failures = []
           let total = 0

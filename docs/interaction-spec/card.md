@@ -60,6 +60,7 @@
 | 1 | `render` | 渲染为 `.el-card` | 默认 | ✅ |
 | 2 | `header-and-body` | 带 header 槽与 body 两个区域 | 默认 | ✅ |
 | 3 | `default-title` | 默认标题为 `card`（对齐参考的默认 label） | 默认 | ✅ |
+| 4 | `common-label` | `label` 设置后，该物料的文本里出现这个值 | `{"label": "标签X"}` | ✅ |
 
 ## 五、怎么跑
 

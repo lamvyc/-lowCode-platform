@@ -90,6 +90,10 @@
 | 1 | `render` | 渲染为 `.el-textarea` | 默认 | ✅ |
 | 2 | `prop-rows` | `rows` 设为 5 后，内层 textarea 的 `rows` 属性为 5 | `{"rows": 5}` | ✅ |
 | 3 | `prop-maxLength` | `maxLength` 设置后，内层 textarea 的 `maxlength` 属性同步 | `{"maxLength": 12}` | ✅ |
+| 4 | `common-label` | `label` 设置后，该物料的文本里出现这个值 | `{"label": "标签X"}` | ✅ |
+| 5 | `common-required` | `required` 打开后，标签旁出现必填星号 | `{"required": true}` | ✅ |
+| 6 | `common-label-hidden` | `labelHidden` 打开后，标签元素消失 | `{"labelHidden": true}` | ✅ |
+| 7 | `common-label-width` | `labelWidth` 设为 140 后，标签宽度约为 140px | `{"labelWidth": 140}` | ✅ |
 
 ## 五、怎么跑
 

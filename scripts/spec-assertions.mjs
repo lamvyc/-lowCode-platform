@@ -411,6 +411,71 @@ export const SPEC_ASSERTIONS = {
   ],
 }
 
+/**
+ * **通用字段断言**：同一组断言适用于所有"有这个属性"的物料。
+ *
+ * 为什么要有它：516 个属性里有 300+ 是重复出现的通用项
+ * （`label` / `required` / `labelHidden` / `labelWidth` / `style` / `class` …）。
+ * 逐个物料手写同一组断言既啰嗦又会漂移——写一次，按 `requires` 自动套用。
+ *
+ * `requires` 里的每个键都必须在物料的 `defaultProps` 里存在，否则跳过
+ * （比如 `static-text` 没有 `label`，就不该跑 label 断言）。
+ */
+export const COMMON_FIELD_ASSERTIONS = [
+  {
+    id: 'common-label',
+    requires: ['label'],
+    desc: '`label` 设置后，该物料的文本里出现这个值',
+    props: { label: '标签X' },
+    // ⚠️ 不能只找 `.lc-form-item__label`：`label` 在不同物料里落到不同位置
+    //    —— 字段是表单标签、`card` 是卡片标题、`divider` 是分隔线文字。
+    //    断言"值出现在该物料的文本里"对三者都成立，也不至于空泛
+    //    （它仍然要求"设了 label 之后文本真的变了"）。
+    check: `return (root.textContent || '').includes('标签X')`,
+  },
+  {
+    id: 'common-required',
+    requires: ['required'],
+    desc: '`required` 打开后，标签旁出现必填星号',
+    props: { required: true },
+    check: `return !!root.querySelector('.lc-form-item__required')`,
+  },
+  {
+    id: 'common-label-hidden',
+    requires: ['labelHidden'],
+    desc: '`labelHidden` 打开后，标签元素消失',
+    props: { labelHidden: true },
+    check: `const lb = root.querySelector('.lc-form-item__label');
+           return !lb || getComputedStyle(lb).display === 'none'`,
+  },
+  {
+    id: 'common-label-width',
+    requires: ['labelWidth'],
+    desc: '`labelWidth` 设为 140 后，标签宽度约为 140px',
+    props: { labelWidth: 140 },
+    check: `const lb = root.querySelector('.lc-form-item__label');
+           if (!lb) return false;
+           return Math.abs(lb.getBoundingClientRect().width - 140) <= 2`,
+  },
+  {
+    id: 'common-style',
+    requires: ['style'],
+    desc: '`style` 里的普通 CSS 值被应用到物料根元素上',
+    props: { style: 'outline: 2px solid rgb(255, 0, 0)' },
+    check: `const el = root.firstElementChild;
+           if (!el) return false;
+           const s = el.getAttribute('style') || '';
+           return /outline/.test(s)`,
+  },
+  {
+    id: 'common-class',
+    requires: ['class'],
+    desc: '`class` 被追加到物料根元素的类名上',
+    props: { class: 'probe-common-class' },
+    check: `return !!root.querySelector('.probe-common-class')`,
+  },
+]
+
 /** 给没有 id 的 `effect()` 条目生成稳定 id */
 export function normalizeAssertions() {
   const out = {}
