@@ -88,7 +88,8 @@ function handleChange(value: string | null) {
     :required-hint="requiredHint"
     :validation-hint="validationHint"
     :column-width="columnWidth"
-  >
+  
+    class="lc-color">
     <ElColorPicker
       :model-value="modelValue"
       :disabled="disabled"
@@ -99,3 +100,19 @@ function handleChange(value: string | null) {
     />
   </FormItem>
 </template>
+
+<style scoped>
+/*
+ * EP 的颜色选择器触发器默认 32×32（`--el-component-size`），参考（EU 的 medium 档）是 36×36。
+ * 内部尺寸是跟着触发器缩放的，所以改一处能连带修好 4 层：
+ *
+ *   触发器 32 → 36、色块 22 → 26、颜色区 20 → 24
+ *
+ * 实测参考：el-color-picker__trigger 36、__color 26、__color-inner 24。
+ */
+.lc-color :deep(.el-color-picker),
+.lc-color :deep(.el-color-picker__trigger) {
+  width: 36px;
+  height: 36px;
+}
+</style>

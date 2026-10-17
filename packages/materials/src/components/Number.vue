@@ -98,7 +98,8 @@ const controlsPositionProp = computed(
     :required-hint="requiredHint"
     :validation-hint="validationHint"
     :column-width="columnWidth"
-  >
+  
+    class="lc-number">
     <ElInputNumber
       :model-value="modelValue"
       :placeholder="placeholder"
@@ -117,3 +118,20 @@ const controlsPositionProp = computed(
     />
   </FormItem>
 </template>
+
+<style scoped>
+/*
+ * 计数器的 +/− 按钮：参考（EU）宽 37、高 17、字号 14；EP 宽 33、高 15、字号 13。
+ * EP 的默认宽度是写死的 32px，字号 13px —— 高度是跟着字号走的，所以改字号能同时修高度。
+ */
+.lc-number :deep(.el-input-number__increase),
+.lc-number :deep(.el-input-number__decrease) {
+  width: 36px;
+  font-size: 14px;
+  /* 高度既不吃 font-size 也不吃 line-height（EP 把这两个按钮做成了
+     `display: flex` 的绝对定位元素，高度由内容盒撑开），只能显式给。
+     实测参考 __decrease 17px / __increase 18px（差 1px 来自边框）。 */
+  height: 17px;
+  line-height: 17px;
+}
+</style>
