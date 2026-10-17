@@ -667,6 +667,41 @@ const CHECKS = [
   },
 
   {
+    name: 'tab-default-active',
+    why: '新建标签页后**没有任何面板被激活**（全部 aria-hidden / display:none）：Tab 的 active 是空串、面板 name 由 EP 自动生成，两边永远对不上。表现是内容区为空。这是一条行为断言，只有真机能看到',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      { eval: insertMaterials(['tab']) },
+      { wait: 500 },
+      {
+        label: '第一个面板默认处于激活状态',
+        check: `(() => {
+          const panes = [...document.querySelectorAll('.lc-canvas .el-tab-pane')]
+          const items = [...document.querySelectorAll('.lc-canvas .el-tabs__item')]
+          const active = panes.filter((p) => p.getAttribute('aria-hidden') !== 'true')
+          return {
+            ok: panes.length > 0 && active.length === 1 && items.some((i) => i.classList.contains('is-active')),
+            detail: {
+              面板数: panes.length,
+              激活面板数: active.length,
+              面板可见: panes.map((p) => getComputedStyle(p).display),
+              标签激活: items.map((i) => i.classList.contains('is-active')),
+            },
+          }
+        })()`,
+      },
+      {
+        label: '激活面板的内容区有高度（内容区不再是空的）',
+        check: `(() => {
+          const p = document.querySelector('.lc-canvas .el-tab-pane')
+          const h = p ? Math.round(p.getBoundingClientRect().height) : 0
+          return { ok: h > 0, detail: { 面板高: h } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
