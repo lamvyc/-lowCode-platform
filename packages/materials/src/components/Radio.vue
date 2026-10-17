@@ -158,4 +158,29 @@ const optionStyle = computed(() => ({ display: props.displayStyle }))
 .lc-radio :deep(.el-radio-group) {
   display: inline-block;
 }
+
+/*
+ * 以下三条对齐参考（Element UI）的实测值。EP 与 EU 在这些尺寸上的默认值不同，
+ * 叠起来就是"选项比参考高 3px、圆点小 2px、文字离得更近"。
+ *
+ *   .el-radio         EP 写死 height: 32px；EU 是 auto（内容 17px）→ 实测参考 17 / 我们 20
+ *   .el-radio__inner  EU 是 content-box 14 + 2px 边框 = 16；EP 是 border-box 14
+ *                     → 实测参考 __input 高 16 / 我们 14
+ *   .el-radio__label  padding-left：参考 10px / 我们 8px
+ */
+.lc-radio :deep(.el-radio) {
+  height: auto;
+  /* 参考自己的 global.scss 里有
+     `.el-form-item--medium .el-radio { line-height: 36px !important }`，
+     它撑起了整行（实测参考 group 高 36、选项高 17；我们是 20 / 20）。
+     ⚠️ 这条是**参考的业务样式**，不是 Element 的默认值——只读库的 CSS 找不到。 */
+  line-height: 36px;
+}
+.lc-radio :deep(.el-radio__inner) {
+  width: 16px;
+  height: 16px;
+}
+.lc-radio :deep(.el-radio__label) {
+  padding-left: 10px;
+}
 </style>

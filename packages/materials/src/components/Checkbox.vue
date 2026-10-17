@@ -109,6 +109,7 @@ const optionStyle = computed(() => ({ display: props.displayStyle }))
     :required-hint="requiredHint"
     :validation-hint="validationHint"
     :column-width="columnWidth"
+    class="lc-checkbox"
   >
     <ElCheckboxGroup
       :model-value="checkboxValue"
@@ -140,3 +141,25 @@ const optionStyle = computed(() => ({ display: props.displayStyle }))
     </ElCheckboxGroup>
   </FormItem>
 </template>
+
+<style scoped>
+/*
+ * 与 Radio.vue 同一组对齐（原因见那边的注释）：EP 与 EU 的选项尺寸默认值不同。
+ *
+ *   .el-checkbox         EP 写死 height: var(--el-checkbox-height, 32px)；EU 是 auto
+ *   .el-checkbox__inner  EU 是 content-box 14 + 2px 边框 = 16；EP 是 border-box 14
+ *   .el-checkbox__label  padding-left：参考 10px / 我们 8px
+ */
+.lc-checkbox :deep(.el-checkbox) {
+  height: auto;
+  /* 同 Radio：行高来自参考的业务样式，不是 Element 默认值 */
+  line-height: 30px;
+}
+.lc-checkbox :deep(.el-checkbox__inner) {
+  width: 16px;
+  height: 16px;
+}
+.lc-checkbox :deep(.el-checkbox__label) {
+  padding-left: 10px;
+}
+</style>
