@@ -176,9 +176,21 @@ const optionStyle = computed(() => ({ display: props.displayStyle }))
      ⚠️ 这条是**参考的业务样式**，不是 Element 的默认值——只读库的 CSS 找不到。 */
   line-height: 36px;
 }
-.lc-radio :deep(.el-radio__inner) {
-  width: 16px;
-  height: 16px;
+/*
+ * ⚠️ 这里**曾经**把 `__inner` 改成 16×16，那是错的。
+ * 精确量两边的盒模型后发现：参考的圆点就是 **14×14 border-box**，
+ * 3px 的选项高差不是圆点大小造成的，而是 `__input` 的 **行高**
+ * （参考 14px / 我们继承到 36px）。
+ * 已撤销 16px 覆盖，改为对齐 `__input` 的 display 与 line-height。
+ */
+.lc-radio :deep(.el-radio__input) {
+  /* 参考是 inline-block + line-height:1（实测 14px）；EP 是 inline-flex，
+     行高继承到 36px，把选项整体顶高了 3px（20 vs 17）。 */
+  display: inline-block;
+  line-height: 1;
+  /* 参考是 vertical-align: middle；baseline 会让行盒被 inline-block 撑高
+     （多选项的 group 高实测 41 vs 36，那 5px 就是它）。 */
+  vertical-align: middle;
 }
 .lc-radio :deep(.el-radio__label) {
   padding-left: 10px;

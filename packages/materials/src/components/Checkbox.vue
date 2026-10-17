@@ -152,14 +152,25 @@ const optionStyle = computed(() => ({ display: props.displayStyle }))
  */
 .lc-checkbox :deep(.el-checkbox) {
   height: auto;
-  /* 同 Radio：行高来自参考的业务样式，不是 Element 默认值 */
-  line-height: 30px;
+  /* 与单选项一致：参考实测 36px（此前猜的 30px 是错的） */
+  line-height: 36px;
 }
-.lc-checkbox :deep(.el-checkbox__inner) {
-  width: 16px;
-  height: 16px;
+/*
+ * ⚠️ 这里**曾经**把 `__inner` 改成 16×16，那是错的（和 Radio.vue 同一个错误）。
+ * 精确量盒模型后发现参考的方框就是 14×14 border-box，
+ * 高度差来自 `__input` 的 display 与行高，不是方框大小。已撤销。
+ */
+.lc-checkbox :deep(.el-checkbox__input) {
+  /* 参考是 inline-block（实测行高 14px）；EP 是 inline-flex，行高继承到 36px */
+  display: inline-block;
+  line-height: 1;
+  /* 参考是 vertical-align: middle；baseline 会让行盒被 inline-block 撑高
+     （多选项的 group 高实测 41 vs 36，那 5px 就是它）。 */
+  vertical-align: middle;
 }
 .lc-checkbox :deep(.el-checkbox__label) {
   padding-left: 10px;
+  /* 参考的标签是 inline-block 且行高 19px（实测）；我们继承到 14px，整行矮 5px */
+  line-height: 19px;
 }
 </style>
