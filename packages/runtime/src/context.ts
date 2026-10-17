@@ -213,7 +213,14 @@ export class RuntimeContext {
     for (const variable of this.schema.variables) {
       this.variables[variable.name] = variable.value
     }
-    this.eventEngine = new EventEngine({ registry: options.actionRegistry })
+    // ⚠️ 与 RuleEngine 保持一致：都要把 timing 回调接上。
+    //    原先 EventEngine 没接，于是 `event.dispatch` 这个指标**永远不会被记录**——
+    //    排查"事件到底派发没有"时只能看 `event.execute`，而它记录的是节点事件，
+    //    不含 `emitEvent` 派发的那一类。
+    this.eventEngine = new EventEngine({
+      registry: options.actionRegistry,
+      timing: (name, ms) => this.metrics.record(name, ms),
+    })
     this.ruleEngine = new RuleEngine({
       expression: this.expression,
       actionRegistry: options.actionRegistry,

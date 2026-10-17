@@ -1361,6 +1361,76 @@ const CHECKS = [
   },
 
   {
+    name: 'runtime-emit-event',
+    why: '「派发自定义事件」动作：emit 后事件引擎会收集**全页面**同名事件的动作链并执行。这条"跨节点联动"的链路没有真机验证过',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const insert = async (type, props) => {
+            const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+            ctx.insertMaterial(type)
+            await tick(150)
+            const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+            if (id && props) { ctx.updateProps(id, props); await tick(110) }
+            return id
+          }
+          // 监听方：给输入框挂一个自定义事件，动作是改它自己的值
+          const inputId = await insert('input', { label: '被联动', placeholder: '等待事件' })
+          ctx.updateNodeEvents(inputId, {
+            myEvent: [
+              { id: 'a-on-my-event', kind: 'setProp', config: { nodeId: inputId, prop: 'modelValue', value: '事件触发写入' } },
+            ],
+          })
+          await tick(150)
+          // 触发方：按钮点击时派发同一个事件
+          const buttonId = await insert('button', { text: '派发事件' })
+          ctx.updateNodeEvents(buttonId, {
+            click: [{ id: 'a-emit', kind: 'emitEvent', config: { event: 'myEvent', payload: { from: 'button' } } }],
+          })
+          await tick(200)
+          ctx.togglePreview()
+          await tick(850)
+          return 'ok'
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '① 派发前：输入框是空的',
+        check: `(() => {
+          const btn = [...document.querySelectorAll('.lc-preview-body .el-button')].find((b) => b.textContent.includes('派发事件'))
+          if (btn) btn.id = 'emit-btn'
+          const inp = document.querySelector('.lc-preview-body input')
+          return { ok: !!btn && !!inp && inp.value === '', detail: { 按钮: !!btn, 值: inp ? inp.value : null } }
+        })()`,
+      },
+      { click: '#emit-btn' },
+      { wait: 700 },
+      {
+        label: '② 派发事件后：另一个节点上监听该事件的动作被执行了',
+        check: `(() => {
+          const inp = document.querySelector('.lc-preview-body input')
+          const v = inp ? inp.value : null
+          return { ok: v === '事件触发写入', detail: { 值: v } }
+        })()`,
+      },
+      {
+        label: '③ 事件派发被计入 metrics（event.dispatch）',
+        check: `(() => {
+          ${GETCTX}
+          const rt = __unref(__getCtx().runtime)
+          const snap = rt.metrics && rt.metrics.snapshot ? rt.metrics.snapshot() : null
+          const n = snap && snap['event.dispatch'] ? snap['event.dispatch'].count : 0
+          return { ok: n >= 1, detail: { 派发次数: n } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
