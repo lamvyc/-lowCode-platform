@@ -268,7 +268,10 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
      我此前写的 24px 偏小。 */
   font-size: 28px;
   font-style: normal;
+  /* 参考是 inline-block 且盒高正好 28px；EP 是 block，行高把盒子撑到 32px */
+  display: inline-block;
   line-height: 1;
+  vertical-align: middle;
   color: #8c939d;
 }
 .lc-picture-upload__plus svg {
@@ -282,4 +285,16 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
   line-height: 16px;
   color: #86909c;
 }
+/*
+ * ⚠️ 这里曾经试着写 `.el-upload--picture-card > i { display: inline-block }`
+ * 想把 `+` 图标的盒子从 32px 压到参考的 28px —— **写多少遍都不会生效**。
+ *
+ * 原因：我们的 `.el-upload--picture-card` 是 `display: inline-flex`（EP 的默认），
+ * 而 `<i>` 是它的**直接子元素**，作为 flex item 会被**强制块化**：
+ * 声明 `inline-block` 计算出来就是 `block`。实测"没有任何规则设置 display，
+ * 但 computed 是 block"，正是这条机制。
+ *
+ * 参考那边容器是 `inline-block`（EU 的默认），子元素才保得住 `inline-block`。
+ * 所以要修这条，得改容器的 display 并另行处理图标居中——属布局改动，未在本批处理。
+ */
 </style>

@@ -10,7 +10,7 @@
 
 | 指标 | 数值 |
 | --- | --- |
-| 物料用到的根选择器 | 44 |
+| 物料用到的根选择器 | 45 |
 | 两边都有、参与比对的选择器 | 432 |
 | 🔴 语义变化 | 18 |
 | 🟠 布局差异 | 1 |
@@ -53,8 +53,8 @@
 | `.el-switch__core` | display | `inline-block` | `inline-flex` | `.el-switch` | ✅ 已复核 |
 | `.el-tabs__item` | display | `inline-block` | `flex` | `.el-tabs` | ✅ 已复核 |
 | `.el-upload` | display | `inline-block` | `inline-flex` | `.el-upload` | ✅ 已复核 |
-| `.el-upload-list--picture-card` | display | `inline` | `inline-flex` | `.el-upload` | ✅ 已复核 |
-| `.el-upload-list__item-name` | display | `block` | `inline-flex` | `.el-upload` | ✅ 已复核 |
+| `.el-upload-list--picture-card` | display | `inline` | `inline-flex` | `.el-upload-list` | ✅ 已复核 |
+| `.el-upload-list__item-name` | display | `block` | `inline-flex` | `.el-upload-list` | ✅ 已复核 |
 
 ## 🟠 布局差异（1）
 

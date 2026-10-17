@@ -321,5 +321,13 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
 .lc-file-upload .el-upload {
   display: inline-block;
   font-size: 12px;
+  /* 参考的上传区是 36px 高（跟着表单的 medium 档行高走）；
+     EP 只有图标那么高（15px），所以"选择文件"看起来比参考小一号。 */
+  line-height: 36px;
+}
+
+/* EP 给 `.el-upload-list` 加了 `margin: 10px 0 0`，参考是 0 */
+.lc-file-upload .el-upload-list {
+  margin: 0;
 }
 </style>
