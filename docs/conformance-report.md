@@ -70,4 +70,4 @@
 
 ## 本仓库额外物料（信息性）
 
-`card`、`image`、`alert`
+`card`、`alert`、`image`

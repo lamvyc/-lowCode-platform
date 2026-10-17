@@ -396,7 +396,9 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     droppable: true,
     groupable: true,
     slots: ['default'],
-    defaultProps: { label: '', collapsed: false, showCollapse: true, hideTitle: false, width: '100%' },
+    // 默认 label 对齐参考的 `cardSchema.options.label: 'card'`（此前是空串，
+    // 表现为新建卡片没有标题）；shadow 对齐参考，我们此前**没有实现**这个属性。
+    defaultProps: { label: 'card', collapsed: false, showCollapse: true, hideTitle: false, width: '100%', shadow: 'never' },
     propConfigs: [
       ...systemProps({ label: true }),
       { name: 'hideTitle', label: '隐藏标题区', control: 'switch', group: 'common', defaultValue: false },
@@ -410,6 +412,18 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
         visibleWhen: { prop: 'showCollapse', equals: true },
       },
       { name: 'width', label: '卡片宽度', control: 'input', group: 'advanced', defaultValue: '100%', placeholder: '如 100% / 320px' },
+      {
+        name: 'shadow',
+        label: '阴影',
+        control: 'radio-button',
+        group: 'advanced',
+        defaultValue: 'never',
+        options: [
+          { label: '总是', value: 'always' },
+          { label: '悬停', value: 'hover' },
+          { label: '从不', value: 'never' },
+        ],
+      },
     ],
   },
   // ============================================================
@@ -1114,7 +1128,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     ],
     defaultProps: {
       text: '按钮',
-      type: 'primary',
+      type: '',
       size: 'default',
       plain: false,
       round: false,
@@ -1132,14 +1146,18 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
         control: 'select',
         group: 'common',
         options: [
+          // ⚠️ "默认"（空串）必须排在第一位且作为 defaultValue：
+          // 参考实现 `widgetsConfig.js` 里 button 的默认就是 `type: ''`（Element 默认样式，
+          // 白底灰边）。我们此前默认 primary（蓝色实心）——实测背景
+          // rgb(255,255,255) vs rgb(64,158,255)，是最显眼的一处外观偏差。
+          { label: '默认', value: '' },
           { label: '主要', value: 'primary' },
           { label: '成功', value: 'success' },
           { label: '警告', value: 'warning' },
           { label: '危险', value: 'danger' },
           { label: '信息', value: 'info' },
-          { label: '默认', value: 'default' },
         ],
-        defaultValue: 'primary',
+        defaultValue: '',
       },
       {
         name: 'displayStyle',
@@ -1203,22 +1221,6 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
         defaultValue: 'center',
         visibleWhen: { prop: 'direction', equals: 'horizontal' },
       },
-    ],
-  },
-  {
-    type: 'image',
-    name: '图片',
-    category: '基础字段',
-    icon: 'image-display',
-    description: '展示图片',
-    version: '1.0.0',
-    defaultProps: { src: 'https://picsum.photos/200/120', alt: '', width: 200, height: 120 },
-    propConfigs: [
-      ...systemProps(),
-      { name: 'src', label: '图片地址', control: 'input', group: 'common', defaultValue: '', placeholder: 'https://...' },
-      { name: 'alt', label: '替代文本', control: 'input', group: 'advanced', defaultValue: '' },
-      { name: 'width', label: '宽度', control: 'number', group: 'advanced', range: { min: 10, max: 2000 }, defaultValue: 200 },
-      { name: 'height', label: '高度', control: 'number', group: 'advanced', range: { min: 10, max: 2000 }, defaultValue: 120 },
     ],
   },
   // ============================================================
@@ -1508,6 +1510,22 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
       },
       { name: 'stripe', label: '斑马纹', control: 'switch', group: 'advanced', defaultValue: true },
       { name: 'border', label: '边框', control: 'switch', group: 'advanced', defaultValue: true },
+    ],
+  },
+  {
+    type: 'image',
+    name: '图片展示',
+    category: '自定义扩展字段',
+    icon: 'image-display',
+    description: '展示图片',
+    version: '1.0.0',
+    defaultProps: { src: 'https://picsum.photos/200/120', alt: '', width: 200, height: 120 },
+    propConfigs: [
+      ...systemProps(),
+      { name: 'src', label: '图片地址', control: 'input', group: 'common', defaultValue: '', placeholder: 'https://...' },
+      { name: 'alt', label: '替代文本', control: 'input', group: 'advanced', defaultValue: '' },
+      { name: 'width', label: '宽度', control: 'number', group: 'advanced', range: { min: 10, max: 2000 }, defaultValue: 200 },
+      { name: 'height', label: '高度', control: 'number', group: 'advanced', range: { min: 10, max: 2000 }, defaultValue: 120 },
     ],
   },
 ]

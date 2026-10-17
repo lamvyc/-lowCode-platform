@@ -9,7 +9,8 @@ const props = withDefaults(
     /** 按钮文案 */
     text?: string
     /** 按钮类型 */
-    type?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'default'
+    /** 空串 = Element 的默认按钮（白底灰边）——参考实现的默认值就是 '' */
+    type?: '' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'default'
     size?: '' | 'large' | 'default' | 'small'
     plain?: boolean
     round?: boolean
@@ -24,7 +25,7 @@ const props = withDefaults(
   }>(),
   {
     text: '按钮',
-    type: 'primary',
+    type: '',
     size: 'default',
     plain: false,
     round: false,

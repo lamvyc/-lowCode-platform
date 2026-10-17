@@ -718,8 +718,8 @@
   "missingWidgets": [],
   "extraWidgets": [
     "card",
-    "image",
-    "alert"
+    "alert",
+    "image"
   ],
   "summary": {
     "referenceWidgets": 28,
