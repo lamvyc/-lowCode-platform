@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElButton, ElMessage, ElUpload } from 'element-plus'
+import { ElMessage, ElUpload } from 'element-plus'
 import type { UploadFile, UploadRawFile, UploadRequestOptions, UploadUserFile } from 'element-plus'
 import FormItem from './FormItem.vue'
 
@@ -95,13 +95,6 @@ const hintText = computed(() => props.validationHint || props.customRuleHint)
 const allowedTypes = computed(() =>
   Array.isArray(props.fileTypes) ? props.fileTypes.map((item) => String(item).toLowerCase()) : [],
 )
-
-/** 支持类型/大小说明 */
-const ruleTipText = computed(() => {
-  const typeText = allowedTypes.value.length > 0 ? allowedTypes.value.join(' / ') : '不限'
-  const sizeText = props.fileMaxSize > 0 ? `，单个文件不超过 ${props.fileMaxSize}MB` : ''
-  return `支持 ${typeText} 格式${sizeText}`
-})
 
 /** 把外部数据规整为 ElUpload 需要的文件列表 */
 const toFileList = (value: FileItem[] | undefined | null): UploadUserFile[] => {
@@ -244,8 +237,11 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
     :validation-hint="hintText"
     :column-width="columnWidth"
   >
+    <!-- ⚠️ 外面这层包裹是因为 **ElUpload 不会把 class 透传到 `.el-upload` 根元素**
+         （实测传给 ElUpload 的 `lc-file-upload` 在 DOM 里不见了），
+         而我们需要一个钩子来覆盖它的大小/字号。 -->
+    <div class="lc-file-upload">
     <ElUpload
-      class="lc-file-upload"
       :file-list="fileList"
       :limit="limit"
       :disabled="disabled"
@@ -258,10 +254,22 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
       :on-error="handleError"
       :on-remove="handleRemove"
     >
-      <ElButton :disabled="disabled">点击上传</ElButton>
+      <!-- 对齐参考实现：触发器是 `el-icon-plus` 图标 + "选择文件" 文案
+           （参考用 CSS `content: var(--select-file-action)` 生成文字，这里用真实 span，
+             语义更好且不依赖 CSS content）。
+           保留 `el-icon-plus` 这个类名，让画布级 A/B 的结构对比能对上。 -->
+      <i class="el-icon-plus lc-upload__plus" :class="{ 'is-disabled': disabled }">
+        <svg viewBox="0 0 1024 1024" aria-hidden="true">
+          <path d="M480 128h64v352h352v64H544v352h-64V544H128v-64h352z" />
+        </svg>
+        <span class="lc-upload__plus-text">选择文件</span>
+      </i>
     </ElUpload>
-    <p v-if="uploadTip" class="lc-upload__tip">{{ uploadTip }}</p>
-    <p class="lc-upload__tip">{{ ruleTipText }}</p>
+    </div>
+    <!-- ⚠️ 只保留 uploadTip：参考实现（`file-upload-widget.vue`）的提示是
+         `<div slot="tip" v-if="!!field.options.uploadTip">`，**没有**"支持 xx 格式"这种
+         自动生成的常显行。我们此前多了一行 `ruleTipText`，导致内容区高 46px vs 参考 37px。 -->
+    <div v-if="uploadTip" class="lc-upload__tip">{{ uploadTip }}</div>
   </FormItem>
 </template>
 
@@ -271,5 +279,47 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
   font-size: 11px;
   line-height: 16px;
   color: #86909c;
+}
+
+/* 触发器：primary 色 + 12px，与参考 `$--color-primary` / `font-size: 12px` 一致 */
+/* 参考的触发器是 EU 的图标字体：`display: inline-block`、行高撑起 12px。
+   EP 无该字体，用内联 SVG 时要把 display/line-height 显式对齐，
+   否则会变成 inline-flex 且高度跟 SVG 走（17px vs 参考 12px）。 */
+.lc-upload__plus {
+  display: inline-block;
+  line-height: 1;
+  color: var(--el-color-primary);
+  font-size: 12px;
+  font-style: normal;
+  cursor: pointer;
+}
+.lc-upload__plus-text {
+  margin-left: 4px;
+}
+.lc-upload__plus svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+.lc-upload__plus.is-disabled {
+  color: var(--el-text-color-disabled);
+  cursor: not-allowed;
+}
+</style>
+
+<style>
+/*
+ * ⚠️ 这个块**不加 scoped**：ElUpload 不是本组件模板的根（根是 FormItem），
+ * 它落在插槽里，Vue 不给它加 scope 属性 —— scoped 规则永远匹配不到
+ * （与 TimeRange.vue 里的说明同一个原因）。
+ *
+ * 两条都对齐参考实测值：
+ *   .el-upload.el-upload--text { font-size: 12px }  ← 参考
+ *   display: inline-block       ← 参考是 EU 的 inline-block；EP 是 inline-flex，
+ *                                 高度只有 17px（参考 36px）
+ */
+.lc-file-upload .el-upload {
+  display: inline-block;
+  font-size: 12px;
 }
 </style>

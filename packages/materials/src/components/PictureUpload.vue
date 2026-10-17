@@ -96,13 +96,6 @@ const allowedTypes = computed(() =>
   Array.isArray(props.fileTypes) ? props.fileTypes.map((item) => String(item).toLowerCase()) : [],
 )
 
-/** 支持类型/大小说明 */
-const ruleTipText = computed(() => {
-  const typeText = allowedTypes.value.length > 0 ? allowedTypes.value.join(' / ') : '不限'
-  const sizeText = props.fileMaxSize > 0 ? `，单个文件不超过 ${props.fileMaxSize}MB` : ''
-  return `支持 ${typeText} 格式${sizeText}`
-})
-
 /** 把外部数据规整为 ElUpload 需要的文件列表 */
 const toFileList = (value: PictureFile[] | undefined | null): UploadUserFile[] => {
   if (!Array.isArray(value)) return []
@@ -259,18 +252,27 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
       :on-error="handleError"
       :on-remove="handleRemove"
     >
-      <div class="lc-picture-upload__trigger">+</div>
+      <!-- 对齐参考的图片上传触发器：`<i class="el-icon-plus avatar-uploader-icon">`
+           （保留 el-icon-plus 类名，让画布级 A/B 的结构对比能对上） -->
+      <i class="el-icon-plus lc-picture-upload__plus"><svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M480 128h64v352h352v64H544v352h-64V544H128v-64h352z" /></svg></i>
     </ElUpload>
-    <p v-if="uploadTip" class="lc-upload__tip">{{ uploadTip }}</p>
-    <p class="lc-upload__tip">{{ ruleTipText }}</p>
+    <!-- 只保留 uploadTip：参考的图片上传同样只有 `v-if="!!field.options.uploadTip"` 的提示，
+         没有"支持 xx 格式"这种自动生成的常显行。 -->
+    <div v-if="uploadTip" class="lc-upload__tip">{{ uploadTip }}</div>
   </FormItem>
 </template>
 
 <style scoped>
-.lc-picture-upload__trigger {
+.lc-picture-upload__plus {
   font-size: 24px;
+  font-style: normal;
   line-height: 1;
   color: #8c939d;
+}
+.lc-picture-upload__plus svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
 }
 .lc-upload__tip {
   margin: 4px 0 0;
