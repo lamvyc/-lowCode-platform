@@ -84,7 +84,8 @@ const emit = defineEmits<{
     :required-hint="requiredHint"
     :validation-hint="validationHint"
     :column-width="columnWidth"
-  >
+  
+    class="lc-switch">
     <ElSwitch
       :model-value="modelValue"
       :disabled="disabled"
@@ -98,3 +99,22 @@ const emit = defineEmits<{
     />
   </FormItem>
 </template>
+
+<style>
+/*
+ * ⚠️ 非 scoped：ElSwitch 不是本组件模板的根（根是 FormItem），
+ * 类名落不到 `.el-switch` 上。用 `.lc-switch` 锚在 FormItem 根上。
+ *
+ * 实测参考的 `.el-switch` 高 **20px**，EP 默认是 32px（跟着 `--el-component-size`）——
+ * 开关看起来明显大一号。
+ */
+.lc-switch .el-switch {
+  height: 20px;
+}
+
+/* 开关只有 20px 高，但参考的控件区仍保持表单行高（实测 36px）——
+   否则整行会比别的字段明显矮一截。 */
+.lc-switch .lc-form-item__control {
+  min-height: 36px;
+}
+</style>
