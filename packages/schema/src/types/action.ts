@@ -54,6 +54,8 @@ export const LEGACY_ACTION_TYPE_MAP: Record<
   emitEvent: 'dispatchEvent',
   request: 'invokeAPI',
   navigate: 'navigate',
+  submit: 'submit',
+  refresh: 'refresh',
 }
 
 /** 旧版事件动作 → 统一事件动作（用于 1.x → 2.x 迁移） */

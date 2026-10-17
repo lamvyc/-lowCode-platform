@@ -65,6 +65,8 @@ const eventActionSchema: z.ZodType<EventAction> = z.lazy(() =>
       'emitEvent',
       'request',
       'navigate',
+      'submit',
+      'refresh',
       'custom',
     ]),
     label: z.string().optional(),

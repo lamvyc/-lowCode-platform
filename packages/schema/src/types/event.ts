@@ -12,6 +12,11 @@ export type ActionKind =
   | 'emitEvent'
   | 'request'
   | 'navigate'
+  // ⚠️ submit / refresh 早就注册在 ActionRegistry 里（`builtin.ts`），
+  //    但 ActionKind 里没有它们 —— 于是**schema 无法表达**，用户根本配不出来
+  //    "提交表单"和"刷新数据源"。补上。
+  | 'submit'
+  | 'refresh'
   | 'custom'
 
 /**

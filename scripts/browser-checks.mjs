@@ -1310,6 +1310,57 @@ const CHECKS = [
   },
 
   {
+    name: 'runtime-submit-action',
+    why: '「提交表单」动作在 ActionRegistry 里早已实现，但 ActionKind 与编辑器动作列表里都没有它——用户根本配不出来。补上之后用真机验证：点提交按钮会跑整表校验',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const insert = async (type, props) => {
+            const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+            ctx.insertMaterial(type)
+            await tick(150)
+            const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+            if (id && props) { ctx.updateProps(id, props); await tick(110) }
+            return id
+          }
+          await insert('input', { label: '邮箱', required: true })
+          const buttonId = await insert('button', { text: '提交表单' })
+          ctx.updateNodeEvents(buttonId, {
+            click: [{ id: 'a-submit', kind: 'submit', config: { formId: 'page' } }],
+          })
+          await tick(200)
+          ctx.togglePreview()
+          await tick(850)
+          return 'ok'
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '① 预览态渲染出「提交表单」按钮，且此刻没有校验错误',
+        check: `(() => {
+          const btn = [...document.querySelectorAll('.lc-preview-body .el-button')].find((b) => b.textContent.includes('提交表单'))
+          if (btn) btn.id = 'submit-btn'
+          const errs = document.querySelectorAll('.lc-preview-body .lc-form-item__error')
+          return { ok: !!btn && errs.length === 0, detail: { 按钮: !!btn, 错误数: errs.length } }
+        })()`,
+      },
+      { click: '#submit-btn' },
+      { wait: 700 },
+      {
+        label: '② 点击提交：必填项为空 → 整表校验失败并显示错误',
+        check: `(() => {
+          const errs = [...document.querySelectorAll('.lc-preview-body .lc-form-item__error')].map((e) => e.textContent.trim())
+          return { ok: errs.length === 1, detail: { 错误数: errs.length, errs } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [

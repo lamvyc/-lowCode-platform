@@ -145,6 +145,10 @@ export const ACTION_KIND_OPTIONS: ReadonlyArray<{ label: string; value: ActionKi
   { label: '派发自定义事件', value: 'emitEvent' },
   { label: '请求数据', value: 'request' },
   { label: '页面跳转', value: 'navigate' },
+  // submit / refresh 在 ActionRegistry 里早已实现，但此前既不在 ActionKind 里、
+  // 也不在这个列表里 —— 用户**根本加不出**"提交表单"和"刷新数据源"。
+  { label: '提交表单', value: 'submit' },
+  { label: '刷新数据源', value: 'refresh' },
   { label: '自定义动作', value: 'custom' },
 ]
 
@@ -157,6 +161,8 @@ export const ACTION_CONFIG_HINTS: Record<ActionKind, string> = {
   emitEvent: '{"event":"refresh","payload":{}}',
   request: '{"url":"/api/list","method":"GET"}',
   navigate: '{"route":"/detail"}',
+  submit: '{"formId":"page"}',
+  refresh: '{"dataSourceId":"ds1"}',
   custom: '{"actionId":"myAction"}',
 }
 
@@ -167,5 +173,10 @@ export function createActionId(): string {
 
 /** 创建默认动作 */
 export function createAction(kind: ActionKind = 'setProp'): EventAction {
-  return { id: createActionId(), kind, config: {} }
+  // ⚠️ `submit` 必须带 formId：内置实现里没有 formId 就直接返回
+  //    `{ok:false, error:'缺少 formId'}`。页面级表单的 formId 固定是 `page`
+  //    （见 runtime 的 PAGE_FORM_ID），所以这里给个好默认值，
+  //    否则用户加一个"提交表单"动作会**立刻失败**。
+  const config: Record<string, unknown> = kind === 'submit' ? { formId: 'page' } : {}
+  return { id: createActionId(), kind, config }
 }
