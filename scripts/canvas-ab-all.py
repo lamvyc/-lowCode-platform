@@ -66,10 +66,16 @@ SKETCH = r'''(() => {
   // ⚠️ 容器用的是 **container-action**，与字段的 field-action 不是一个类名，
   //    第一版只过滤了后者，于是容器类物料的差异全是编辑器浮层造成的假象。
   const CHROME = /(^|\s)(lc-node__badges|lc-node__actions|field-action|container-action|drag-handler)(\s|$)/
+  // 纯装饰件、且两边实现机制不同：
+  //   `.lc-form-item__required` 是我们渲染的 `<span>*</span>`，
+  //   参考用 CSS `::before` 伪元素画同一个星号（不加 DOM 元素）。
+  //   视觉等价，但会让控件序列整体错位一位 —— 在**配置态**
+  //   （required: true）下会让 21/24 个物料都被报成"结构不同"。
+  const DECORATIVE = /(^|\s)(lc-form-item__required)(\s|$)/
   const visit = (el, depth) => {
     if (depth > 8) return
     for (const c of el.children) {
-      if (CHROME.test(String(c.className || ''))) continue
+      if (CHROME.test(String(c.className || '')) || DECORATIVE.test(String(c.className || ''))) continue
       const cls = String(c.className || '')
       // ⚠️ 必须取**完整**类名：用 /el-[a-z0-9-]+/ 会把 BEM 的 __ 后缀截掉，
       // el-form-item__content / el-input__wrapper / el-input__inner 会一起塌缩成块名，
@@ -128,6 +134,88 @@ def ev(app, steps):
     return found
 
 
+# ============================================================
+# 「配置态」档：拖入后再应用一组**代表性属性**，然后才取数比较。
+#
+# 为什么需要：默认态的 A/B 只证明"什么都没配的时候长得一样"。
+# 而用户真正会做的第一件事就是改标签、改占位、开必填、开禁用——
+# 这些状态下的渲染差异，默认态的 A/B **完全看不到**。
+#
+# 两边都只应用**该物料自己拥有的属性**（按 `options` / `props` 的键存在性判断），
+# 所以同一份配置能适用于全部物料。
+# ============================================================
+PROFILE = {
+    'label': '配置态标签',
+    'placeholder': '配置态占位',
+    'disabled': True,
+    'required': True,
+}
+
+PROFILE_ENABLED = False
+
+# 参考侧：从 DOM 上的 Vue 2 实例往上找带 `field`/`widget` prop 的组件，
+# 直接 `$set` 它的 options（Vue 2 响应式会立即重渲染）。
+# ⚠️ 字段组件用的 prop 是 `field`、容器是 `widget`；只认 `widget` 会永远找不到（实测）。
+PROFILE_REF = """
+(async () => {
+  const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+  const el = document.querySelector('.widget-form .el-form-item, .widget-form .container-wrapper')
+  let vm = el && el.__vue__, target = null
+  for (let i = 0; i < 30 && vm; i += 1) {
+    const p = vm.$props || {}
+    if (p.field || p.widget) { target = vm; break }
+    vm = vm.$parent
+  }
+  if (!target) return 'NO_WIDGET'
+  const w = target.$props.field || target.$props.widget
+  const PROF = __PROFILE__
+  const applied = []
+  for (const [k, v] of Object.entries(PROF)) {
+    if (w.options && Object.prototype.hasOwnProperty.call(w.options, k)) {
+      target.$set(w.options, k, v); applied.push(k)
+    }
+  }
+  await tick(500)
+  return 'applied:' + applied.join(',')
+})()
+"""
+
+# 本仓库侧：走 ctx.updateProps，同样只改自己拥有的属性。
+PROFILE_OURS = """
+(async () => {
+  const __unref = (v) => (v && typeof v === 'object' && v.__v_isRef ? v.value : v)
+  const __getCtx = () => {
+    const app = document.querySelector('#app').__vue_app__
+    const seen = new Set(); let result = null
+    const visit = (vnode, d) => {
+      if (!vnode || d > 60) return
+      if (vnode.component) walk(vnode.component, d + 1)
+      if (Array.isArray(vnode.children)) vnode.children.forEach((k) => visit(k, d + 1))
+    }
+    const walk = (inst, d) => {
+      if (!inst || seen.has(inst) || result) return
+      seen.add(inst)
+      if ((inst.type?.__name || inst.type?.name) === 'Designer') { result = inst.setupState.ctx; return }
+      visit(inst.subTree, d)
+    }
+    walk(app._instance, 0)
+    return result
+  }
+  const ctx = __getCtx()
+  const node = __unref(ctx.schema).nodes.find((n) => n.id === window.__newId)
+  if (!node) return 'NO_NODE'
+  const PROF = __PROFILE__
+  const patch = {}
+  for (const [k, v] of Object.entries(PROF)) {
+    if (node.props && Object.prototype.hasOwnProperty.call(node.props, k)) patch[k] = v
+  }
+  ctx.updateProps(window.__newId, patch)
+  await new Promise((r) => setTimeout(r, 500))
+  return 'applied:' + Object.keys(patch).join(',')
+})()
+"""
+
+
 def insert_and_sketch(app, is_ref, label):
     """拖入物料并素描；本仓库只素描新插入的节点。"""
     # ⚠️ 两边必须从**同一层级**开始素描。
@@ -155,6 +243,11 @@ def insert_and_sketch(app, is_ref, label):
     if not is_ref:
         steps.append({'eval': "(() => { const ids = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map(e => e.dataset.nodeId);"
                               " window.__newId = ids.find(i => !window.__beforeIds.includes(i)); return window.__newId || 'NONE' })()"})
+    if PROFILE_ENABLED:
+        import json as _json
+        tmpl = PROFILE_REF if is_ref else PROFILE_OURS
+        steps.append({'eval': tmpl.replace('__PROFILE__', _json.dumps(PROFILE, ensure_ascii=False))})
+        steps.append({'wait': 200})
     steps.append({'assert': SKETCH % (sketch_root, app['item'], app['wrap'])})
     return ev(app, steps)
 
@@ -242,7 +335,14 @@ def diff_controls(ref, ours):
 
 
 def main():
-    materials = sys.argv[1:] or ALL_MATERIALS
+    global PROFILE_ENABLED
+    args = sys.argv[1:]
+    if '--profile' in args:
+        PROFILE_ENABLED = True
+        args = [a for a in args if a != '--profile']
+    materials = args or ALL_MATERIALS
+    if PROFILE_ENABLED:
+        print(f'【配置态】拖入后先应用：{PROFILE}\n')
     summary = []
     for label in materials:
         ref = insert_and_sketch(REF, True, label)
