@@ -595,6 +595,78 @@ const CHECKS = [
   },
 
   {
+    name: 'props-effect-precise',
+    why: '属性 → 渲染 的扫描（scripts/props-effect.py）只验「有没有反应」，不验「反应对不对」。设了 disabled 输入框确实变了，但变的真是"禁用"吗？这一组对最常用的 10 个属性下精确断言',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        label: '10 个关键属性的效果精确匹配',
+        check: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+          ctx.insertMaterial('input')
+          await tick(120)
+          const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+          if (!id) return { ok: false, detail: { 错误: '没插入成功' } }
+
+          const root = () => document.querySelector('[data-node-id="' + id + '"]')
+          const q = (sel) => (root() ? root().querySelector(sel) : null)
+          const results = {}
+          const set = async (patch) => { ctx.updateProps(id, patch); await tick(100) }
+
+          await set({ label: '标签X' })
+          results.label = (q('.lc-form-item__label')?.textContent || '').trim() === '标签X'
+
+          await set({ required: true })
+          results.required = !!q('.lc-form-item__required')
+
+          await set({ labelHidden: true })
+          results.labelHidden = !q('.lc-form-item__label')
+
+          await set({ labelHidden: false, labelWidth: 140 })
+          const lb = q('.lc-form-item__label')
+          results.labelWidth = !!lb && Math.abs(lb.getBoundingClientRect().width - 140) <= 2
+
+          // ⚠️ 原来这里验的是 columnWidth，实测**在参考里也只对子表单字段生效**
+          //    （只有 sub-form-item.vue 用了 subWidget.options.columnWidth），
+          //    普通字段两边都是无效属性，不适合当断言。换成 size：小尺寸应比默认矮。
+          const h0 = q('.el-input') ? Math.round(q('.el-input').getBoundingClientRect().height) : 0
+          await set({ size: 'small' })
+          const h1 = q('.el-input') ? Math.round(q('.el-input').getBoundingClientRect().height) : 0
+          results.size = h0 > 0 && h1 > 0 && h1 < h0
+
+          await set({ maxLength: 5 })
+          results.maxLength = String(q('.el-input__inner')?.getAttribute('maxlength')) === '5'
+
+          await set({ placeholder: '占位X' })
+          results.placeholder = q('.el-input__inner')?.getAttribute('placeholder') === '占位X'
+
+          await set({ disabled: true })
+          results.disabled = q('.el-input__inner')?.disabled === true
+
+          await set({ readonly: true })
+          results.readonly = q('.el-input__inner')?.readOnly === true
+
+          // ⚠️ hidden 是**节点级系统属性**（node.meta.hidden），不走 updateProps，
+          //    要用 runtime 的 setNodeHidden。走错通道会得到"有变化"的假阳性。
+          __unref(ctx.runtime).setNodeHidden(id, true)
+          await tick(120)
+          const node = root()
+          // ⚠️ 渲染层用的是 v-if，隐藏时节点**直接从 DOM 移除**（不是 display:none）。
+          //    第一版按 display:none 断言，于是把"已正确隐藏"误报成失败。
+          results.hidden = !node || getComputedStyle(node).display === 'none'
+
+          const failed = Object.entries(results).filter(([, ok]) => !ok).map(([k]) => k)
+          ctx.removeNode(id)
+          return { ok: failed.length === 0, detail: { 失败项: failed, 全部: results } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
