@@ -1076,6 +1076,112 @@ const CHECKS = [
   },
 
   {
+    name: 'editor-history',
+    why: '编辑器的撤销/重做与复制粘贴：每一步都会改 schema 并重建 RuntimeContext，涉及历史栈、选中态、运行时重建三者的配合。单测覆盖了引擎方法，但"真实操作后画布是否跟着回退/前进"没验过',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          ctx.insertMaterial('input')
+          await tick(200)
+          window.__h = { id: __unref(ctx.schema).nodes[0]?.id }
+          return 'ok'
+        })()`,
+      },
+      { wait: 250 },
+      {
+        label: '① 插入后画布上有 1 个节点、canUndo 为真',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const n = document.querySelectorAll('.lc-canvas [data-node-id]').length
+          return { ok: n === 1 && __unref(ctx.canUndo) === true, detail: { 节点数: n, canUndo: __unref(ctx.canUndo) } }
+        })()`,
+      },
+      {
+        eval: `(async () => { ${GETCTX} __getCtx().undo(); await new Promise(r => setTimeout(r, 300)); return 'ok' })()`,
+      },
+      {
+        label: '② 撤销后画布回到空、canRedo 为真',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const n = document.querySelectorAll('.lc-canvas [data-node-id]').length
+          return { ok: n === 0 && __unref(ctx.canRedo) === true, detail: { 节点数: n, canRedo: __unref(ctx.canRedo) } }
+        })()`,
+      },
+      {
+        eval: `(async () => { ${GETCTX} __getCtx().redo(); await new Promise(r => setTimeout(r, 300)); return 'ok' })()`,
+      },
+      {
+        label: '③ 重做后节点回来，且是同一个 id（不是重新生成的新节点）',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const ids = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId)
+          return { ok: ids.length === 1 && ids[0] === window.__h.id, detail: { ids, 原id: window.__h.id } }
+        })()`,
+      },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          ctx.copyNode(window.__h.id)
+          ctx.pasteClipboard()
+          await new Promise(r => setTimeout(r, 300))
+          return 'ok'
+        })()`,
+      },
+      {
+        label: '④ 复制粘贴后变成 2 个节点，且 id 不同',
+        check: `(() => {
+          const ids = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId)
+          return { ok: ids.length === 2 && ids[0] !== ids[1], detail: { ids } }
+        })()`,
+      },
+      {
+        eval: `(async () => { ${GETCTX} __getCtx().undo(); await new Promise(r => setTimeout(r, 300)); return 'ok' })()`,
+      },
+      {
+        label: '⑤ 撤销粘贴后回到 1 个节点，且剩下的是原来那个',
+        check: `(() => {
+          const ids = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId)
+          return { ok: ids.length === 1 && ids[0] === window.__h.id, detail: { ids } }
+        })()`,
+      },
+      {
+        // ⚠️ 必须**每次 undo 之后等一帧**再继续：undo 会重建 RuntimeContext 与画布，
+        //    同步连调 8 次时 DOM 还没跟上，断言就会读到中间态（第一版就栽在这，
+        //    报"节点数 1"，看起来像撤销没生效）。
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          let guard = 0
+          while (__unref(ctx.canUndo) && guard < 20) {
+            ctx.undo()
+            guard += 1
+            await new Promise((r) => setTimeout(r, 100))
+          }
+          return 'steps:' + guard
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '⑥ 一路撤销到边界：画布为空、canUndo 变为假、不抛异常',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const n = document.querySelectorAll('.lc-canvas [data-node-id]').length
+          return { ok: n === 0 && __unref(ctx.canUndo) === false, detail: { 节点数: n, canUndo: __unref(ctx.canUndo) } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
