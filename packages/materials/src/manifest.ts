@@ -50,6 +50,27 @@ const VALIDATION_OPTIONS = [
  * 用户写一段代码，运行时 `new Function(code).call(self)` 执行。
  * 容器类物料（栅格/表格/标签页）参考里没有这两项，所以不要给它们加。
  */
+/**
+ * 自定义校验属性（`onValidate`）。
+ *
+ * 参考实现为 18 个可校验物料提供：用户写一段代码，运行时
+ * `new Function('rule','value','callback', code)` 执行，作为 blur/change 校验器。
+ *
+ * ⚠️ 不要给 static-text / html-text / button / divider 加——它们没有值可校验，
+ * 参考里也没有这一项。
+ */
+function validateCodeProp(): PropConfig[] {
+  return [
+    {
+      name: 'onValidate',
+      label: '自定义校验',
+      control: 'code',
+      group: 'event',
+      description: '写 JS 代码，必须同步调用 callback()；callback(new Error("提示")) 表示校验失败',
+    },
+  ]
+}
+
 function lifecycleProps(): PropConfig[] {
   return [
     {
@@ -494,6 +515,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       {
         name: 'type',
@@ -591,6 +613,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'textarea', group: 'common', defaultValue: '' },
       { name: 'placeholder', label: '占位内容', control: 'input', group: 'common', defaultValue: '请输入' },
@@ -637,6 +660,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'number', group: 'common', defaultValue: 0 },
       { name: 'placeholder', label: '占位内容', control: 'input', group: 'common', defaultValue: '' },
@@ -684,6 +708,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'input', group: 'common', defaultValue: null },
       { name: 'optionItems', label: '选项', control: 'option-items', group: 'common', defaultValue: [] },
@@ -719,6 +744,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'json', group: 'common', defaultValue: [] },
       { name: 'optionItems', label: '选项', control: 'option-items', group: 'common', defaultValue: [] },
@@ -765,6 +791,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'input', group: 'common', defaultValue: '' },
       { name: 'placeholder', label: '占位内容', control: 'input', group: 'common', defaultValue: '' },
@@ -822,6 +849,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'input', group: 'common', defaultValue: null, placeholder: '如 09:00:00' },
       { name: 'placeholder', label: '占位内容', control: 'input', group: 'common', defaultValue: '请选择时间' },
@@ -860,6 +888,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'json', group: 'common', defaultValue: null, placeholder: '如 ["09:00:00","18:00:00"]' },
       { name: 'startPlaceholder', label: '开始占位', control: 'input', group: 'common', defaultValue: '开始时间' },
@@ -900,6 +929,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       {
         name: 'type',
@@ -954,6 +984,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       {
         name: 'type',
@@ -1000,6 +1031,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'switch', group: 'common', defaultValue: false },
       { name: 'switchWidth', label: '开关宽度（像素）', control: 'number', group: 'common', range: { min: 20, max: 200 }, defaultValue: 40 },
@@ -1033,6 +1065,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'number', group: 'common', range: { min: 0, max: 10 }, defaultValue: null },
       { name: 'max', label: '最大分值', control: 'number', group: 'common', range: { min: 1, max: 10 }, defaultValue: 5 },
@@ -1057,6 +1090,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'color', group: 'common', defaultValue: null },
       { name: 'showAlpha', label: '支持透明度', control: 'switch', group: 'advanced', defaultValue: false },
@@ -1089,6 +1123,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'number', group: 'common', defaultValue: 0 },
       { name: 'min', label: '最小值', control: 'number', group: 'common', defaultValue: 0 },
@@ -1302,6 +1337,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'uploadURL', label: '上传地址', control: 'input', group: 'common', defaultValue: '', placeholder: '留空则使用本地预览' },
       { name: 'uploadTip', label: '上传提示', control: 'input', group: 'common', defaultValue: '' },
@@ -1357,6 +1393,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'uploadURL', label: '上传地址', control: 'input', group: 'common', defaultValue: '', placeholder: '留空则使用本地文件' },
       { name: 'uploadTip', label: '上传提示', control: 'input', group: 'common', defaultValue: '' },
@@ -1405,6 +1442,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'code', editor: 'html', group: 'common', defaultValue: '' },
       { name: 'placeholder', label: '占位内容', control: 'input', group: 'common', defaultValue: '请输入内容' },
@@ -1454,6 +1492,7 @@ export const MATERIAL_MANIFESTS: MaterialManifest[] = [
     propConfigs: [
       ...systemProps(),
       ...lifecycleProps(),
+      ...validateCodeProp(),
       ...labelProps(),
       { name: 'modelValue', label: '默认值', control: 'json', group: 'common', defaultValue: null, placeholder: '如 [1, 11]' },
       { name: 'placeholder', label: '占位内容', control: 'input', group: 'common', defaultValue: '请选择' },

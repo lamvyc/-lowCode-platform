@@ -487,9 +487,53 @@ export class RuntimeContext {
    * 隐藏字段不产生规则——参考实现 `setHidden(true)` 会显式清空规则，这里统一成"隐藏即不校验"，
    * 消掉参考实现"初始就 hidden 的字段仍带着规则"的不一致。
    *
-   * ⚠️ 参考实现里的 `onValidate`（`new Function` 执行用户代码）在本仓库的物料清单中**没有声明**，
-   * 因此这里不实现；若将来要支持，应先决策沙箱/CSP 方案（见 00-通用字段行为规范.md 第十二章）。
+   * `onValidate` 已实现（见 `runCustomValidator`）：与参考一致，用户写代码、
+   * 运行时 `new Function` 执行。**只支持同步回调**，异步会明确报错。
    */
+  /**
+   * 执行用户写的自定义校验（参考实现的 `onValidate`）。
+   *
+   * 参考语义：`new Function('rule','value','callback', code)`，把结果通过
+   * `callback(err?)` 传回，作为 `trigger: ['blur','change']` 的校验器。
+   *
+   * ⚠️ **只支持同步**：本仓库的 `FieldRule.validate` 是同步签名，整条校验链
+   * （`validateField` → `validateAll` → 表单提交）也都是同步的。
+   * 所以：用户代码**必须同步调用 callback**。没同步调用时**明确报错**，
+   * 而不是当通过——静默放过一条没跑起来的校验是最危险的行为。
+   */
+  runCustomValidator(node: PageNode, code: string, value: unknown): string | undefined {
+    let called = false
+    let message: string | undefined
+    const callback = (error?: unknown): void => {
+      called = true
+      if (error instanceof Error) message = error.message
+      else if (typeof error === 'string' && error.trim() !== '') message = error
+      else if (error) message = String(error)
+    }
+    const self = {
+      node,
+      value,
+      label: this.textProp(node, 'label') ?? node.name ?? node.id,
+      getValue: () => this.getNodeValue(node.id),
+    }
+    try {
+      // eslint-disable-next-line no-new-func
+      const fn = new Function('rule', 'value', 'callback', code) as (
+        this: unknown,
+        rule: unknown,
+        value: unknown,
+        callback: (error?: unknown) => void,
+      ) => unknown
+      fn.call(self, { label: self.label }, value, callback)
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error)
+    }
+    if (!called) {
+      return '自定义校验必须同步调用 callback()（当前实现不支持异步校验）'
+    }
+    return message
+  }
+
   buildFieldRules(node: PageNode): FieldRule[] {
     if (this.resolveHidden(node)) return []
 
@@ -510,6 +554,15 @@ export class RuntimeContext {
       rules.push({
         trigger: ['blur', 'change'],
         validate: (value) => runValidation(validation, value, { label, errorMsg }),
+      })
+    }
+
+    // 自定义校验（参考实现的 onValidate）：用户写代码，运行时执行
+    const onValidate = this.textProp(node, 'onValidate')
+    if (onValidate && onValidate.trim() !== '') {
+      rules.push({
+        trigger: ['blur', 'change'],
+        validate: (value) => this.runCustomValidator(node, onValidate, value),
       })
     }
 

@@ -12,6 +12,7 @@ withDefaults(
      *    但必须在这里声明，否则它们会变成透传的 HTML 属性出现在 DOM 上。
      */
     onCreated?: string
+    onValidate?: string
     onMounted?: string
     /** 字段标签 */
     label?: string

@@ -87,3 +87,50 @@ describe('生命周期钩子', () => {
     expect(ctx.getNodeValue('n1')).toBe('')
   })
 })
+
+describe('自定义校验 onValidate', () => {
+  it('同步 callback(new Error(...)) 表示校验失败，文案取自 Error', () => {
+    const schema = schemaWith({
+      props: {
+        modelValue: 'abc',
+        onValidate: 'if (String(value).length < 5) { callback(new Error("至少 5 位")) } else { callback() }',
+      },
+    })
+    const context = new RuntimeContext({ schema, resolver, actionRegistry: new ActionRegistry() })
+    const node = context.getNode('n1')!
+    const rule = context.buildFieldRules(node).find((r) => r.trigger.includes('change'))!
+    expect(rule.validate('abc')).toBe('至少 5 位')
+    expect(rule.validate('abcdef')).toBeUndefined()
+  })
+
+  it('callback() 无参表示通过', () => {
+    const schema = schemaWith({ props: { onValidate: 'callback()' } })
+    const context = new RuntimeContext({ schema, resolver, actionRegistry: new ActionRegistry() })
+    const rule = context.buildFieldRules(context.getNode('n1')!)[0]!
+    expect(rule.validate('任意')).toBeUndefined()
+  })
+
+  it('代码抛错时把错误作为校验文案（不让异常冒出去）', () => {
+    const schema = schemaWith({ props: { onValidate: 'throw new Error("代码炸了")' } })
+    const context = new RuntimeContext({ schema, resolver, actionRegistry: new ActionRegistry() })
+    const rule = context.buildFieldRules(context.getNode('n1')!)[0]!
+    expect(rule.validate('x')).toBe('代码炸了')
+  })
+
+  it('没有同步调用 callback 时**明确报错**，而不是当通过', () => {
+    const schema = schemaWith({ props: { onValidate: 'setTimeout(() => callback(), 10)' } })
+    const context = new RuntimeContext({ schema, resolver, actionRegistry: new ActionRegistry() })
+    const rule = context.buildFieldRules(context.getNode('n1')!)[0]!
+    expect(rule.validate('x')).toContain('必须同步调用')
+  })
+
+  it('隐藏字段不产生自定义校验规则', () => {
+    // ⚠️ hidden 是**节点级**的 `meta.hidden`，不是 props.hidden
+    const schema = schemaWith({
+      props: { onValidate: 'callback(new Error("x"))' },
+      meta: { hidden: true } as never,
+    })
+    const context = new RuntimeContext({ schema, resolver, actionRegistry: new ActionRegistry() })
+    expect(context.buildFieldRules(context.getNode('n1')!)).toHaveLength(0)
+  })
+})
