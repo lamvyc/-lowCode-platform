@@ -1182,6 +1182,60 @@ const CHECKS = [
   },
 
   {
+    name: 'design-mode-inert',
+    why: '设计态（画布）点组件只应该"选中"它，不该执行它的动作。原先事件无条件绑定，配了 navigate 的按钮在画布上点一下会**把编辑器导航走**；注入 request 后还会在画布上发真实请求',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+          ctx.insertMaterial('button')
+          await tick(150)
+          const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+          ctx.updateProps(id, { text: '别点我' })
+          ctx.updateNodeEvents(id, { click: [{ id: 'a1', kind: 'navigate', config: { route: '#/design-should-not-nav' } }] })
+          await tick(200)
+          location.hash = ''
+          return 'ok'
+        })()`,
+      },
+      { wait: 250 },
+      {
+        label: '① 设计态点按钮：事件不执行（hash 不变）',
+        check: `(() => {
+          const btn = document.querySelector('.lc-canvas .el-button')
+          if (!btn) return { ok: false, detail: { 错误: '画布上没找到按钮' } }
+          location.hash = ''
+          btn.click()
+          return { ok: location.hash === '', detail: { hash: location.hash } }
+        })()`,
+      },
+      { wait: 400 },
+      {
+        label: '② 设计态点击后 hash 仍然没变（异步动作也没漏出去）',
+        check: `(() => ({ ok: location.hash === '', detail: { hash: location.hash } }))()`,
+      },
+      {
+        eval: `(async () => { ${GETCTX} __getCtx().togglePreview(); await new Promise(r => setTimeout(r, 800)); return 'ok' })()`,
+      },
+      { wait: 300 },
+      {
+        label: '③ 对照：同样的按钮**在预览态**点击会执行动作',
+        check: `(() => {
+          location.hash = ''
+          const btn = document.querySelector('.lc-preview-body .el-button')
+          if (!btn) return { ok: false, detail: { 错误: '预览里没找到按钮' } }
+          btn.click()
+          return { ok: location.hash === '#/design-should-not-nav', detail: { hash: location.hash } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [

@@ -135,9 +135,20 @@ function buildNode(
     if (Object.keys(style).length > 0) props.style = style
 
     // Events：DOM 事件 → 动作链
-    for (const eventName of Object.keys(node.events ?? {})) {
-      props[toOnProp(eventName)] = (event: unknown) => {
-        ctx.dispatchNodeEvent(node, eventName, event)
+    // ⚠️ **设计态不绑定节点事件**。
+    //
+    // 参考实现里每个 widget 的 onClick 都有一行 `if (this.designState) return`，
+    // 而这里原先无条件绑定，于是画布上点一个配了动作的按钮会**真的执行动作**：
+    //   · `navigate` → 直接把编辑器导航走（实测 hash 变成动作里配的路由）
+    //   · `request` → 在画布上发真实网络请求
+    //   · `openDialog` / `setProp` → 改动运行时状态
+    //
+    // 用户在编辑器里点组件是为了**选中**它，不是要执行它。
+    if (!designMode) {
+      for (const eventName of Object.keys(node.events ?? {})) {
+        props[toOnProp(eventName)] = (event: unknown) => {
+          ctx.dispatchNodeEvent(node, eventName, event)
+        }
       }
     }
 
