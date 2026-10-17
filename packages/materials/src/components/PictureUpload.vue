@@ -264,7 +264,9 @@ const handleRemove = (file: UploadFile, files: UploadFile[]) => {
 
 <style scoped>
 .lc-picture-upload__plus {
-  font-size: 24px;
+  /* 参考实测 28px（EP 对 `.el-upload--picture-card > i` 的默认就是 28px）；
+     我此前写的 24px 偏小。 */
+  font-size: 28px;
   font-style: normal;
   line-height: 1;
   color: #8c939d;
