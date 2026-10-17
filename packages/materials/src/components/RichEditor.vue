@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { ElButton } from 'element-plus'
+import { computed, ref, watch } from 'vue'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import FormItem from './FormItem.vue'
 
 defineOptions({ name: 'LcRichEditor' })
 
+/**
+ * 富文本编辑器 —— 改用 **Quill**（`@vueup/vue-quill`）。
+ *
+ * 为什么换：参考实现（`rich-editor-widget.vue`）用的是 `vue2-editor`（Quill 封装），
+ * 带 **完整的默认工具栏**（实测 9 组、22 个按钮/选择器）。我们此前是 230 行自建的
+ * `contenteditable` + `document.execCommand`，只有 7 个按钮，且 **execCommand 已被废弃**。
+ *
+ * 这不是外观差异而是**能力差距**，所以选择换掉而不是调 CSS 去凑。
+ */
 const props = withDefaults(
   defineProps<{
     /** 字段标签 */
@@ -71,70 +81,51 @@ const emit = defineEmits<{
 /** 校验提示：自定义规则提示作为兜底 */
 const hintText = computed(() => props.validationHint || props.customRuleHint)
 
-const editorRef = ref<HTMLDivElement | null>(null)
+/**
+ * 工具栏：对齐参考实测的 9 组（标题 / 粗斜下划删除 / 对齐 / 引用与代码块 /
+ * 列表 / 缩进 / 颜色与背景 / 链接图片视频 / 清除格式）。
+ */
+const TOOLBAR = [
+  [{ header: [false, 1, 2, 3, 4, 5, 6] }],
+  ['bold', 'italic', 'underline', 'strike'],
+  [{ align: [] }],
+  ['blockquote', 'code-block'],
+  [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
+  [{ indent: '-1' }, { indent: '+1' }],
+  [{ color: [] }, { background: [] }],
+  ['link', 'image', 'video'],
+  ['clean'],
+]
 
-/** 当前内容，作为字数统计的来源（父组件未回写 modelValue 时也能实时反映） */
-const content = ref(props.modelValue || '')
-
-/** 同步编辑区 HTML；内容一致时不写入，避免打断正在进行的输入 */
-const syncContent = (value: string) => {
-  const next = value || ''
-  content.value = next
-  const el = editorRef.value
-  if (el && el.innerHTML !== next) el.innerHTML = next
-}
+/** 当前 HTML 内容：既作为字数统计来源，也用于回写 */
+const inner = ref(props.modelValue || '')
 
 watch(
   () => props.modelValue,
   (value) => {
-    syncContent(value)
+    // 内容一致时不写入，避免打断正在进行的输入
+    if ((value || '') !== inner.value) inner.value = value || ''
   },
 )
 
-onMounted(() => {
-  syncContent(props.modelValue)
-})
+function handleUpdate(value: string): void {
+  inner.value = value || ''
+  emit('update:modelValue', inner.value)
+  emit('change', inner.value)
+}
 
 /** 按纯文本统计字数（去掉标签与 &nbsp;） */
-const countPlainText = (html: string): number => {
-  const text = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ')
-  return text.length
-}
+const countPlainText = (html: string): number =>
+  html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').length
 
 const maxLengthValue = computed(() =>
   typeof props.maxLength === 'number' ? props.maxLength : null,
 )
-
-const currentLength = computed(() => countPlainText(content.value))
-
+const currentLength = computed(() => countPlainText(inner.value))
 const showCount = computed(() => props.showWordLimit && maxLengthValue.value !== null)
-
 const isOverLimit = computed(
   () => maxLengthValue.value !== null && currentLength.value > maxLengthValue.value,
 )
-
-const handleInput = () => {
-  const el = editorRef.value
-  if (!el) return
-  content.value = el.innerHTML
-  emit('update:modelValue', content.value)
-  emit('change', content.value)
-}
-
-/** 执行浏览器原生编辑命令 */
-const execCommand = (command: string, value?: string) => {
-  if (props.disabled) return
-  editorRef.value?.focus()
-  document.execCommand(command, false, value)
-  handleInput()
-}
-
-const handleInsertLink = () => {
-  if (props.disabled) return
-  const url = window.prompt('请输入链接地址', 'https://')
-  if (!url) return
-  execCommand('createLink', url)
-}
 </script>
 
 <template>
@@ -152,30 +143,15 @@ const handleInsertLink = () => {
     :column-width="columnWidth"
   >
     <div class="lc-rich-editor" :class="{ 'is-disabled': disabled }">
-      <div class="lc-rich-editor__toolbar">
-        <ElButton size="small" :disabled="disabled" @click="execCommand('bold')">加粗</ElButton>
-        <ElButton size="small" :disabled="disabled" @click="execCommand('italic')">斜体</ElButton>
-        <ElButton size="small" :disabled="disabled" @click="execCommand('underline')">
-          下划线
-        </ElButton>
-        <ElButton size="small" :disabled="disabled" @click="execCommand('insertOrderedList')">
-          有序列表
-        </ElButton>
-        <ElButton size="small" :disabled="disabled" @click="execCommand('insertUnorderedList')">
-          无序列表
-        </ElButton>
-        <ElButton size="small" :disabled="disabled" @click="execCommand('removeFormat')">
-          清除格式
-        </ElButton>
-        <ElButton size="small" :disabled="disabled" @click="handleInsertLink">插入链接</ElButton>
-      </div>
-      <div
-        ref="editorRef"
-        class="lc-rich-editor__content"
-        :contenteditable="!disabled"
-        :data-placeholder="placeholder"
-        @input="handleInput"
-      ></div>
+      <QuillEditor
+        :content="inner"
+        content-type="html"
+        theme="snow"
+        :toolbar="TOOLBAR"
+        :placeholder="placeholder"
+        :read-only="disabled"
+        @update:content="handleUpdate"
+      />
       <div v-if="showCount" class="lc-rich-editor__count" :class="{ 'is-over': isOverLimit }">
         {{ currentLength }}/{{ maxLengthValue }}
       </div>
@@ -187,35 +163,29 @@ const handleInsertLink = () => {
 .lc-rich-editor {
   box-sizing: border-box;
   width: 100%;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  background-color: #fff;
 }
 .lc-rich-editor.is-disabled {
-  background-color: #f5f7fa;
+  opacity: 0.7;
 }
-.lc-rich-editor__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 6px;
-  border-bottom: 1px solid #dcdfe6;
-}
-.lc-rich-editor__content {
-  box-sizing: border-box;
-  min-height: 120px;
-  padding: 8px 10px;
+/* Quill 的容器默认白底 + 细边框由 snow 主题提供，这里只补圆角与内容最小高度 */
+.lc-rich-editor :deep(.ql-container) {
+  border-radius: 0 0 4px 4px;
   font-size: 13px;
-  line-height: 22px;
-  color: #1d2129;
-  outline: none;
-  overflow-y: auto;
-  word-break: break-word;
 }
-.lc-rich-editor__content:empty::before {
-  content: attr(data-placeholder);
-  color: #a8abb2;
-  pointer-events: none;
+/* 工具栏高度对齐参考实测：padding `8px 8px 4px`、行高 36px（Quill 默认是 padding 8px、
+   行高 normal，量出来 42 vs 参考 50）。 */
+.lc-rich-editor :deep(.ql-toolbar) {
+  border-radius: 4px 4px 0 0;
+  padding: 8px 8px 4px;
+  line-height: 36px;
+}
+/*
+ * `min-height: 200px` 对齐参考实测值：vue2-editor（参考）把 `.ql-editor` 的最小高
+ * 设成了 200px，实测参考编辑区 201、整块 251；我们原来是 120，整块只有 163。
+ */
+.lc-rich-editor :deep(.ql-editor) {
+  min-height: 200px;
+  line-height: 22px;
 }
 .lc-rich-editor__count {
   padding: 2px 8px 4px;
