@@ -853,19 +853,20 @@ const CHECKS = [
         })()`,
       },
       {
-        label: '⑤ 提交能力：当前预览态未注册 FormEngine，submitForm 应「优雅失败」而不是抛异常',
+        label: '⑤ 提交：预览态已注册页面表单，字段填好后 submitForm 应校验通过并返回 ok',
         check: `(async () => {
           ${GETCTX}
           const rt = __unref(__getCtx().runtime)
           const forms = rt.forms ? rt.forms.size : -1
           let result = null
           try {
-            result = await rt.createActionContext().submitForm('any-form')
+            result = await rt.createActionContext().submitForm('page')
           } catch (e) {
             return { ok: false, detail: { 抛异常: String(e).slice(0, 80) } }
           }
           return {
-            ok: forms === 0 && result && result.ok === false && typeof result.error === 'string',
+            // 空值提交会返回「表单校验未通过」（由断言 ③ 的校验错误验证同一条链路）
+            ok: forms >= 1 && result && result.ok === true,
             detail: { 已注册表单数: forms, submitForm返回: result },
           }
         })()`,

@@ -9,7 +9,6 @@ import {
   type ActionContext,
   type EventAction,
   type ExpressionContext,
-  type FormEngine,
   type HttpClient,
   type IEventEngine,
   type IExpressionEngine,
@@ -76,6 +75,12 @@ function recordExpressionError(
     { scope: 'expression', message, nodeId, ref },
     `expression:${nodeId}:${ref}`,
   )
+}
+
+/** 提交动作需要的最小表单契约 */
+export interface SubmittableForm {
+  /** 校验通过返回 true；返回 false 时 `submitForm` 会报"表单校验未通过" */
+  submit(): Promise<boolean>
 }
 
 export interface RuntimeContextOptions {
@@ -153,8 +158,16 @@ export class RuntimeContext {
 
   /** 运行时局部状态（动作读写） */
   readonly state: Record<string, unknown> = reactive({})
-  /** 表单注册表：formId → FormEngine（submit 动作默认从这取表单） */
-  readonly forms = new Map<string, FormEngine>()
+  /**
+   * 表单注册表：formId → 可提交表单（submit 动作默认从这取）。
+   *
+   * ⚠️ 这里刻意用**最小契约** `SubmittableForm` 而不是 `FormEngine`：
+   * `FormEngine` 是基于独立 `FormSchema`（数据模型派生）的状态机，而本架构的校验
+   * **规则来源是节点自身**（见 `buildFieldRules` 的说明）。让页面也能当表单用，
+   * 只需满足 `submit()` 这一个方法即可，不必凭空造一份并行的字段模型。
+   * `FormEngine` 在结构上天然满足这个契约，所以旧用法不受影响。
+   */
+  readonly forms = new Map<string, SubmittableForm>()
   /** 构造选项（保留引用以便扩展） */
   readonly options: RuntimeContextOptions
   /** 节点索引：nodeId → PageNode，把渲染查找从 O(n) 降到 O(1) */
@@ -250,9 +263,9 @@ export class RuntimeContext {
   }
 
   /** 注册表单，返回取消注册函数（submit 动作按 formId 查找并提交） */
-  registerForm(formId: string, engine: FormEngine): () => void {
+  registerForm(formId: string, form: SubmittableForm): () => void {
     if (this.forms.has(formId)) throw new Error(`表单已注册: ${formId}`)
-    this.forms.set(formId, engine)
+    this.forms.set(formId, form)
     return () => {
       this.forms.delete(formId)
     }
@@ -499,6 +512,21 @@ export class RuntimeContext {
     }
     this.setFieldError(nodeId, message)
     return message
+  }
+
+  /**
+   * 由**当前页面**构造一个最小表单：提交 = 整表校验。
+   *
+   * 这是页面级表单与 `submit` 动作之间的桥。没有它，预览态的 `submitForm` 永远只能
+   * 返回"表单未注册"——即平台**无法提交表单**。
+   *
+   * ⚠️ 只做校验，不做 HTTP。真实提交地址属于产品决策（参考实现由 `onSubmit` 外部注入），
+   * 这里保持纯校验，避免把请求逻辑塞进运行时。
+   */
+  createPageForm(): SubmittableForm {
+    return {
+      submit: async () => this.validateAll('blur'),
+    }
   }
 
   /** 校验所有含 `modelValue` 的可见字段；返回是否全部通过 */

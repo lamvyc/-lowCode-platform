@@ -2,6 +2,7 @@ export {
   RuntimeContext,
   RUNTIME_CONTEXT_KEY,
   type RuntimeContextOptions,
+  type SubmittableForm,
   type LoopResolution,
   type FieldRule,
   type FieldTrigger,

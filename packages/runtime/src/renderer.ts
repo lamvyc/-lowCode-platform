@@ -1,6 +1,7 @@
 import {
   Fragment,
   defineComponent,
+  onBeforeUnmount,
   h,
   provide,
   shallowRef,
@@ -20,6 +21,9 @@ type LoopCtx = { itemName: string; indexName?: string; item: unknown; index: num
 function toOnProp(eventName: string): string {
   return `on${eventName.charAt(0).toUpperCase()}${eventName.slice(1)}`
 }
+
+/** 页面级表单的固定 formId（`submit` 动作的默认目标） */
+export const PAGE_FORM_ID = 'page'
 
 /** 深度：防止 schema 异常导致无限递归 */
 const MAX_DEPTH = 32
@@ -266,6 +270,34 @@ export const RuntimeRenderer = defineComponent({
       },
       { immediate: true },
     )
+
+    // 预览态把**页面本身**注册成一个可提交表单，并给它一个稳定的 formId。
+    //
+    // ⚠️ 这是 `submit` 动作能工作的前提：没有注册的话，`submitForm(id)` 只会返回
+    //    `{ok:false, error:'表单未注册: id'}`，即平台**无法提交表单**。
+    //    `formId` 用固定值而不是节点 id：页面只有一张表单，调用方不该被迫记住随机 id。
+    //
+    // 设计态不注册：画布上点按钮不应该真去提交。
+    let disposeForm: (() => void) | null = null
+    watch(
+      () => props.designMode,
+      (isDesignMode) => {
+        disposeForm?.()
+        disposeForm = null
+        if (!isDesignMode) {
+          try {
+            disposeForm = props.context.registerForm(PAGE_FORM_ID, props.context.createPageForm())
+          } catch {
+            // 同一上下文重复渲染（如嵌套 RuntimeRenderer）时已注册，忽略即可
+          }
+        }
+      },
+      { immediate: true },
+    )
+    onBeforeUnmount(() => {
+      disposeForm?.()
+      disposeForm = null
+    })
 
     return () => {
       const wrap = props.wrapNode ?? ((_node: PageNode, inner: VNode) => inner)

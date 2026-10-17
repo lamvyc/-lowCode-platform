@@ -205,3 +205,40 @@ describe('validateAll / clearFieldErrors', () => {
     expect(seen[1]).toBeUndefined()
   })
 })
+
+describe('页面级表单（submit 动作的默认目标）', () => {
+  // 这一组守的是**平台能不能提交表单**这件事：
+  // 之前预览态没有注册任何表单，`submitForm(id)` 永远返回 {ok:false, error:'表单未注册'}。
+
+  it('createPageForm 的 submit 等于整表校验', async () => {
+    const ctx = makeContext([field({}, { required: true, modelValue: '' })])
+    const form = ctx.createPageForm()
+    expect(await form.submit()).toBe(false)
+    expect(ctx.getFieldError('n1')).toBe('字段值不可为空')
+  })
+
+  it('字段有值时提交通过', async () => {
+    const ctx = makeContext([field({}, { required: true, modelValue: '张三' })])
+    expect(await ctx.createPageForm().submit()).toBe(true)
+    expect(ctx.getFieldError('n1')).toBeUndefined()
+  })
+
+  it('注册后 submitForm 能取到表单并返回校验结果', async () => {
+    const ctx = makeContext([field({}, { required: true, modelValue: '' })])
+    const dispose = ctx.registerForm('page', ctx.createPageForm())
+    expect(ctx.forms.size).toBe(1)
+
+    const action = ctx.createActionContext()
+    // submitForm 在类型上是可选的（ActionContext 允许外部注入），这里收窄一次
+    const submitForm = action.submitForm
+    expect(submitForm).toBeTypeOf('function')
+    if (!submitForm) return
+
+    expect(await submitForm('page')).toEqual({ ok: false, error: '表单校验未通过' })
+
+    dispose()
+    expect(ctx.forms.size).toBe(0)
+    expect(await submitForm('page')).toEqual({ ok: false, error: '表单未注册: page' })
+  })
+
+})
