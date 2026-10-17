@@ -96,6 +96,18 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
       resolver: new MaterialRegistryResolver(materialRegistry),
       actionRegistry,
       expression: expressionEngine,
+      /**
+       * ⚠️ 必须注入 `navigate`，否则 `navigate` 动作是**静默空操作**：
+       * 动作实现里是 `ctx.navigate?.(route)`（可选链），不注入就什么都不发生，
+       * 也不报错——表现为"配了跳转但点了没反应"。
+       *
+       * 用 `location.hash` 与 **codegen 生成的代码保持一致**：
+       * `scripts/codegen` 产出的 `runAction` 里 navigate 就是 `location.hash = route`。
+       * 预览态应当模拟运行态的行为，两边不能各走一套。
+       */
+      navigate: (route: string) => {
+        if (typeof window !== 'undefined') window.location.hash = route
+      },
     },
   })
 

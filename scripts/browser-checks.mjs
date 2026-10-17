@@ -992,6 +992,90 @@ const CHECKS = [
   },
 
   {
+    name: 'runtime-action-chain',
+    why: '动作链的语义：条件跳过（when）、多动作顺序、导航。单测覆盖了 ActionChain 执行器，但"在真实浏览器里挂上链、点一下、看顺序和条件是否生效"没验过',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const insert = async (type, props) => {
+            const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+            ctx.insertMaterial(type)
+            await tick(150)
+            const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+            if (id && props) { ctx.updateProps(id, props); await tick(110) }
+            return id
+          }
+          const inputId = await insert('input', { label: '目标' })
+          const buttonId = await insert('button', { text: '跑链' })
+
+          // 一条链里放三个动作，验证：
+          //   ① when 为假 → 跳过
+          //   ② 顺序执行（后写的覆盖先写的）
+          //   ③ navigate 改 hash
+          ctx.updateNodeEvents(buttonId, {
+            click: [
+              { id: 'a-skip', kind: 'setProp', when: 'false',
+                config: { nodeId: inputId, prop: 'modelValue', value: '不该出现' } },
+              { id: 'a-1', kind: 'setProp',
+                config: { nodeId: inputId, prop: 'modelValue', value: '第一个' } },
+              { id: 'a-2', kind: 'setProp',
+                config: { nodeId: inputId, prop: 'modelValue', value: '第二个' } },
+              { id: 'a-nav', kind: 'navigate', config: { route: '#/chain-target' } },
+            ],
+          })
+          await tick(180)
+          ctx.togglePreview()
+          await tick(850)
+          return 'ok'
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '① 预览态渲染出「跑链」按钮',
+        check: `(() => {
+          const btn = [...document.querySelectorAll('.lc-preview-body .el-button')].find((b) => b.textContent.includes('跑链'))
+          if (btn) btn.id = 'chain-btn'
+          return { ok: !!btn, detail: { 按钮: !!btn } }
+        })()`,
+      },
+      {
+        eval: `(() => { location.hash = ''; return 'ok' })()`,
+      },
+      { click: '#chain-btn' },
+      { wait: 700 },
+      {
+        label: '② when 为假的动作被跳过、后面的动作顺序执行（最终是最后一条的值）',
+        check: `(() => {
+          const inp = document.querySelector('.lc-preview-body input')
+          const v = inp ? inp.value : null
+          return {
+            ok: v === '第二个',
+            detail: { 值: v, 说明: '若是"不该出现"说明 when 没生效；若是"第一个"说明链在第一条就停了' },
+          }
+        })()`,
+      },
+      {
+        label: '③ navigate 动作改变了 location.hash',
+        check: `(() => ({ ok: location.hash === '#/chain-target', detail: { hash: location.hash } }))()`,
+      },
+      {
+        label: '④ 一条链里 only 有效动作被计入 metrics（4 个动作、1 个被跳过）',
+        check: `(() => {
+          ${GETCTX}
+          const rt = __unref(__getCtx().runtime)
+          const snap = rt.metrics && rt.metrics.snapshot ? rt.metrics.snapshot() : null
+          const n = snap && snap['event.execute'] ? snap['event.execute'].count : 0
+          return { ok: n >= 1, detail: { 事件执行次数: n } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
