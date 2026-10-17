@@ -908,6 +908,90 @@ const CHECKS = [
   },
 
   {
+    name: 'runtime-data-flow',
+    why: '运行态数据流：事件 → 动作链 → 节点属性变化 → 重新渲染。单测覆盖了动作执行器本身，但"在真实浏览器里配好动作、点一下、看到效果"这条链路从没验过',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const insert = async (type, props) => {
+            const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+            ctx.insertMaterial(type)
+            await tick(140)
+            const id = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+            if (id && props) { ctx.updateProps(id, props); await tick(100) }
+            return id
+          }
+          const inputId = await insert('input', { label: '目标', placeholder: '等待动作写入' })
+          const buttonId = await insert('button', { text: '点我写值' })
+          // 事件 → 动作链：点击按钮把目标节点的 modelValue 改成固定值。
+          // ⚠️ 这里必须是**统一动作格式** { id, type, target, params }：
+          //    id 是 Schema 校验的必填项（漏了会抛 zod 的
+          //    "expected string, received undefined"），
+          //    而 { kind, config } 是**归一化之后**的内部形态，不能直接写进 schema。
+          ctx.updateNodeEvents(buttonId, {
+            click: [
+              {
+                id: 'action-set-value',
+                kind: 'setProp',
+                config: { nodeId: inputId, prop: 'modelValue', value: '来自动作链' },
+              },
+            ],
+          })
+          window.__flowIds = { inputId, buttonId }
+          await tick(150)
+          ctx.togglePreview()
+          await tick(800)
+          return 'ok'
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '① 预览态渲染出按钮与目标输入框',
+        check: `(() => {
+          const btn = [...document.querySelectorAll('.lc-preview-body .el-button')]
+          const inp = [...document.querySelectorAll('.lc-preview-body input')]
+          const target = btn.find((b) => b.textContent.includes('点我写值'))
+          if (target) target.id = 'flow-btn'
+          return { ok: !!target && inp.length >= 1, detail: { 按钮: !!target, 输入框: inp.length } }
+        })()`,
+      },
+      {
+        label: '② 点击前：目标输入框是空的',
+        check: `(() => {
+          const inp = document.querySelector('.lc-preview-body input')
+          return { ok: !!inp && inp.value === '', detail: { 值: inp ? inp.value : null } }
+        })()`,
+      },
+      { click: '#flow-btn' },
+      { wait: 600 },
+      {
+        label: '③ 点击后：动作链写入的值出现在目标输入框里',
+        check: `(() => {
+          const inp = document.querySelector('.lc-preview-body input')
+          const v = inp ? inp.value : null
+          return { ok: v === '来自动作链', detail: { 值: v } }
+        })()`,
+      },
+      {
+        label: '④ 动作执行有记录（metrics 里 event 计数 > 0）',
+        check: `(() => {
+          ${GETCTX}
+          const rt = __unref(__getCtx().runtime)
+          const snap = rt.metrics && rt.metrics.snapshot ? rt.metrics.snapshot() : null
+          // ⚠️ metrics 的键是 event.execute（不是 event），第一版读错键，
+          //    于是"动作明明执行了"却被判成没执行。
+          const eventCount = snap && snap['event.execute'] ? (snap['event.execute'].count ?? 0) : 0
+          return { ok: eventCount > 0, detail: { 事件执行次数: eventCount } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'card-collapse',
     why: '卡片是包 el-card 的容器（对齐参考的扩展示例）。折叠按钮从自绘 <button> 改成 ElIcon + 内联 SVG 后，折叠行为不在原套件的覆盖范围内——补上，避免这类改动落进盲区',
     steps: [
