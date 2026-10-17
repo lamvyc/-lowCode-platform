@@ -471,7 +471,63 @@ if a['el'] != b['el']:
 | 评分 | 12 | `el-rate__item` 的 `display: inline-block→block` |
 | 文件 | 9 | `el-upload--text` 64×36 vs 88×32 |
 
-## 十一、这一层还能往下做
+## 十一、结构性差异筛选（第三轮）
+
+工具修了两处之后（见下），结构差异从 23 个收敛到 **20 个**，分类如下。
+
+### 先修工具的两处误报
+
+| 误报 | 真因 |
+| --- | --- |
+| 表格 / 卡片报出 `el-icon-back → el-icon-copy-document → el-icon-delete` | 那是**参考自己的容器操作条**。参考的字段操作条是 `.field-action`、**容器**操作条是 `.container-action`——我只过滤了前者，于是容器类物料的差异全是编辑器浮层造成的假象 |
+| 几乎所有物料都报"结构不同" | 结构键直接拼整串类名。同一元素只要**类名顺序不同**、或 EP 多/少一个**档位类**（`el-input--medium`）就被判为不同。改成"去掉修饰类、去重排序"的类集合 |
+
+另外把**值为 0 的布局辅助类**归一掉：EP 去掉了 `el-col-offset-0 / pull-0 / push-0`，
+EU 还留着——它们等价于"没有该规则"。
+
+修完之后：**表格变成 ✅ 一致**，完全一致的物料 2 → 3。
+
+### 分类
+
+**(a) 上游 EU→EP 结构差异 —— 记豁免（同一部件，EP 增删/改名了元素）**
+
+| 物料 | 差异 |
+| --- | --- |
+| 单行输入 / 计数器 / 下拉选项 / 时间 / 日期 / 颜色选择器 / 级联选择 | EP 多一层 `.el-input__wrapper`；select 用 `.el-select__wrapper`；picker 用 `.el-tooltip__trigger` |
+| 时间范围 / 日期范围 | 同上 |
+| 开关 | EP 多 `el-switch__action` |
+| 评分 | EU `el-rate__icon.el-icon-star-*`；EP `el-icon.el-rate__icon`（换序 + 换图标机制） |
+| 提示 | EU `el-alert__closebtn`；EP `el-alert__close-btn`（改名） |
+
+**(b) 我们的实现选择 —— 需要决策，不是调 CSS 能解决的**
+
+| 物料 | 参考 | 我们 | 判断 |
+| --- | --- | --- | --- |
+| **卡片** | `el-card → el-card__header → el-icon-arrow-down → el-card__body` | **没有任何 el- 元素**（手写 `lc-card`） | 手写 vs 包 Element。实测只差 1 处（宽度），说明手写版渲染接近 |
+| **按钮** | `el-button--small`（白底灰边，`type: ''`） | `el-button--primary`（**蓝色实心**） | ✅ **已修**，见下 |
+| **图片** | `el-upload-list--picture-card`（**上传**） | `el-image`（**展示**） | **物料语义不同**：我们多了一个"展示图片"，参考的「图片」是上传 |
+| **文件** | `el-upload > el-icon-plus` | `el-upload > el-button` | 触发器的实现不同 |
+| **富文本** | content 里**没有 el- 元素** | 多了工具栏 `el-button` | 参考用外部富文本，我们自建工具栏 |
+
+**(c) 前缀相同、差异在后段** —— 标签页 / 单选项 / 滑块，需逐条看完整序列。
+
+## 十二、逐条清零（第四轮，刚开始）
+
+### 已完成：按钮的默认类型（最显眼的一处）
+
+| | 参考 | 我们（修复前） |
+| --- | --- | --- |
+| 类名 | `el-button el-button--small` | `el-button el-button--primary el-button--default` |
+| 背景 | **`rgb(255,255,255)` 白** | **`rgb(64,158,255)` 蓝** |
+| 文字 | 灰 `rgb(96,98,102)` | **白** |
+
+参考 `widgetsConfig.js` 里 button 的默认是 **`type: ''`**（Element 默认样式），
+我们写成了 `'primary'`。改回来之后背景恢复白色。
+
+剩余：`fontSize` 12 vs 14、`padding` 9/15 vs 8/15、`borderRadius` 3 vs 4 ——
+这是 **EU 的 small 档 vs EP 的 default 档**（两者都是 32px 高，但字号/内边距不同）。
+
+## 十三、这一层还能往下做
 
 | 方向 | 说明 |
 | --- | --- |
