@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { MATERIAL_MANIFESTS } from '@lowcode/materials'
 import { isSchemaEnvelope, normalizePageSchema, parsePageSchema } from '@lowcode/schema'
 import { buildOutlineTree, countOutlineNodes } from './outline'
+import { REFERENCE_FORM_PRESETS } from './template-presets'
 import {
   BUILTIN_TEMPLATES,
   TemplateRegistry,
@@ -92,5 +94,90 @@ describe('页面模板', () => {
     registry.remove('t2')
     expect(registry.list().map((item) => item.id)).toEqual(['t1', 't3'])
     expect(registry.instantiate('missing')).toBeUndefined()
+  })
+})
+
+describe('参考 variant-form 的表单模板', () => {
+  const referenceIds = [
+    'single',
+    'multi',
+    'grouped',
+    'tabs',
+    'master-detail',
+    'responsive',
+    'survey',
+    'fixed-table',
+  ]
+
+  it('8 个参考表单模板全部注册且顺序一致', () => {
+    expect(REFERENCE_FORM_PRESETS.map((preset) => preset.id)).toEqual(referenceIds)
+    const builtinIds = BUILTIN_TEMPLATES.map((template) => template.id)
+    expect(referenceIds.every((id) => builtinIds.includes(id))).toBe(true)
+  })
+
+  it('模板只使用已注册物料，且都能通过 Schema 校验', () => {
+    const known = new Set(MATERIAL_MANIFESTS.map((material) => material.type))
+    for (const preset of REFERENCE_FORM_PRESETS) {
+      for (const node of preset.nodes) {
+        expect(known.has(node.type), `${preset.id} 使用了未注册物料 ${node.type}`).toBe(true)
+      }
+      const template = BUILTIN_TEMPLATES.find((item) => item.id === preset.id)!
+      expect(() => parsePageSchema(template.create())).not.toThrow()
+    }
+  })
+
+  it('保留参考模板的表单排版设置（left / 150 / right，固定表格为 80 / left）', () => {
+    const single = normalizePageSchema(
+      BUILTIN_TEMPLATES.find((template) => template.id === 'single')!.create(),
+    )
+    expect(single.settings?.form).toMatchObject({
+      labelPosition: 'left',
+      labelWidth: 150,
+      labelAlign: 'right',
+    })
+
+    const fixed = normalizePageSchema(
+      BUILTIN_TEMPLATES.find((template) => template.id === 'fixed-table')!.create(),
+    )
+    expect(fixed.settings?.form).toMatchObject({
+      labelPosition: 'left',
+      labelWidth: 80,
+      labelAlign: 'left',
+    })
+    expect(fixed.settings?.form?.cssCode).toContain('small-margin-bottom')
+  })
+
+  it('响应式模板的栅格列带 PC 3 栏 / Pad 2 栏 / H5 1 栏断点', () => {
+    const schema = normalizePageSchema(
+      BUILTIN_TEMPLATES.find((template) => template.id === 'responsive')!.create(),
+    )
+    const cols = schema.nodes.filter((node) => node.type === 'grid-col')
+    expect(cols.length).toBeGreaterThan(0)
+    for (const col of cols) {
+      expect(col.props).toMatchObject({ responsive: true, md: 8, sm: 12, xs: 24 })
+    }
+  })
+
+  it('固定表格模板是 table > row > cell 的简历结构', () => {
+    const schema = normalizePageSchema(
+      BUILTIN_TEMPLATES.find((template) => template.id === 'fixed-table')!.create(),
+    )
+    const table = schema.nodes.find((node) => node.type === 'table')!
+    expect(table).toBeDefined()
+    const rows = (table.children ?? []).map((id) => schema.nodes.find((node) => node.id === id)!)
+    expect(rows.length).toBeGreaterThanOrEqual(8)
+    expect(rows.every((row) => row.type === 'table-row')).toBe(true)
+    expect(schema.nodes.some((node) => node.type === 'picture-upload')).toBe(true)
+    expect(schema.nodes.some((node) => node.props.textContent === '姓名')).toBe(true)
+  })
+
+  it('参考模板实例化后与预设数据隔离（不同页面互不影响）', () => {
+    const template = BUILTIN_TEMPLATES.find((item) => item.id === 'single')!
+    const first = normalizePageSchema(template.create())
+    const input = first.nodes.find((node) => node.type === 'input')!
+    input.props.label = '被改坏了'
+
+    const second = normalizePageSchema(template.create())
+    expect(second.nodes.find((node) => node.type === 'input')?.props.label).toBe('发件人姓名')
   })
 })

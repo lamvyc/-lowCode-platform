@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { ElCollapse, ElCollapseItem } from 'element-plus'
 import type { Material, PageNode, PropConfig } from '@lowcode/schema'
 import {
@@ -8,6 +8,7 @@ import {
   materialPropConfigs,
   resolvePropGroup,
 } from '../../props-config'
+import { DESIGNER_KEY, type DesignerContext } from '../../useDesigner'
 import PropField from './PropField.vue'
 import EventSettings from './EventSettings.vue'
 
@@ -18,6 +19,8 @@ const props = defineProps<{
   customClasses: string[]
 }>()
 
+const ctx = inject<DesignerContext>(DESIGNER_KEY)!
+
 /** 除事件外的属性分区（事件分区统一由 EventSettings 渲染） */
 const allConfigs = computed<PropConfig[]>(() => materialPropConfigs(props.material))
 
@@ -26,7 +29,9 @@ const groups = computed(() =>
     .filter((group) => group.key !== 'event')
     .map((group) => ({
       ...group,
-      configs: group.configs.filter((config) => isPropVisible(config, props.node, allConfigs.value)),
+      configs: group.configs.filter((config) =>
+        isPropVisible(config, props.node, allConfigs.value, ctx.state.device),
+      ),
     }))
     .filter((group) => group.configs.length > 0),
 )
@@ -35,7 +40,8 @@ const groups = computed(() =>
 const eventPropConfigs = computed<PropConfig[]>(() =>
   allConfigs.value.filter(
     (config) =>
-      resolvePropGroup(config) === 'event' && isPropVisible(config, props.node, allConfigs.value),
+      resolvePropGroup(config) === 'event' &&
+      isPropVisible(config, props.node, allConfigs.value, ctx.state.device),
   ),
 )
 

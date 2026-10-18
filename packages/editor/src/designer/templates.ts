@@ -1,5 +1,12 @@
 import { shallowRef } from 'vue'
-import { SCHEMA_VERSION, type AnyPageSchema, type PageNode, type PageSchema } from '@lowcode/schema'
+import {
+  SCHEMA_VERSION,
+  type AnyPageSchema,
+  type FormSettings,
+  type PageNode,
+  type PageSchema,
+} from '@lowcode/schema'
+import { REFERENCE_FORM_PRESETS } from './template-presets'
 
 /** 页面模板：工厂函数返回全新 Schema，避免多处共享同一份可变对象 */
 export interface PageTemplate {
@@ -18,18 +25,33 @@ function page(
   name: string,
   description: string,
   nodes: PageNode[],
-  extra: Partial<Pick<PageSchema, 'dataSources' | 'variables'>> = {},
+  extra: Partial<Pick<PageSchema, 'dataSources' | 'variables'>> & {
+    form?: Partial<FormSettings>
+    cssCode?: string
+  } = {},
 ): PageSchema {
   const now = new Date().toISOString()
   return {
     version: SCHEMA_VERSION,
     meta: { id, name, description, createdAt: now, updatedAt: now },
-    nodes,
+    // 模板实例必须是独立对象：预设数据是模块级常量，直接引用会让不同页面互相污染
+    nodes: JSON.parse(JSON.stringify(nodes)) as PageNode[],
     materials: [],
-    dataSources: extra.dataSources ?? [],
-    variables: extra.variables ?? [],
+    dataSources: JSON.parse(JSON.stringify(extra.dataSources ?? [])) as PageSchema['dataSources'],
+    variables: JSON.parse(JSON.stringify(extra.variables ?? [])) as PageSchema['variables'],
     rules: [],
-    settings: { layout: { mode: 'free' }, form: { labelPosition: 'top', labelWidth: 100 } },
+    settings: {
+      layout: { mode: 'free' },
+      form: {
+        labelPosition: 'top',
+        labelWidth: 100,
+        labelAlign: 'left',
+        size: 'default',
+        customClass: [],
+        cssCode: extra.cssCode ?? '',
+        ...extra.form,
+      },
+    },
   }
 }
 
@@ -42,6 +64,18 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
     tags: ['基础'],
     create: () => page('tpl_blank', '空白页面', '空白页面模板', []),
   },
+  // 参考 variant-form 的 8 个表单模板（单列 / 多列 / 分组 / 标签页 / 主从 / 响应式 / 问卷 / 固定表格）
+  ...REFERENCE_FORM_PRESETS.map((preset) => ({
+    id: preset.id,
+    name: preset.name,
+    description: preset.description,
+    tags: preset.tags,
+    create: () =>
+      page(`tpl_${preset.id}`, preset.name, preset.description, preset.nodes, {
+        form: preset.form,
+        cssCode: preset.cssCode,
+      }),
+  })),
   {
     id: 'login',
     name: '登录表单',

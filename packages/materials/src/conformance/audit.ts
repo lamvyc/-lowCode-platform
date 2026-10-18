@@ -88,7 +88,7 @@ export const WAIVERS: ConformanceWaiver[] = [
     kind: 'attr',
     reference: 'gridcolwidget:col-height',
     reason:
-      '子节点由渲染器按 Schema 独立渲染，父容器无法向子组件传 prop；colHeight 在本平台表达为整行最小高度（参考为逐列高度），观感等价但承载位置不同',
+      '子节点由渲染器按 Schema 独立渲染，父容器无法向子组件传 prop；本平台用可继承的 CSS 变量把 colHeight 下传，并在 GridCol 上写成逐列 height —— 与参考的逐列高度语义等价，只是承载位置不同',
   },
   {
     widget: 'button',

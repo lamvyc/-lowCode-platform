@@ -53,6 +53,13 @@ export const SPEC_ASSERTIONS = {
        const p = parseFloat(getComputedStyle(c).paddingLeft) || 0;
        return p > 0`,
     ),
+    {
+      id: 'prop-colheight',
+      desc: '`colHeight` 设为 120 后，每一列的高度都是 120px（参考实现的逐列高度语义）',
+      props: { colHeight: 120 },
+      check: `const cols = [...root.querySelectorAll('.el-col')]; if (!cols.length) return false;
+       return cols.every((c) => Math.round(c.getBoundingClientRect().height) === 120)`,
+    },
   ],
 
 

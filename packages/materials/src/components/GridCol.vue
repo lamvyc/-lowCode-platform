@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, type CSSProperties } from 'vue'
+import { computed } from 'vue'
 import { ElCol } from 'element-plus'
+import { useLayoutType } from '@lowcode/runtime'
 
 defineOptions({ name: 'LcGridCol' })
 
@@ -14,16 +15,21 @@ const props = withDefaults(
     push?: number
     /** 向左移动格数 */
     pull?: number
-    /** 是否启用响应式栅格（启用后按 md/sm/xs 分档，不再使用 span） */
+    /**
+     * 是否启用响应式栅格。
+     *
+     * 与参考实现一致：
+     * - 设计器 / 预览（`layoutType` 有值）：按当前设备档位把 md/sm/xs 换算成 span，
+     *   同时清掉断点属性（`grid-col-widget.vue` 的 layoutProps 就是这么算的）；
+     * - 独立运行时（无 `layoutType`）：交给 Element Plus 的 md/sm/xs 断点。
+     */
     responsive?: boolean
-    /** ≥992px 时的占位格数 */
+    /** PC 档位占位格数（≥992px 断点；设计器 PC 档直接用它） */
     md?: number
-    /** ≥768px 时的占位格数 */
+    /** Pad 档位占位格数（≥768px 断点；设计器 Pad 档直接用它） */
     sm?: number
-    /** <768px 时的占位格数 */
+    /** H5 档位占位格数（<768px 断点；设计器 H5 档直接用它） */
     xs?: number
-    /** 单元格最小高度（px）；为空时不额外限制 */
-    colHeight?: number | null
   }>(),
   {
     span: 12,
@@ -34,29 +40,41 @@ const props = withDefaults(
     md: 12,
     sm: 12,
     xs: 12,
-    colHeight: null,
   },
 )
 
-/** 容错：只有合法正数才写内联高度，其余情况回落到 class 上的 24px 落点高度 */
-const colStyle = computed<CSSProperties | undefined>(() =>
-  typeof props.colHeight === 'number' && props.colHeight > 0
-    ? { minHeight: `${props.colHeight}px` }
-    : undefined,
-)
+const layoutType = useLayoutType()
+
+/** 当前设备档位对应的 span；未提供设备档位时返回 undefined（走断点） */
+const deviceSpan = computed<number | undefined>(() => {
+  const type = layoutType.value
+  if (!type) return undefined
+  if (type === 'h5') return props.xs || 12
+  if (type === 'pad') return props.sm || 12
+  return props.md || 12
+})
+
+const spanProp = computed(() => (props.responsive ? deviceSpan.value : props.span))
+
+/** 只有在“响应式 + 未提供设备档位”时才把 md/sm/xs 交给 Element Plus 的断点 */
+function breakpoint(value: number): number | undefined {
+  return props.responsive && layoutType.value === undefined ? value : undefined
+}
+const mdProp = computed(() => breakpoint(props.md))
+const smProp = computed(() => breakpoint(props.sm))
+const xsProp = computed(() => breakpoint(props.xs))
 </script>
 
 <template>
   <ElCol
     class="lc-grid-col"
-    :span="responsive ? undefined : span"
+    :span="spanProp"
     :offset="offset || undefined"
     :push="push || undefined"
     :pull="pull || undefined"
-    :md="responsive ? md : undefined"
-    :sm="responsive ? sm : undefined"
-    :xs="responsive ? xs : undefined"
-    :style="colStyle"
+    :md="mdProp"
+    :sm="smProp"
+    :xs="xsProp"
   >
     <slot />
   </ElCol>
@@ -72,6 +90,11 @@ const colStyle = computed<CSSProperties | undefined>(() =>
   min-height: 38px;
   padding-top: 3px;
   padding-bottom: 3px;
+  /* 参考实现的 colHeight 是逐列 `height`；父级 Grid 通过 CSS 变量下传。
+     未设置（auto）时等价于原来的自适应高度。 */
+  height: var(--lc-grid-col-height, auto);
+  /* 选中态操作条 / 栅格列标签以本列为定位基准（参考 `.grid-cell { position: relative }`） */
+  position: relative;
   /* EP 的 .el-row 是 flex（EU 是 block），格子作为 flex item 会被拉伸到整行高度
      （50px），而参考里它只有自己的 38px。align-self 阻止拉伸。 */
   align-self: flex-start;

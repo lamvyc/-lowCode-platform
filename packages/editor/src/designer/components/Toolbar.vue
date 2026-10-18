@@ -119,11 +119,12 @@ function handleClear(): void {
       <span class="lc-toolbar__logo">LC</span>
       <span class="lc-toolbar__name">低代码设计器</span>
       <span class="lc-toolbar__version">v1.0</span>
-      <span class="lc-toolbar__page">{{ schema.meta.name }}</span>
     </div>
 
     <div class="lc-toolbar__group">
       <el-button
+        class="lc-toolbar__action"
+        aria-label="撤销"
         :icon="RefreshLeft"
         :disabled="!canUndo"
         title="撤销（Ctrl/Cmd + Z）"
@@ -132,6 +133,8 @@ function handleClear(): void {
         撤销
       </el-button>
       <el-button
+        class="lc-toolbar__action"
+        aria-label="重做"
         :icon="RefreshRight"
         :disabled="!canRedo"
         title="重做（Ctrl/Cmd + Shift + Z）"
@@ -152,13 +155,21 @@ function handleClear(): void {
       </el-button-group>
 
       <div class="lc-toolbar__zoom">
-        <el-button @click="zoomOut">－</el-button>
-        <span class="lc-toolbar__zoom-value">{{ zoomPercent }}%</span>
-        <el-button @click="zoomIn">＋</el-button>
-        <el-button @click="resetZoom">100%</el-button>
+        <el-button title="缩小" @click="zoomOut">－</el-button>
+        <button
+          type="button"
+          class="lc-toolbar__zoom-value"
+          title="重置为 100%"
+          @click="resetZoom"
+        >
+          {{ zoomPercent }}%
+        </button>
+        <el-button title="放大" @click="zoomIn">＋</el-button>
       </div>
 
       <el-button
+        class="lc-toolbar__action"
+        aria-label="结构树"
         :icon="Operation"
         title="组件层次结构树"
         @click="nodeTreeVisible = true"
@@ -168,11 +179,21 @@ function handleClear(): void {
     </div>
 
     <div class="lc-toolbar__group">
-      <el-button :icon="Delete" @click="handleClear">清空</el-button>
-      <el-button :icon="Upload" @click="openImport">导入 JSON</el-button>
-      <el-button :icon="Download" @click="openExport">导出 JSON</el-button>
-      <el-button :icon="Document" @click="sfcVisible = true">生成 SFC</el-button>
-      <el-button type="primary" :icon="View" @click="ctx.togglePreview()">预览</el-button>
+      <el-button class="lc-toolbar__action" aria-label="清空" :icon="Delete" title="清空画布（可撤销）" @click="handleClear">
+        清空
+      </el-button>
+      <el-button class="lc-toolbar__action" aria-label="导入 JSON" :icon="Upload" title="导入 JSON" @click="openImport">
+        导入 JSON
+      </el-button>
+      <el-button class="lc-toolbar__action" aria-label="导出 JSON" :icon="Download" title="导出 JSON" @click="openExport">
+        导出 JSON
+      </el-button>
+      <el-button class="lc-toolbar__action" aria-label="生成 SFC" :icon="Document" title="生成 Vue SFC" @click="sfcVisible = true">
+        生成 SFC
+      </el-button>
+      <el-button class="lc-toolbar__action" type="primary" aria-label="预览" :icon="View" title="预览（运行态）" @click="ctx.togglePreview()">
+        预览
+      </el-button>
     </div>
 
     <el-dialog v-model="importVisible" title="导入 JSON" width="620px" append-to-body>
@@ -208,19 +229,28 @@ function handleClear(): void {
 .lc-toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   box-sizing: border-box;
   height: 48px;
-  padding: 0 16px;
+  padding: 0 12px;
   background: #fff;
   border-bottom: 1px solid #e5e6eb;
   flex-shrink: 0;
+  /* 极窄窗口下横向滚动，而不是把按钮压扁/换行 */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.lc-toolbar::-webkit-scrollbar {
+  display: none;
 }
 .lc-toolbar__brand {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-right: 8px;
+  margin-right: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .lc-toolbar__logo {
   display: inline-flex;
@@ -238,47 +268,81 @@ function handleClear(): void {
   font-size: 14px;
   font-weight: 600;
   color: #1f2329;
+  white-space: nowrap;
 }
 .lc-toolbar__version {
   font-size: 12px;
   color: #86909c;
-}
-.lc-toolbar__page {
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background: #f2f3f5;
-  color: #4e5969;
-  font-size: 12px;
 }
 .lc-toolbar__group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .lc-toolbar__group:last-of-type {
   margin-left: auto;
 }
+.lc-toolbar__group :deep(.el-button) {
+  flex-shrink: 0;
+  /* 默认 15px 的内边距在 8 个按钮上会多占 ~220px，收紧后常见笔记本宽度仍能显示文案 */
+  padding-left: 8px;
+  padding-right: 8px;
+}
 .lc-toolbar__devices {
-  margin: 0 8px;
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 .lc-toolbar__zoom {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
 }
 .lc-toolbar__zoom-value {
   min-width: 44px;
-  text-align: center;
-  font-size: 13px;
+  height: 24px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   color: #4e5969;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.lc-toolbar__zoom-value:hover {
+  background: #f2f3f5;
+  color: #3370ff;
 }
 .lc-toolbar__hint {
   margin: 0 0 8px;
   font-size: 12px;
   color: #86909c;
+}
+
+/* 浏览器窗口不够宽时收成图标按钮（文案靠 title 提示），避免设备组被挤成竖排 */
+@media (max-width: 1380px) {
+  .lc-toolbar {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .lc-toolbar__group {
+    gap: 4px;
+  }
+  .lc-toolbar__devices {
+    margin: 0 2px;
+  }
+  .lc-toolbar__action :deep(span) {
+    display: none;
+  }
+}
+
+@media (max-width: 1120px) {
+  .lc-toolbar__name {
+    display: none;
+  }
 }
 </style>

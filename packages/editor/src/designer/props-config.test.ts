@@ -108,6 +108,24 @@ describe('属性面板配置解析', () => {
     expect(isPropVisible(dependent, node({ maxlength: 20 }), configs)).toBe(true)
   })
 
+  it('isPropVisible 支持 visibleWhen.device：只展示当前设备档位的属性', () => {
+    const target = node({ responsive: true })
+    const config: PropConfig = {
+      name: 'md',
+      label: '栅格宽度(PC)',
+      control: 'number',
+      visibleWhen: { prop: 'responsive', equals: true, device: ['pc'] },
+    }
+
+    expect(isPropVisible(config, target, undefined, 'pc')).toBe(true)
+    expect(isPropVisible(config, target, undefined, 'pad')).toBe(false)
+    expect(isPropVisible(config, target, undefined, 'h5')).toBe(false)
+    // 不传设备档位（旧调用）时不因 device 条件隐藏
+    expect(isPropVisible(config, target)).toBe(true)
+    // 属性联动条件仍然生效
+    expect(isPropVisible(config, node({ responsive: false }), undefined, 'pc')).toBe(false)
+  })
+
   it('readPropValue 在属性缺失时回落到 defaultValue', () => {
     const config: PropConfig = { name: 'maxlength', label: '最大长度', control: 'number', defaultValue: 0 }
     expect(readPropValue(node({}), config)).toBe(0)

@@ -45,14 +45,17 @@ const registerPane = inject<((name: string) => void) | undefined>(
   'lcTabRegisterPane',
   undefined,
 )
-/** 父级 Tab 提供的"显式指定激活项"入口 */
-const preferPane = inject<(() => void) | undefined>('lcTabPreferredPane', undefined)
+/** 父级 Tab 提供的"显式指定激活项"入口（参数是面板 name） */
+const preferPane = inject<((name: string) => void) | undefined>(
+  'lcTabPreferredPane',
+  undefined,
+)
 
 onMounted(() => {
   // `active: true` 的面板优先成为默认激活项（参考实现的 `options.active`）。
   // 注意：父级 Tab 的自动逻辑是"最后注册的生效"，所以显式指定必须在
   // 注册**之前**告知父级，让它进入"用户已选择"状态，不再被自动逻辑覆盖。
-  if (props.active === true) preferPane?.()
+  if (props.active === true) preferPane?.(resolvedName.value)
   registerPane?.(resolvedName.value)
 })
 </script>

@@ -53,6 +53,12 @@ export interface PropVisibleWhen {
   in?: unknown[]
   /** 不等于该值时展示 */
   notEquals?: unknown
+  /**
+   * 仅在这些设备档位下展示（设计器 PC / Pad / H5）。
+   * 缺省表示所有档位都展示；典型用法是栅格列的「栅格宽度」——
+   * 参考实现只显示当前设备对应的 md/sm/xs 输入框。
+   */
+  device?: Array<'pc' | 'pad' | 'h5'>
 }
 
 /** 属性配置：驱动右侧属性面板动态渲染控件 */

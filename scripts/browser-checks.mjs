@@ -188,6 +188,301 @@ const CHECKS = [
   },
 
   {
+    name: 'toolbar-compact',
+    why: '顶部工具栏在常见浏览器宽度下不能把设备组挤成竖排、不能溢出。这条守的是纯布局问题：只改一行 flex/宽度就会复现（曾出现 PC/H5 被裁掉、只剩 Pad）',
+    steps: [
+      {
+        label: '设备组横向排列、无页面名区块、无多余的 100% 按钮、工具栏不溢出',
+        check: `(() => {
+          const bar = document.querySelector('.lc-toolbar')
+          const devices = [...document.querySelectorAll('.lc-toolbar__devices .el-button')]
+          const rows = new Set(devices.map((b) => Math.round(b.getBoundingClientRect().top)))
+          const zoomButtons = [...document.querySelectorAll('.lc-toolbar__zoom .el-button')].map((b) => b.textContent.trim())
+          const detail = {
+            设备按钮: devices.map((b) => b.textContent.trim()),
+            设备行数: rows.size,
+            缩放按钮: zoomButtons,
+            页面名区块: !!document.querySelector('.lc-toolbar__page'),
+            溢出: bar.scrollWidth > bar.clientWidth,
+          }
+          return {
+            ok: devices.length === 3 && rows.size === 1 && !detail.页面名区块
+              && !zoomButtons.includes('100%') && !detail.溢出,
+            detail,
+          }
+        })()`,
+      },
+    ],
+  },
+
+  {
+    name: 'page-templates',
+    why: '页面模板是整页 Schema 的工厂：参考 variant-form 的 8 个模板转换后必须真的能载入、渲染不出现未注册物料，并且表单级排版（labelWidth / labelAlign）跟着模板生效',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        label: '模板库展示 12 个模板，参考的 8 个都在',
+        check: `(() => {
+          const tab = [...document.querySelectorAll('.lc-material-panel__tabs .lc-tab')]
+            .find((b) => b.textContent.includes('页面模板'))
+          if (!tab) return { ok: false, detail: { 错误: '找不到页面模板页签' } }
+          tab.click()
+          return new Promise((resolve) => setTimeout(() => {
+            const names = [...document.querySelectorAll('.lc-template-card__name')].map((e) => e.textContent.trim())
+            const want = ['单列表单','多列表单','分组表单','标签页表单','主从表单','响应式表单','问卷调查表','固定表格表单']
+            resolve({ ok: names.length >= 12 && want.every((name) => names.includes(name)), detail: { 模板: names, 缺失: want.filter((name) => !names.includes(name)) } })
+          }, 300))
+        })()`,
+      },
+      {
+        label: '载入「响应式表单」：表单排版生效、无渲染错误',
+        check: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const load = async (name) => {
+            const card = [...document.querySelectorAll('.lc-template-card')]
+              .find((el) => el.querySelector('.lc-template-card__name')?.textContent.trim() === name)
+            if (!card) return false
+            const btn = [...card.querySelectorAll('button')].find((b) => b.textContent.trim() === '载入')
+            if (!btn) return false
+            btn.click()
+            await tick(800)
+            return true
+          }
+          const failures = []
+          if (!(await load('响应式表单'))) failures.push('找不到响应式表模板')
+          const form = __unref(ctx.formSettings)
+          const nodes = __unref(ctx.schema).nodes
+          if (!(form.labelWidth === 150 && form.labelPosition === 'left' && form.labelAlign === 'right')) failures.push('表单排版未生效: ' + JSON.stringify(form))
+          if (document.querySelectorAll('.lc-render-error').length) failures.push('有渲染错误')
+          if (document.querySelectorAll('.lc-missing').length) failures.push('有未注册物料')
+          if (!nodes.some((n) => n.type === 'grid-col' && n.props.responsive === true && n.props.md === 8)) failures.push('响应式列缺失')
+
+          // 模板载入后必须能像普通节点一样选中/改属性（外部 Schema 载入时补齐物料默认值）
+          const field = nodes.find((n) => n.type === 'input')
+          if (!field) failures.push('响应式模板里没有字段')
+          else {
+            const el = document.querySelector('[data-node-id="' + field.id + '"]')
+            if (!el) failures.push('模板字段没有渲染出节点包裹层')
+            else {
+              el.click()
+              await tick(250)
+              if (ctx.state.selectedNodeId !== field.id) failures.push('点击模板字段未选中')
+              ctx.updateProps(field.id, { label: '模板字段已编辑' })
+              await tick(250)
+              const label = document.querySelector('[data-node-id="' + field.id + '"] .lc-form-item__label')?.textContent ?? ''
+              if (!label.includes('模板字段已编辑')) failures.push('模板字段属性修改未生效: ' + label)
+            }
+          }
+
+          // 画布非空时「载入」会弹二次确认；先清空，避免测试去点确认框
+          ctx.clear(); await tick(200)
+          if (!(await load('固定表格表单'))) failures.push('找不到固定表格模板')
+          const table = [...document.querySelectorAll('.lc-canvas table')][0]
+          const rows = table ? table.querySelectorAll('tr').length : 0
+          if (rows < 8) failures.push('固定表格行数不足: ' + rows)
+          if (document.querySelectorAll('.lc-render-error').length) failures.push('固定表格渲染错误')
+          ctx.clear()
+          return { ok: failures.length === 0, detail: { 失败: failures, 响应式节点数: nodes.length, 表格行数: rows } }
+        })()`,
+      },
+    ],
+  },
+
+  {
+    name: 'preview-dialog',
+    why: '参考 variant-form 的预览是弹窗，而不是整页替换；弹窗底部要有获取数据/重置表单/禁用编辑/恢复编辑/关闭，且表单校验、重置、禁用状态都必须在真实浏览器里成立',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const mod = await import('/@fs/Users/unravel/%20lowCode-platform/packages/editor/src/designer/templates.ts')
+          mod.registerBuiltinTemplates()
+          ctx.loadSchema(mod.templateRegistry.instantiate('single'))
+          await new Promise((r) => setTimeout(r, 600))
+          ctx.setPreview(true)
+          await new Promise((r) => setTimeout(r, 800))
+          const input = document.querySelector('.lc-preview-dialog__canvas input')
+          if (!input) return 'NO_INPUT'
+          input.id = 'preview-name'
+          window.__fieldId = 'tpl_single_input1'
+          return 'ok'
+        })()`,
+      },
+      {
+        label: '预览在弹窗内打开，底部有 5 个操作',
+        check: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.lc-preview-title'))
+          if (!dialog) return { ok: false, detail: { 错误: '没有预览弹窗' } }
+          const buttons = [...dialog.querySelectorAll('.el-dialog__footer button')].map((b) => b.textContent.trim())
+          const want = ['获取数据','重置表单','禁用编辑','恢复编辑','关闭']
+          return { ok: want.every((name) => buttons.includes(name)) && !!dialog.querySelector('.lc-preview-dialog__canvas input'), detail: { buttons } }
+        })()`,
+      },
+      { click: '#preview-name' },
+      { type: '张三' },
+      { eval: `document.activeElement && document.activeElement.blur && document.activeElement.blur()` },
+      { wait: 250 },
+      {
+        label: '预览输入框可编辑，值写进运行时',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const value = ctx.runtime.value.getNodeValue(window.__fieldId)
+          const dom = document.querySelector('#preview-name')?.value
+          return { ok: value === '张三' && dom === '张三', detail: { value, dom } }
+        })()`,
+      },
+      {
+        eval: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.lc-preview-title'))
+          const btn = [...dialog.querySelectorAll('.el-dialog__footer button')]
+            .find((b) => b.textContent.trim() === '禁用编辑')
+          btn && btn.click()
+          return !!btn
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '禁用编辑：预览里的输入框全部 disabled',
+        check: `(() => {
+          const inputs = [...document.querySelectorAll('.lc-preview-dialog__canvas input, .lc-preview-dialog__canvas textarea')]
+          return { ok: inputs.length > 0 && inputs.every((el) => el.disabled), detail: { 数量: inputs.length, 未禁用: inputs.filter((el) => !el.disabled).length } }
+        })()`,
+      },
+      {
+        eval: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.lc-preview-title'))
+          const btn = [...dialog.querySelectorAll('.el-dialog__footer button')]
+            .find((b) => b.textContent.trim() === '恢复编辑')
+          btn && btn.click()
+          return !!btn
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '恢复编辑：输入框重新可编辑',
+        check: `(() => {
+          const inputs = [...document.querySelectorAll('.lc-preview-dialog__canvas input, .lc-preview-dialog__canvas textarea')]
+          return { ok: inputs.length > 0 && inputs.every((el) => !el.disabled), detail: { 数量: inputs.length, 仍禁用: inputs.filter((el) => el.disabled).length } }
+        })()`,
+      },
+      {
+        eval: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.lc-preview-title'))
+          const btn = [...dialog.querySelectorAll('.el-dialog__footer button')]
+            .find((b) => b.textContent.trim() === '获取数据')
+          btn && btn.click()
+          return !!btn
+        })()`,
+      },
+      { wait: 350 },
+      {
+        label: '必填未填时获取数据被拦截，并出现校验错误',
+        check: `(() => {
+          const errors = [...document.querySelectorAll('.lc-preview-dialog__canvas .lc-form-item__error')].map((e) => e.textContent.trim())
+          const dataDialog = [...document.querySelectorAll('.el-dialog')]
+            .some((d) => d.querySelector('.el-dialog__title')?.textContent.includes('表单数据'))
+          return { ok: errors.length > 0 && !dataDialog, detail: { errors, dataDialog } }
+        })()`,
+      },
+      {
+        eval: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.lc-preview-title'))
+          const btn = [...dialog.querySelectorAll('.el-dialog__footer button')]
+            .find((b) => b.textContent.trim() === '重置表单')
+          btn && btn.click()
+          return !!btn
+        })()`,
+      },
+      { wait: 300 },
+      {
+        label: '重置表单：值回到默认值、校验错误清空',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const value = ctx.runtime.value.getNodeValue(window.__fieldId)
+          const errors = document.querySelectorAll('.lc-preview-dialog__canvas .lc-form-item__error').length
+          return { ok: (value === '' || value === undefined) && errors === 0, detail: { value, errors } }
+        })()`,
+      },
+      {
+        label: '填齐必填项后获取数据：打开表单数据弹窗',
+        eval: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          for (const node of ctx.schema.value.nodes) {
+            if (!('modelValue' in node.props)) continue
+            let value = 'x'
+            if (node.type === 'switch') value = true
+            else if (node.type === 'checkbox') value = [1]
+            else if (node.type === 'time-range') value = ['09:00:00', '18:00:00']
+            else if (node.type === 'date-range') value = ['2026-01-01', '2026-01-02']
+            else if (node.type === 'number' || node.type === 'slider' || node.type === 'rate') value = 1
+            ctx.runtime.value.setNodeValue(node.id, value)
+          }
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.lc-preview-title'))
+          const btn = [...dialog.querySelectorAll('.el-dialog__footer button')]
+            .find((b) => b.textContent.trim() === '获取数据')
+          btn && btn.click()
+          return !!btn
+        })()`,
+      },
+      { wait: 400 },
+      {
+        label: '获取数据：校验通过后弹出「表单数据」JSON',
+        check: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.el-dialog__title')?.textContent.includes('表单数据'))
+          const text = dialog?.querySelector('textarea')?.value ?? ''
+          return { ok: !!dialog && text.includes('"input1"'), detail: { dialog: !!dialog, 片段: text.slice(0, 80) } }
+        })()`,
+      },
+      {
+        eval: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.el-dialog__title')?.textContent.includes('表单数据'))
+          const btn = [...dialog.querySelectorAll('.el-dialog__footer button')]
+            .find((b) => b.textContent.trim() === '关闭')
+          btn && btn.click()
+          return !!btn
+        })()`,
+      },
+      { wait: 300 },
+      {
+        eval: `(() => {
+          const dialog = [...document.querySelectorAll('.el-dialog')]
+            .find((d) => d.querySelector('.lc-preview-title'))
+          const btn = [...dialog.querySelectorAll('.el-dialog__footer button')]
+            .find((b) => b.textContent.trim() === '关闭')
+          btn && btn.click()
+          return !!btn
+        })()`,
+      },
+      { wait: 500 },
+      {
+        label: '关闭：预览弹窗消失，回到设计器',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const previewOpen = [...document.querySelectorAll('.el-dialog')]
+            .some((d) => d.querySelector('.lc-preview-title'))
+          return { ok: !previewOpen && ctx.state.preview === false && !!document.querySelector('.lc-canvas'), detail: { previewOpen, state: ctx.state.preview } }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'palette-alignment',
     why: '物料面板的分组/标签/图标要对齐参考实现。manifest 层已由 palette.test.ts 守住，这里守**渲染层**——图标是否真的渲染成 SVG、title 是否只放标签，都只有真实 DOM 能验',
     steps: [
@@ -324,23 +619,23 @@ const CHECKS = [
         })()`,
       },
       { click: '#target-input' },
-      { click: '.lc-preview-bar' },
+      { click: '.lc-preview-title' },
       { wait: 300 },
       {
         label: '空值失焦 → 出现「字段值不可为空」',
         check: `(() => {
-          const errs = [...document.querySelectorAll('.lc-form-item__error')].map((e) => e.textContent.trim())
+          const errs = [...document.querySelectorAll('.lc-preview-body .lc-form-item__error')].map((e) => e.textContent.trim())
           return { ok: errs.length === 1 && errs[0] === '字段值不可为空', detail: { errs } }
         })()`,
       },
       { click: '#target-input' },
       { type: 'abc' },
-      { click: '.lc-preview-bar' },
+      { click: '.lc-preview-title' },
       { wait: 300 },
       {
         label: '填入值后失焦 → 过期错误被清除',
         check: `(() => {
-          const errs = [...document.querySelectorAll('.lc-form-item__error')].map((e) => e.textContent.trim())
+          const errs = [...document.querySelectorAll('.lc-preview-body .lc-form-item__error')].map((e) => e.textContent.trim())
           const value = document.querySelector('#target-input')?.value
           return { ok: errs.length === 0 && value === 'abc', detail: { errs, value } }
         })()`,
@@ -824,7 +1119,7 @@ const CHECKS = [
       {
         label: '② 进入预览：两个字段都可编辑',
         check: `(() => {
-          const inPreview = !!document.querySelector('.lc-designer--preview')
+          const inPreview = !!document.querySelector('.lc-preview-title')
           const items = [...document.querySelectorAll('.lc-preview-body .lc-form-item')]
           const inputs = items.map((i) => i.querySelector('input, textarea')).filter(Boolean)
           // ⚠️ 只判"未被禁用"，不判 readOnly：下拉框的内层 input **天生是 readonly** 的
@@ -846,10 +1141,10 @@ const CHECKS = [
       },
       // 空值失焦 → 两个字段都报必填错误
       { click: '#e2e-input-0' },
-      { click: '.lc-preview-bar' },
+      { click: '.lc-preview-title' },
       { wait: 300 },
       { click: '#e2e-input-1' },
-      { click: '.lc-preview-bar' },
+      { click: '.lc-preview-title' },
       { wait: 400 },
       {
         label: '③ 空值失焦：两个必填字段都出现错误提示',
@@ -863,7 +1158,7 @@ const CHECKS = [
       { type: '张三' },
       { click: '#e2e-input-1' },
       { type: '北京' },
-      { click: '.lc-preview-bar' },
+      { click: '.lc-preview-title' },
       { wait: 400 },
       {
         label: '④ 填完两个字段：错误全部清除，值写入运行期',
@@ -899,7 +1194,7 @@ const CHECKS = [
       {
         label: '⑥ 退出预览：回到编辑器，两个字段都还在',
         check: `(() => {
-          const backToEditor = !document.querySelector('.lc-designer--preview') && !!document.querySelector('.lc-canvas')
+          const backToEditor = !document.querySelector('.lc-preview-title') && !!document.querySelector('.lc-canvas')
           const items = [...document.querySelectorAll('.lc-canvas .lc-form-item')]
           return { ok: backToEditor && items.length === 2, detail: { 回到编辑器: backToEditor, 字段数: items.length } }
         })()`,
@@ -1505,6 +1800,94 @@ const CHECKS = [
           const [inputId, cardId] = window.__ids
           const kids = nodes.find((n) => n.id === cardId)?.children ?? []
           return { ok: kids.includes(inputId), detail: { cardChildren: kids, want: inputId } }
+        })()`,
+      },
+    ],
+  },
+
+  {
+    name: 'grid-interactions',
+    why: '栅格列是唯一有画布内操作条的内部结构节点：选中后要能上移/下移/复制空列/删除；结构编辑器要能逐列改宽度、加列补足 24；colHeight 是逐列高度；响应式要跟随设计器设备档位而不是浏览器媒体查询。这些全是只有真实 DOM 才看得见的交互',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        label: '栅格列的选中操作条 / 增删列 / 逐列高度 / 响应式档位',
+        check: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const tick = (ms) => new Promise((r) => setTimeout(r, ms))
+          const nodes = () => __unref(ctx.schema).nodes
+          const byId = (id) => nodes().find((n) => n.id === id)
+          const failures = []
+          const expect = (name, ok, detail) => { if (!ok) failures.push({ name, detail }) }
+
+          ctx.clear(); await tick(200)
+          ctx.insertMaterial('grid'); await tick(500)
+          const gridId = ctx.state.selectedNodeId
+          const cols = () => (byId(gridId)?.children ?? []).map((id) => byId(id))
+          expect('默认带出 2 列', cols().length === 2, cols().length)
+
+          const firstId = cols()[0].id
+          ctx.selectNode(firstId); await tick(350)
+          const firstEl = document.querySelector('[data-node-id="' + firstId + '"]')
+          const actions = firstEl ? [...firstEl.querySelectorAll('.lc-node__action')].map((b) => b.textContent.trim()) : []
+          expect('选中列出现操作条', actions.join(',') === '←,↑,↓,复制,删除', actions)
+          expect('选中列出现类型标签', !!firstEl && !!firstEl.querySelector('.lc-node__badges--handler'), null)
+
+          // 增列：两列各 8 时，新列应补足剩余 8（参考 addNewColOfGrid 的口径）
+          ctx.updateProps(cols()[0].id, { span: 8 })
+          ctx.updateProps(cols()[1].id, { span: 8 })
+          await tick(300)
+          ctx.selectNode(gridId); await tick(300)
+          const addBtn = [...document.querySelectorAll('.lc-structure-editor button')].find((b) => b.textContent.includes('增加栅格'))
+          if (addBtn) addBtn.click(); else failures.push({ name: '找不到「增加栅格」按钮' })
+          await tick(500)
+          expect('增加到 3 列', cols().length === 3, cols().length)
+          expect('新列自动补足剩余宽度 8', Number(cols()[2] && cols()[2].props.span) === 8, cols()[2] && cols()[2].props.span)
+
+          // 复制列：末尾追加同宽空列
+          ctx.selectNode(cols()[0].id); await tick(300)
+          const firstEl2 = document.querySelector('[data-node-id="' + cols()[0].id + '"]')
+          const copyBtn = [...((firstEl2 && firstEl2.querySelectorAll('.lc-node__action')) || [])].find((b) => b.textContent.trim() === '复制')
+          if (copyBtn) copyBtn.click(); else failures.push({ name: '找不到「复制」列按钮' })
+          await tick(400)
+          expect('复制列追加到末尾且同宽', cols().length === 4 && Number(cols()[3] && cols()[3].props.span) === 8, cols().map((c) => c.props.span))
+          expect('复制出的列内容为空', ((cols()[3] && cols()[3].children) || []).length === 0, cols()[3] && cols()[3].children)
+
+          // 删除列：选中最后一列删除，选中回退到相邻列
+          const last = cols()[3]
+          ctx.selectNode(last.id); await tick(300)
+          const lastEl = document.querySelector('[data-node-id="' + last.id + '"]')
+          const delBtn = [...((lastEl && lastEl.querySelectorAll('.lc-node__action')) || [])].find((b) => b.textContent.trim() === '删除')
+          if (delBtn) delBtn.click(); else failures.push({ name: '找不到「删除」列按钮' })
+          await tick(400)
+          expect('删除末尾列', cols().length === 3, cols().length)
+          expect('删除后选中相邻列', ctx.state.selectedNodeId === cols()[2].id, ctx.state.selectedNodeId)
+
+          // 逐列高度
+          ctx.updateProps(gridId, { colHeight: 120 }); await tick(400)
+          const heights = [...document.querySelectorAll('[data-node-id="' + gridId + '"] .lc-grid-col')].map((c) => Math.round(c.getBoundingClientRect().height))
+          expect('colHeight 作用于每一列', heights.length === 3 && heights.every((h) => h === 120), heights)
+
+          // 响应式跟随设备档位
+          ctx.updateProps(cols()[0].id, { responsive: true, md: 6, sm: 10, xs: 24 }); await tick(300)
+          const classOf = (id) => (document.querySelector('[data-node-id="' + id + '"]') || {}).className || ''
+          expect('PC 档使用 md=6', classOf(cols()[0].id).includes('el-col-6'), classOf(cols()[0].id))
+          ctx.setDevice('h5'); await tick(400)
+          expect('H5 档使用 xs=24', classOf(cols()[0].id).includes('el-col-24'), classOf(cols()[0].id))
+          ctx.setDevice('pc'); await tick(200)
+
+          // 结构编辑器删列：保持栅格选中，面板不跳到相邻列
+          ctx.selectNode(gridId); await tick(300)
+          const panelRemove = document.querySelector('.lc-structure-editor__remove')
+          if (panelRemove) panelRemove.click(); else failures.push({ name: '找不到结构编辑器的删列按钮' })
+          await tick(400)
+          expect('面板删列后仍选中栅格', ctx.state.selectedNodeId === gridId, ctx.state.selectedNodeId)
+          expect('面板删列生效', cols().length === 2, cols().length)
+
+          ctx.clear()
+
+          return { ok: failures.length === 0, detail: { 失败: failures } }
         })()`,
       },
     ],

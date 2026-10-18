@@ -6,7 +6,13 @@ import {
   type InjectionKey,
   type Ref,
 } from 'vue'
-import { DragDropManager, NodeFactory, NodeTree, type DropTarget } from '@lowcode/core'
+import {
+  DragDropManager,
+  NodeFactory,
+  NodeTree,
+  createUniqueName,
+  type DropTarget,
+} from '@lowcode/core'
 import { MaterialRegistryResolver, type RuntimeContext } from '@lowcode/runtime'
 import {
   deserializePage,
@@ -46,6 +52,8 @@ export interface DesignerContext {
   hoverNode: (id: string | null) => void
   setDevice: (d: DeviceType) => void
   setZoom: (z: number) => void
+  /** 打开 / 关闭预览（预览以弹窗展示，不再替换整页） */
+  setPreview: (open: boolean) => void
   togglePreview: () => void
   undo: () => void
   redo: () => void
@@ -69,6 +77,18 @@ export interface DesignerContext {
   appendChild: (parentId: string, type: string, count?: number) => string[]
   /** 批量删除节点（级联删除后代），合并为一条历史 */
   removeNodes: (ids: string[]) => void
+  /** 追加一个栅格列（span 缺省按参考实现计算剩余宽度），返回新列 id */
+  addGridColumn: (gridId: string, span?: number) => string | null
+  /** 复制栅格列：参考实现行为——末尾追加同宽度的空列，不改选中 */
+  cloneGridColumn: (columnId: string) => string | null
+  /**
+   * 删除栅格列。
+   * `selectAdjacent` 为真时选中相邻列 / 父栅格（画布操作条的口径）；
+   * 结构编辑器从栅格面板删列时传 false，保持栅格选中，面板不跳走。
+   */
+  removeGridColumn: (columnId: string, selectAdjacent?: boolean) => void
+  /** 复制栅格容器：保留布局宽度、清空列内容（参考实现 cloneContainer 行为） */
+  cloneGrid: (gridId: string) => void
   updateSettings: (patch: Partial<PageSettings>) => void
   updateFormSettings: (patch: Partial<FormSettings>) => void
   resetFormSettings: () => void
@@ -88,9 +108,10 @@ export const DESIGNER_KEY: InjectionKey<DesignerContext> = Symbol('lc.designer')
 export function useDesigner(options: UseDesignerOptions): DesignerContext {
   initPlatform()
 
+  const nodeFactory = new NodeFactory(materialRegistry)
   const engine = new EditorEngine({
     schema: options.schema,
-    nodeFactory: new NodeFactory(materialRegistry),
+    nodeFactory,
     dragDropManager: new DragDropManager(),
     runtime: {
       resolver: new MaterialRegistryResolver(materialRegistry),
@@ -193,8 +214,11 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
   function setZoom(zoom: number): void {
     state.zoom = Math.max(0.3, Math.min(3, zoom))
   }
+  function setPreview(open: boolean): void {
+    state.preview = open
+  }
   function togglePreview(): void {
-    state.preview = !state.preview
+    setPreview(!state.preview)
   }
   function undo(): void {
     engine.undo()
@@ -333,6 +357,106 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
       selectNode(null)
     }
   }
+
+  /** 取栅格下的列节点（保持 children 顺序） */
+  function gridColumnsOf(gridId: string): PageNode[] {
+    const byId = new Map(engine.current.nodes.map((node) => [node.id, node]))
+    const grid = byId.get(gridId)
+    return (grid?.children ?? [])
+      .map((id) => byId.get(id))
+      .filter((node): node is PageNode => node?.type === 'grid-col')
+  }
+
+  /** 读取列宽；缺失或非法值回落到默认 12 */
+  function spanOf(column: PageNode): number {
+    const span = Number(column.props.span)
+    return Number.isFinite(span) ? span : 12
+  }
+
+  /**
+   * 追加栅格列。span 缺省时按参考实现 `addNewColOfGrid` 的口径计算：
+   * 当前列宽合计 ≥24 时新列用默认 12；否则补足 24（最多 12）。
+   */
+  function addGridColumn(gridId: string, span?: number): string | null {
+    const grid = engine.current.nodes.find((node) => node.id === gridId)
+    if (!grid || grid.type !== 'grid') return null
+    const columns = gridColumnsOf(gridId)
+    const spanSum = columns.reduce((sum, column) => sum + spanOf(column), 0)
+    const remaining = 24 - spanSum
+    const resolvedSpan =
+      span ?? (columns.length === 0 || remaining <= 0 ? 12 : Math.min(12, remaining))
+    const [created] = engine.appendChildrenWithProps(gridId, 'grid-col', [
+      { span: resolvedSpan },
+    ])
+    sync()
+    return created?.id ?? null
+  }
+
+  /**
+   * 复制栅格列：与参考实现 `cloneGridCol` 一致——在栅格末尾追加一个**空列**，
+   * 只复制宽度（span），不复制内容；不改变当前选中。
+   */
+  function cloneGridColumn(columnId: string): string | null {
+    const column = engine.current.nodes.find((node) => node.id === columnId)
+    if (!column || column.type !== 'grid-col') return null
+    const parent = new NodeTree(engine.current.nodes).getParent(columnId)
+    if (!parent || parent.node.type !== 'grid') return null
+    const span = spanOf(column)
+    const [created] = engine.appendChildrenWithProps(parent.node.id, 'grid-col', [{ span }])
+    sync()
+    return created?.id ?? null
+  }
+
+  /**
+   * 删除栅格列并选中相邻列；删到只剩最后一列时选中父栅格。
+   * 对齐参考实现 `grid-col-widget.vue: removeWidget()` 的选中策略。
+   */
+  function removeGridColumn(columnId: string, selectAdjacent = true): void {
+    const position = new NodeTree(engine.current.nodes).getPosition(columnId)
+    if (position.parentId === null) return
+    const { siblingIds, index, parentId } = position
+    const next =
+      siblingIds.length <= 1
+        ? parentId
+        : siblingIds[index === siblingIds.length - 1 ? index - 1 : index + 1] ?? parentId
+    const wasSelected = state.selectedNodeId === columnId
+    engine.removeNodes([columnId])
+    sync()
+    if (selectAdjacent) selectNode(next)
+    else if (wasSelected) selectNode(parentId)
+  }
+
+  /**
+   * 复制栅格容器：参考实现 `cloneContainer('grid')` 复制的是**结构**——
+   * 保留列数与各列宽度，但清空列内容（不深拷贝子树），并在源节点后插入、选中新栅格。
+   * 本实现额外保留 gutter / colHeight 等布局属性（参考实现会回落到默认值）。
+   */
+  function cloneGrid(gridId: string): void {
+    const source = engine.current.nodes.find((node) => node.id === gridId)
+    if (!source || source.type !== 'grid') return
+    const position = new NodeTree(engine.current.nodes).getPosition(gridId)
+    const spans = gridColumnsOf(gridId).map(spanOf)
+
+    const taken = new Set(engine.current.nodes.map((node) => node.name ?? node.id))
+    const grid = nodeFactory.create('grid', { props: { ...source.props } })
+    if (!grid.name || taken.has(grid.name)) grid.name = createUniqueName('grid', taken)
+
+    engine.record((draft) => {
+      const tree = new NodeTree(draft.nodes)
+      tree.insert(grid, position.parentId, position.slot, position.index + 1)
+      const names = new Set(draft.nodes.map((node) => node.name ?? node.id))
+      for (const span of spans) {
+        const column = nodeFactory.create('grid-col', { props: { span } })
+        if (!column.name || names.has(column.name)) {
+          column.name = createUniqueName('grid-col', names)
+        }
+        names.add(column.name)
+        tree.insert(column, grid.id, 'default', undefined)
+      }
+    }, 'clone')
+    sync()
+    selectNode(grid.id)
+  }
   function updateSettings(patch: Partial<PageSettings>): void {
     engine.updateSettings(patch)
     sync()
@@ -379,6 +503,7 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     hoverNode,
     setDevice,
     setZoom,
+    setPreview,
     togglePreview,
     undo,
     redo,
@@ -400,6 +525,10 @@ export function useDesigner(options: UseDesignerOptions): DesignerContext {
     updateNodeEvents,
     appendChild,
     removeNodes,
+    addGridColumn,
+    cloneGridColumn,
+    removeGridColumn,
+    cloneGrid,
     updateSettings,
     updateFormSettings,
     resetFormSettings,

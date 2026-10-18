@@ -66,7 +66,7 @@ pnpm conformance
 
 1. **事件模型差异**（`*` 通配）：`onCreated` / `onMounted` / `onValidate` —— 本平台节点事件是结构化动作链，
    不含组件生命周期与字段即时校验。
-2. **承载位置差异**：栅格 `colHeight`（本平台表达为整行高度）、按钮 `displayStyle`
+2. **承载位置差异**：栅格 `colHeight`（本平台通过可继承的 CSS 变量下传为逐列 `height`，与参考语义一致）、按钮 `displayStyle`
    （无 static-content-wrapper 外壳）、静态文本 `preWrap`（用 `white-space` 而非 `<pre>`）、
    富文本 `disabled`/`placeholder`（自研 contenteditable）。
 3. **上游 UI 库差异**（Element UI 2.x → Element Plus）：`radio-button`/`checkbox-button` 的 `border`

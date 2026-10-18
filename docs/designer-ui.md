@@ -6,7 +6,7 @@
 ```text
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ 顶部导航栏 Toolbar                                                       │
-│ 品牌/页面名 │ 撤销 重做 │ PC Pad H5 │ 缩放 │ 结构树 │ 清空 导入 导出 SFC 预览 │
+│ 品牌/版本 │ 撤销 重做 │ PC Pad H5 │ 缩放 │ 结构树 │ 清空 导入 导出 SFC 预览 │
 ├───────────────┬─────────────────────────────────┬───────────────────────┤
 │ 组件库面板     │ 画布 Canvas                      │ 设置面板               │
 │ 组件库/页面模板 │ （设备尺寸 + 拖拽落点 + 选中浮层）  │ 组件设置/表单设置/数据源 │
@@ -19,18 +19,27 @@
 
 | 分组 | 按钮 | 行为 |
 | --- | --- | --- |
-| 品牌 | logo / 设计器名 / 版本 / 页面名 | 页面名取自 `schema.meta.name` |
+| 品牌 | logo / 设计器名 / 版本 | 页面名不再占用工具栏空间（在「表单设置」里展示） |
 | 历史 | 撤销 / 重做 | 走 `EditorEngine` 历史栈，无步数时禁用 |
 | 视图 | PC / Pad / H5 | 切换画布设备尺寸（`state.device`） |
-| 视图 | 缩放 －/＋/100% | 画布缩放 0.3x–3x |
+| 视图 | 缩放 － / 百分比 / ＋ | 画布缩放 0.3x–3x；百分比文字可点击重置为 100% |
 | 结构 | 结构树 | 打开组件层次结构树抽屉 |
 | 页面 | 清空 | 二次确认后清空画布（可撤销） |
 | 页面 | 导入 JSON / 导出 JSON | 对话框编辑 Schema JSON，导出支持复制与 Blob 下载 |
 | 页面 | 生成 SFC | 打开 SFC 对话框（懒加载 codegen） |
-| 页面 | 预览 | 切换预览模式（RuntimeRenderer 全量渲染） |
+| 页面 | 预览 | 打开预览弹窗（表单可编辑、可校验；见下节） |
 
 快捷键（Designer.vue）：`Delete/Backspace` 删除、`Ctrl/Cmd+C` 复制、`Ctrl/Cmd+V` 粘贴、
 `Ctrl/Cmd+Z` 撤销、`Ctrl/Cmd+Shift+Z` 重做。
+
+工具栏按窗口宽度自适应，避免设备组被挤成竖排：
+
+| 条件 | 表现 |
+| --- | --- |
+| `> 1380px` | 完整文案 + 图标；设备组横向排列 |
+| `≤ 1380px` | 历史 / 结构树 / 页面操作收成图标按钮（`title` 提供提示），设备与缩放保持可读 |
+| `≤ 1120px` | 再隐藏设计器名称，仅保留 logo 与版本号 |
+| 极窄窗口 | 工具栏横向滚动（隐藏滚动条），不再压缩/换行按钮 |
 
 ## 二、组件库面板（MaterialPanel.vue）
 
@@ -58,12 +67,39 @@ registerPageTemplate({
 })
 ```
 
-- 内置模板：空白页面 / 登录表单 / 数据列表页 / 卡片看板，全部离线可用（不依赖远程 JSON 与图片）。
+- 内置模板共 **12 个**，全部离线可用（不依赖远程 JSON 与图片）：
+  - 参考 `variant-form` 的 8 个表单模板：单列表单 / 多列表单 / 分组表单 / 标签页表单 /
+    主从表单 / 响应式表单 / 问卷调查表 / 固定表格表单（数据在 `template-presets.ts`）；
+  - 本仓库补充的 4 个：空白页面 / 登录表单 / 数据列表页 / 卡片看板。
+- 参考模板保留了参考实现的表单排版（`labelPosition: left`、`labelWidth: 150/80`、
+  `labelAlign: right/left`、固定表格的紧凑行距 CSS），字段值统一映射为 `modelValue`。
 - 模板卡片展示：组件总数（`countOutlineNodes`）+ 出现过的组件类型芯片 + 标签；
   「载入」在画布非空时二次确认，然后 `ctx.loadSchema()` 载入并重置历史。
 - 「将当前页面存为模板」把当前 Schema 快照注册进 `templateRegistry`（仅内存，页面刷新即失效；
   需要持久化时由 playground 用 `StorageRepository.saveTemplate` 落库后在启动时注册）。
 - `registerBuiltinTemplates()` 幂等，由 `initPlatform()` 调用。
+
+## 预览弹窗（Designer.vue）
+
+预览不再整页替换设计器，而是参考 `variant-form` 在 **`el-dialog`** 内打开：
+
+- PC 弹窗宽度 75%；Pad / H5 自动全屏，表单宽度分别限制在 960 / 420。
+- 弹窗内用 `RuntimeRenderer`（`designMode=false`）渲染，`layoutType` 跟随当前设备，
+  因此字段可输入、必填/格式校验与运行态一致。
+- 底部固定 5 个操作：
+  | 按钮 | 行为 |
+  | --- | --- |
+  | 获取数据 | 先 `validateAll()`；不通过时保留红色校验提示并提示错误，通过后弹出只读 JSON 对话框（可复制） |
+  | 重置表单 | 所有字段值回落到 schema 默认值，并清空校验错误 |
+  | 禁用编辑 | 通过运行时 `overrides.disabled` 禁用所有声明了 `disabled` 的控件（不改 schema） |
+  | 恢复编辑 | 解除上述禁用覆盖 |
+  | 关闭 | 关闭弹窗；同时清空运行时覆盖，画布回到默认值 |
+- 打开/关闭预览都会清空 `RuntimeContext.overrides`，避免预览里试输入的值或禁用状态泄漏回设计器。
+
+> **外部 Schema 的可编辑性**：模板/导入的 Schema 经常省略默认属性（如字段不写
+> `modelValue`、控件不写 `disabled`）。`EditorEngine` 载入时会用物料 `defaultProps`
+> 补齐缺失项；否则渲染器不会把节点识别为字段（无 `v-model` 接线）、校验也不会参与，
+> 表现就是"模板里的字段看起来不能编辑"。
 
 ## 四、组件层次结构树（NodeTreeDrawer.vue + outline.ts）
 
@@ -100,7 +136,8 @@ registerPageTemplate({
 - 落点与指示条几何由纯函数 `packages/editor/src/engine/drop-target.ts` 计算（`computeListDrop` / `resolveInsertionIndex` / `resolveIndicatorRect`），DOM 只负责测量矩形，逻辑可单测。
 - 落点优先用 `beforeId` 表达「插到某兄弟节点之前」，避免同容器移动时的下标偏移，也让**隐藏节点**（不参与 DOM 测量）不影响插入位置；`moveNode` / `insertMaterial` 都按 `beforeId` 解析。
 - 指示条通过 `<Teleport to="body">` 以 `position: fixed` + 视口坐标渲染，绕开画布 `zoom` / `transform: scale()` 的坐标换算。
-- 内部结构节点（栅格列 / 表格行 / 单元格）与参考实现的 `internal` 组件一致：不渲染手柄与操作条，结构由属性面板的结构编辑器维护。
+- 内部结构节点（栅格列 / 表格行 / 单元格）不渲染**拖拽手柄**；结构由属性面板的结构编辑器维护。
+- 例外是栅格列：对齐参考实现，选中后在列内渲染类型标签（左上）与操作条（右下：← 选中父级 · ↑ 上移 · ↓ 下移 · 复制空列 · 删除），并常显 1px 虚线轮廓。操作条追加在 ElCol 的默认插槽里并绝对定位，因此不会破坏 `el-row > el-col` 结构。
 - `EditorEngine.computeDropTarget`（基于悬停节点上中下三分区的几何算法）保留为引擎层 API，画布已改用上面的 DOM 测量算法。
 
 ## 六、生成 SFC（SfcDialog.vue + @lowcode/codegen）

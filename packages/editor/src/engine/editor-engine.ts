@@ -49,9 +49,10 @@ export class EditorEngine {
   constructor(options: EditorEngineOptions) {
     this.sourceSchema = options.schema
     this.currentSchema = normalizePageSchema(cloneSchema(options.schema))
+    this.nodeFactory = options.nodeFactory
+    this.applyMaterialDefaults(this.currentSchema)
     this.history = new HistoryManager(this.currentSchema, options.history)
     this.runtimeOptions = options.runtime
-    this.nodeFactory = options.nodeFactory
     this.dragDropManager = options.dragDropManager
     this.runtimeContext = this.createRuntime()
   }
@@ -80,8 +81,33 @@ export class EditorEngine {
   load(schema: AnyPageSchema): void {
     this.sourceSchema = schema
     this.currentSchema = normalizePageSchema(cloneSchema(schema))
+    this.applyMaterialDefaults(this.currentSchema)
     this.history.reset(this.currentSchema)
     this.runtimeContext = this.createRuntime()
+  }
+
+  /**
+   * 把物料默认属性补到节点上。
+   *
+   * 模板 / 导入的 Schema 常常省略“默认值”（例如字段不写 `modelValue`、控件不写
+   * `disabled`）。但运行时判断“是不是字段”用的是 `'modelValue' in node.props`，
+   * `setNodeProp` 写覆盖也只会作用到已声明的 prop 上——缺省值会导致：
+   *   · 预览里输入框没有 v-model 接线，看起来“不能编辑”；
+   *   · 必填校验不参与 `validateAll`；
+   *   · 预览的“禁用编辑/恢复编辑”找不到 `disabled` 键。
+   *
+   * 新增节点由 NodeFactory 带默认值，这里把同一条规则补到“外部载入”的节点上。
+   */
+  private applyMaterialDefaults(schema: PageSchema): void {
+    for (const node of schema.nodes) {
+      const material = this.nodeFactory.material(node.type)
+      if (!material) continue
+      for (const [key, value] of Object.entries(material.defaultProps)) {
+        if (key in node.props) continue
+        node.props[key] =
+          value === undefined ? undefined : (JSON.parse(JSON.stringify(value)) as unknown)
+      }
+    }
   }
 
   async init(): Promise<void> {
@@ -157,25 +183,31 @@ export class EditorEngine {
       tree.insert(node, target.parentId, target.slot, index)
       // 容器物料的内部结构（栅格列 / 表格行单元格 / 标签页）随插入一并创建
       if (defaultChildren.length > 0) {
-        this.insertDefaultChildren(tree, node.id, defaultChildren)
+        this.insertDefaultChildren(tree, node.id, defaultChildren, taken)
       }
     }, 'insert')
     return node
   }
 
-  /** 递归创建物料的默认子结构 */
+  /** 递归创建物料的默认子结构；`taken` 用于保证同一批内部节点名称不重复 */
   private insertDefaultChildren(
     tree: NodeTree,
     parentId: string,
     specs: MaterialDefaultChild[],
+    taken: Set<string>,
   ): void {
     for (const spec of specs) {
       const count = spec.count ?? 1
       for (let index = 0; index < count; index += 1) {
         const child = this.nodeFactory.create(spec.type)
+        // 同一毫秒内创建多个内部节点时 createUniqueName(type) 会重名
+        if (!child.name || taken.has(child.name)) {
+          child.name = createUniqueName(spec.type, taken)
+        }
+        taken.add(child.name)
         tree.insert(child, parentId, spec.slot, undefined)
         if (spec.children?.length) {
-          this.insertDefaultChildren(tree, child.id, spec.children)
+          this.insertDefaultChildren(tree, child.id, spec.children, taken)
         }
       }
     }
@@ -186,18 +218,43 @@ export class EditorEngine {
    * 结构编辑器使用，不改变选中态。
    */
   appendChildren(parentId: string, type: string, count = 1, slot?: string): PageNode[] {
+    return this.appendChildrenWithProps(
+      parentId,
+      type,
+      Array.from({ length: Math.max(0, count) }, () => ({})),
+      slot,
+    )
+  }
+
+  /**
+   * 追加内部结构子节点，并给每项指定初始 props（如新增栅格列的 span）。
+   * 与 appendChildren 共用一条历史记录，避免“先追加再改属性”产生两步撤销。
+   */
+  appendChildrenWithProps(
+    parentId: string,
+    type: string,
+    propsList: Array<Record<string, unknown>>,
+    slot?: string,
+  ): PageNode[] {
     const material = this.nodeFactory.material(type)
     if (!material) throw new Error(`物料未注册: ${type}`)
+    if (propsList.length === 0) return []
     const created: PageNode[] = []
     this.record((draft) => {
       const tree = new NodeTree(draft.nodes)
       if (!tree.find(parentId)) throw new Error(`父节点不存在: ${parentId}`)
-      for (let index = 0; index < count; index += 1) {
-        const child = this.nodeFactory.create(type)
+      // 同一毫秒内连续创建时 createUniqueName(type) 会重名，这里显式登记已占用名称
+      const taken = new Set(draft.nodes.map((node) => node.name ?? node.id))
+      for (const props of propsList) {
+        const child = this.nodeFactory.create(type, { props })
+        if (!child.name || taken.has(child.name)) {
+          child.name = createUniqueName(type, taken)
+        }
+        taken.add(child.name)
         tree.insert(child, parentId, slot, undefined)
         created.push(child)
         if (material.defaultChildren?.length) {
-          this.insertDefaultChildren(tree, child.id, material.defaultChildren)
+          this.insertDefaultChildren(tree, child.id, material.defaultChildren, taken)
         }
       }
     }, 'appendChild')

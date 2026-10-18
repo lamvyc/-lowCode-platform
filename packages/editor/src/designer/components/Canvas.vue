@@ -44,6 +44,9 @@ const {
   canMoveUp,
   canMoveDown,
   removeNode,
+  cloneGrid,
+  cloneGridColumn,
+  removeGridColumn,
   setDragState,
   setDropTarget,
 } = ctx
@@ -70,6 +73,74 @@ const nodeIndexOf = computed(() => {
  * 这类节点改用「嵌入式包裹」：直接把选中态 class 与事件合并到组件根 vnode 上。
  */
 const LAYOUT_TRANSPARENT_PARENTS = new Set(['grid', 'table', 'table-row'])
+
+/** 画布操作条上的一个按钮（三种操作条共用同一套样式） */
+function nodeAction(
+  label: string,
+  title: string,
+  onClick: () => void,
+  disabled = false,
+  danger = false,
+): VNode {
+  return h(
+    'button',
+    {
+      class: [
+        'lc-node__action',
+        { 'lc-node__action--disabled': disabled },
+        danger ? 'lc-node__action--danger' : '',
+      ],
+      title,
+      disabled,
+      onClick,
+    },
+    label,
+  )
+}
+
+/**
+ * 栅格列选中态的操作条 / 类型标签。
+ *
+ * 参考实现的 el-col 直接渲染在 el-row 里，操作条与 `.grid-col-handler` 都是 el-col 的
+ * 子元素；本平台为了让 el-row 的直接子级保持 el-col，**不能**再包一层 div，
+ * 因此把操作条追加进 ElCol 的默认插槽（绝对定位，不参与布局）。
+ */
+function appendGridColOverlay(
+  inner: VNode,
+  node: PageNode,
+  typeLabel: string,
+  hasParent: boolean,
+  upEnabled: boolean,
+  downEnabled: boolean,
+): void {
+  const slots = inner.children
+  if (!slots || typeof slots !== 'object' || Array.isArray(slots)) return
+  const slotMap = slots as Record<string, (() => VNode[]) | undefined>
+  const original = slotMap.default
+  const overlay = [
+    h(
+      'div',
+      { class: 'lc-node__badges lc-node__badges--handler', title: typeLabel },
+      [h('i', { class: 'lc-node__type' }, typeLabel)],
+    ),
+    h(
+      'div',
+      {
+        class: 'lc-node__actions',
+        onClick: (event: MouseEvent) => event.stopPropagation(),
+      },
+      [
+        nodeAction('←', '选中父级栅格', () => selectParent(node.id), !hasParent),
+        nodeAction('↑', '上移栅格列', () => moveNodeUp(node.id), !upEnabled),
+        nodeAction('↓', '下移栅格列', () => moveNodeDown(node.id), !downEnabled),
+        // 参考实现的复制栅格列 = 追加一个同宽度的空列（不复制列内组件）
+        nodeAction('复制', '复制栅格列（追加同宽空列）', () => cloneGridColumn(node.id)),
+        nodeAction('删除', '删除栅格列', () => removeGridColumn(node.id), false, true),
+      ],
+    ),
+  ]
+  slotMap.default = () => [...(original ? original() : []), ...overlay]
+}
 
 const wrapNode = computed(() => {
   const { parentOf, typeById } = nodeIndexOf.value
@@ -109,6 +180,11 @@ const wrapNode = computed(() => {
         },
         onMouseenter: () => hoverNode(node.id),
         onMouseleave: () => hoverNode(null),
+      }
+      // 内部结构节点没有手柄/操作条，但栅格列是例外：
+      // 参考实现选中栅格列时会显示「选中父级 / 上移 / 下移 / 复制 / 删除」与类型标签。
+      if (node.type === 'grid-col' && isSelected) {
+        appendGridColOverlay(inner, node, typeLabel, hasParent, upEnabled, downEnabled)
       }
       return inner
     }
@@ -186,8 +262,11 @@ const wrapNode = computed(() => {
                     'button',
                     {
                       class: 'lc-node__action',
-                      title: '复制',
-                      onClick: () => duplicateNode(node.id),
+                      // 参考实现 cloneContainer('grid') 复制的是空结构（保留列宽、清空内容），
+                      // 不是整棵子树的深拷贝。
+                      title: node.type === 'grid' ? '复制栅格（保留列宽、清空内容）' : '复制',
+                      onClick: () =>
+                        node.type === 'grid' ? cloneGrid(node.id) : duplicateNode(node.id),
                     },
                     '复制',
                   ),
@@ -575,6 +654,7 @@ function onDragLeave(event: DragEvent): void {
         :schema="schema"
         :context="runtime"
         :wrap-node="wrapNode"
+        :layout-type="state.device"
         design-mode
       />
       <div v-if="isEmpty" class="lc-canvas__empty">
@@ -598,6 +678,7 @@ function onDragLeave(event: DragEvent): void {
           :schema="schema"
           :context="runtime"
           :wrap-node="wrapNode"
+          :layout-type="state.device"
           design-mode
         />
         <div v-if="isEmpty" class="lc-canvas__empty">
@@ -756,6 +837,16 @@ function onDragLeave(event: DragEvent): void {
 :deep(.lc-node--embedded) {
   cursor: pointer;
 }
+
+/*
+ * 栅格结构轮廓：参考实现里 `.grid-container` / `.grid-cell` **始终**带 1px 虚线轮廓，
+ * 不依赖悬停。没有这条，画布上看不出栅格列边界（只有悬停时才闪一下）。
+ */
+:deep(.lc-grid),
+:deep(.lc-grid-col) {
+  outline: 1px dashed #336699;
+  outline-offset: -1px;
+}
 :deep(.lc-node--embedded.lc-node--selected) {
   outline: 2px solid #3370ff;
   outline-offset: -2px;
@@ -784,6 +875,10 @@ function onDragLeave(event: DragEvent): void {
   cursor: move;
   user-select: none;
   z-index: 11;
+}
+/* 栅格列的类型标签只是标识，参考实现里不可拖动（列顺序走上移/下移按钮） */
+:deep(.lc-node__badges--handler) {
+  cursor: default;
 }
 :deep(.lc-node__rank) {
   font-size: 12px;

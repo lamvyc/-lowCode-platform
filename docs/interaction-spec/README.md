@@ -491,7 +491,7 @@ node scripts/cdp-inspect.mjs --url http://localhost:5174/ --wait ".lc-canvas" \
 
 ```bash
 node scripts/cdp-inspect.mjs --url http://localhost:5174/ --wait ".lc-canvas" \
-  --steps '[{"click":"#target-input"},{"type":"abc"},{"click":".lc-preview-bar"},
+  --steps '[{"click":"#target-input"},{"type":"abc"},{"click":".lc-preview-title"},
             {"wait":300},{"assert":"document.querySelector(\".lc-form-item__error\")?.textContent"}]'
 ```
 

@@ -85,14 +85,21 @@ export function groupPropConfigs(
 /**
  * 属性联动条件求值：判断配置项在当前节点上是否可见。
  * 依赖属性的取值缺失时回落到其声明的 defaultValue（与面板展示保持一致）。
+ *
+ * `device` 是设计器当前设备档位（pc / pad / h5）。配置声明了 `visibleWhen.device`
+ * 时只有匹配的档位才展示；调用方不传 device 则视为不限制（兼容旧调用）。
  */
 export function isPropVisible(
   config: PropConfig,
   node: PageNode,
   configs?: PropConfig[],
+  device?: string,
 ): boolean {
   const when = config.visibleWhen
   if (!when) return true
+  if (when.device?.length && device && !when.device.includes(device as 'pc' | 'pad' | 'h5')) {
+    return false
+  }
   const raw = node.props[when.prop]
   const dependency = configs?.find((item) => item.name === when.prop)
   const value = raw === undefined ? dependency?.defaultValue : raw

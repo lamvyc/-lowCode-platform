@@ -25,6 +25,9 @@ export {
 export {
   RuntimeRenderer,
   renderNode,
+  LAYOUT_TYPE_KEY,
+  useLayoutType,
+  type RuntimeLayoutType,
   type RenderNodeOptions,
   type RuntimeRendererProps,
 } from './renderer'

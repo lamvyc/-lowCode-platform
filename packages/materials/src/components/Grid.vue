@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type CSSProperties } from 'vue'
+import { computed } from 'vue'
 import { ElRow } from 'element-plus'
 
 defineOptions({ name: 'LcGrid' })
@@ -8,8 +8,16 @@ const props = withDefaults(
   defineProps<{
     /** 列间距（px），同时作用于左右两侧 */
     gutter?: number
-    /** 整行最小高度（px）；为空时不额外限制，仅保留 24px 的可拖拽落点高度 */
-    colHeight?: number | null
+    /**
+     * 栅格列统一高度（px）。
+     *
+     * 与参考实现一致：这个值作用在**每一列**上（`height`），不是整行最小高度——
+     * 参考的 `grid-widget.vue` 把它作为 `:col-height` 传给每个 `grid-col-widget`，
+     * 后者写成 `:style="{ height: colHeight + 'px' }"`。本平台子节点由渲染器独立渲染，
+     * 父组件无法向子组件传 prop，因此改用可继承的 CSS 变量下传给 GridCol。
+     * 为空 / 非正数时写 `auto`，避免嵌套栅格误继承外层的值。
+     */
+    colHeight?: number | string | null
     /** 水平排列方式 */
     justify?: 'start' | 'center' | 'end' | 'space-between' | 'space-around'
   }>(),
@@ -31,12 +39,19 @@ const JUSTIFY_MAP = {
 
 const justifyProp = computed(() => JUSTIFY_MAP[props.justify])
 
-/** 容错：只有合法正数才写内联高度，其余情况回落到 class 上的 24px 落点高度 */
-const rowStyle = computed<CSSProperties | undefined>(() =>
-  typeof props.colHeight === 'number' && props.colHeight > 0
-    ? { minHeight: `${props.colHeight}px` }
-    : undefined,
-)
+/**
+ * 逐列高度通过 CSS 变量下传（CSS 自定义属性会继承给子元素）。
+ *
+ * 每一行都显式写一次变量：值为 `auto` 时等价于不设高度，同时能阻断
+ * “嵌套栅格继承外层栅格列高度”这条隐式继承链。
+ */
+const rowStyle = computed<Record<string, string>>(() => {
+  // 参考实现的 colHeight 来自 el-input，旧 Schema 里可能是字符串（"120"）
+  const height = typeof props.colHeight === 'number' ? props.colHeight : Number(props.colHeight)
+  return {
+    '--lc-grid-col-height': Number.isFinite(height) && height > 0 ? `${height}px` : 'auto',
+  }
+})
 </script>
 
 <template>

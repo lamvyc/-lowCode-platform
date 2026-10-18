@@ -12,7 +12,7 @@
 | 名称 | 栅格 |
 | 分组 | 容器 |
 | 可放置容器 | 否 |
-| 说明 | 24 栅格布局容器，列数可在组件设置中调整 |
+| 说明 | 24 栅格布局容器，可增删列并逐列设置宽度 |
 
 ## 二、默认属性
 
@@ -33,7 +33,8 @@
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
 | `columns` | 栅格列 | `structure` | `None` |  |
-| `gutter` | 列间距 | `number` | `12` |  |
+| `gutter` | 栅格间隔(px) | `number` | `12` |  |
+| `colHeight` | 栅格列统一高度(px) | `number` | `None` |  |
 
 ### 高级设置
 
@@ -41,7 +42,6 @@
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
 | `class` | 自定义类名 | `custom-class` | `None` |  |
-| `colHeight` | 列统一高度 | `number` | `None` |  |
 | `justify` | 水平排列 | `select` | `start` |  选项：起始/居中/末尾/两端对齐/环绕 |
 
 ## 四、验收标准
@@ -55,6 +55,7 @@
 | 1 | `render` | 渲染为 `.el-row` 栅格行 | 默认 | ✅ |
 | 2 | `has-cols` | 默认带出至少 1 个 `.el-col` 栅格列 | 默认 | ✅ |
 | 3 | `prop-gutter` | `gutter` 设为 20 后，栅格列出现水平内边距 | `{"gutter": 20}` | ✅ |
+| 4 | `prop-colheight` | `colHeight` 设为 120 后，每一列的高度都是 120px（参考实现的逐列高度语义） | `{"colHeight": 120}` | ✅ |
 
 ## 五、怎么跑
 

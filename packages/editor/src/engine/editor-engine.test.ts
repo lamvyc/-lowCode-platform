@@ -22,9 +22,52 @@ function cardMaterial(): Material {
   }
 }
 
-function makeEngine(schema?: PageSchema): EditorEngine {
+function inputMaterial(): Material {
+  return {
+    type: 'input',
+    name: '单行输入',
+    category: '基础字段',
+    version: '1.0.0',
+    defaultProps: {
+      label: '',
+      modelValue: '',
+      disabled: false,
+      placeholder: '',
+      required: false,
+    },
+    propConfigs: [],
+  }
+}
+
+function gridMaterials(): Material[] {
+  return [
+    {
+      type: 'grid',
+      name: '栅格',
+      category: '容器',
+      version: '1.0.0',
+      defaultProps: { gutter: 12, colHeight: null },
+      propConfigs: [],
+      droppable: false,
+      slots: ['default'],
+      defaultChildren: [{ type: 'grid-col', count: 2 }],
+    },
+    {
+      type: 'grid-col',
+      name: '栅格列',
+      category: '容器',
+      version: '1.0.0',
+      defaultProps: { span: 12, offset: 0, push: 0, pull: 0, responsive: false, md: 12, sm: 12, xs: 12 },
+      propConfigs: [],
+      droppable: true,
+      slots: ['default'],
+    },
+  ]
+}
+
+function makeEngine(schema?: PageSchema, materials: Material[] = [cardMaterial()]): EditorEngine {
   const registry = new MaterialRegistry()
-  registry.register(cardMaterial())
+  for (const material of materials) registry.register(material)
   const base: PageSchema = {
     version: SCHEMA_VERSION,
     meta: {
@@ -289,5 +332,62 @@ describe('EditorEngine 拖拽落点', () => {
       'hidden',
       'c',
     ])
+  })
+})
+
+describe('EditorEngine 外部 Schema 默认值归一', () => {
+  it('载入时补齐物料默认属性，字段能被校验、禁用覆盖能生效', () => {
+    const schema: PageSchema = {
+      version: SCHEMA_VERSION,
+      meta: { id: 'p1', name: '默认值', createdAt: '', updatedAt: '' },
+      nodes: [
+        {
+          id: 'f1',
+          name: 'userName',
+          type: 'input',
+          props: { label: '姓名', required: true },
+        },
+      ],
+      materials: [],
+      dataSources: [],
+      variables: [],
+      rules: [],
+    }
+    const engine = makeEngine(schema, [inputMaterial()])
+    const node = engine.current.nodes[0]
+
+    // 模板/导入 Schema 省略的默认值，在载入时补齐（渲染器靠 modelValue 判断字段）
+    expect(node.props).toMatchObject({
+      modelValue: '',
+      disabled: false,
+      placeholder: '',
+      label: '姓名',
+      required: true,
+    })
+    expect(engine.runtime.validateAll()).toBe(false)
+    expect(engine.runtime.getFieldError('f1')).toBeTruthy()
+
+    // disabled 现在真实存在于 node.props，setNodeProp 的覆盖才能驱动组件
+    engine.runtime.setNodeProp('f1', 'disabled', true)
+    expect(engine.runtime.resolveProp(node, 'disabled')).toBe(true)
+  })
+})
+
+describe('EditorEngine 栅格列结构', () => {
+  it('appendChildrenWithProps 一次写入列宽，并保证新列名称唯一', () => {
+    const engine = makeEngine(undefined, gridMaterials())
+    const grid = engine.insertMaterial('grid', { parentId: null, position: 'root', index: 0 })
+    const before = engine.current.nodes.filter((node) => node.type === 'grid-col')
+    expect(before).toHaveLength(2)
+
+    const created = engine.appendChildrenWithProps(grid.id, 'grid-col', [
+      { span: 8 },
+      { span: 8 },
+    ])
+
+    expect(created.map((node) => node.props.span)).toEqual([8, 8])
+    expect(engine.current.nodes.find((node) => node.id === grid.id)!.children).toHaveLength(4)
+    const names = engine.current.nodes.filter((node) => node.type === 'grid-col').map((node) => node.name)
+    expect(new Set(names).size).toBe(names.length)
   })
 })

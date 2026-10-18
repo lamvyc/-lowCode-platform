@@ -70,9 +70,7 @@
         "name",
         "hidden"
       ],
-      "extraOptions": [
-        "colHeight"
-      ],
+      "extraOptions": [],
       "waived": []
     },
     {

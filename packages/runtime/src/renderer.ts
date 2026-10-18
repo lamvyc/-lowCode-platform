@@ -1,6 +1,8 @@
 import {
   Fragment,
+  computed,
   defineComponent,
+  inject,
   onBeforeUnmount,
   h,
   provide,
@@ -8,6 +10,8 @@ import {
   watch,
   watchEffect,
   type Component,
+  type ComputedRef,
+  type InjectionKey,
   type PropType,
   type VNode,
 } from 'vue'
@@ -16,6 +20,24 @@ import { RUNTIME_CONTEXT_KEY, type RuntimeContext } from './context'
 import { FIELD_CONTEXT_KEY, type FieldContext } from './field'
 
 type LoopCtx = { itemName: string; indexName?: string; item: unknown; index: number }
+
+/**
+ * 设计器设备档位，取值与参考实现的 `formConfig.layoutType`（PC / Pad / H5）对齐。
+ *
+ * 参考实现的栅格列在“设计器 / 预览”里不是靠媒体查询，而是**按当前设备档位直接把
+ * md / sm / xs 换算成 span**；只有独立运行时（previewState=false）才使用 md/sm/xs
+ * 断点。本平台在 `RuntimeRenderer` 上新增 `layoutType`，设计器与预览传入当前设备，
+ * 独立运行时保持 undefined —— 两条路径因此与参考一致。
+ */
+export type RuntimeLayoutType = 'pc' | 'pad' | 'h5'
+
+export const LAYOUT_TYPE_KEY: InjectionKey<ComputedRef<RuntimeLayoutType | undefined>> =
+  Symbol('lc.layoutType')
+
+/** 读取当前渲染上下文的设备档位；未提供时返回 undefined（表示使用响应式断点） */
+export function useLayoutType(): ComputedRef<RuntimeLayoutType | undefined> {
+  return inject(LAYOUT_TYPE_KEY, computed(() => undefined))
+}
 
 /**
  * 执行组件自定义代码（`onCreated` / `onMounted`）。
@@ -307,6 +329,11 @@ export interface RuntimeRendererProps {
    * 画布传 `true`；预览与运行时宿主用默认值 `false`。
    */
   designMode?: boolean
+  /**
+   * 设备档位：设置后栅格列的响应式布局按该档位直接换算 span
+   * （与参考实现的 formConfig.layoutType 一致）。不传则使用 md/sm/xs 断点。
+   */
+  layoutType?: RuntimeLayoutType
 }
 
 /** 渲染器组件：接收 schema + 运行时上下文 */
@@ -320,8 +347,14 @@ export const RuntimeRenderer = defineComponent({
       default: (_node: PageNode, inner: VNode) => inner,
     },
     designMode: { type: Boolean, default: false },
+    layoutType: {
+      type: String as PropType<RuntimeLayoutType>,
+      default: undefined,
+    },
   },
   setup(props) {
+    // 设备档位传给栅格列（materials 里的 GridCol 通过 useLayoutType() 读取）
+    provide(LAYOUT_TYPE_KEY, computed(() => props.layoutType))
     // provide 只在 setup 里执行一次。编辑器每次 schema 变更都会重建 RuntimeContext
     // （EditorEngine.record），若直接 provide 对象，下游 useRuntimeContext() 会一直
     // 拿到第一次的旧上下文——表现为改「表单设置」后画布上的字段标签不更新。
