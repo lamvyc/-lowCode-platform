@@ -807,19 +807,16 @@ function onDragLeave(event: DragEvent): void {
 }
 
 /*
- * 节点包装层：选中 / 悬停 / 拖拽 / 落点。
- * 选中态使用 outline（不参与布局），与 variant-form 的 `outline: 2px solid` 一致。
+ * 节点包装层：选中 / 拖拽 / 落点。
+ *
+ * 画布上不显示悬停虚线，也不给栅格/表格加常显虚线轮廓：
+ * 只有“选中”是 2px 实线主色，拖拽落点用实线高亮。
  */
 :deep(.lc-node) {
   position: relative;
-  outline: 1px dashed transparent;
-  outline-offset: -1px;
   border-radius: 2px;
-  transition: outline-color 0.15s ease, opacity 0.15s ease;
+  transition: opacity 0.15s ease;
   cursor: pointer;
-}
-:deep(.lc-node:hover) {
-  outline-color: #3370ff;
 }
 :deep(.lc-node--selected) {
   outline: 2px solid #3370ff;
@@ -829,7 +826,7 @@ function onDragLeave(event: DragEvent): void {
   opacity: 0.4;
 }
 :deep(.lc-node--drop-inside) {
-  outline: 1px dashed #3370ff;
+  outline: 2px solid #3370ff;
   outline-offset: -1px;
 }
 
@@ -837,26 +834,12 @@ function onDragLeave(event: DragEvent): void {
 :deep(.lc-node--embedded) {
   cursor: pointer;
 }
-
-/*
- * 栅格结构轮廓：参考实现里 `.grid-container` / `.grid-cell` **始终**带 1px 虚线轮廓，
- * 不依赖悬停。没有这条，画布上看不出栅格列边界（只有悬停时才闪一下）。
- */
-:deep(.lc-grid),
-:deep(.lc-grid-col) {
-  outline: 1px dashed #336699;
-  outline-offset: -1px;
-}
 :deep(.lc-node--embedded.lc-node--selected) {
   outline: 2px solid #3370ff;
   outline-offset: -2px;
 }
-:deep(.lc-node--embedded.lc-node--hovered:not(.lc-node--selected)) {
-  outline: 1px dashed #3370ff;
-  outline-offset: -1px;
-}
 :deep(.lc-node--embedded.lc-node--drop-inside) {
-  outline: 1px dashed #3370ff;
+  outline: 2px solid #3370ff;
   outline-offset: -1px;
 }
 

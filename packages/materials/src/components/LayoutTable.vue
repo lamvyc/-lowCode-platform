@@ -33,8 +33,8 @@ withDefaults(
   width: 100%;
   border-collapse: collapse;
 }
-/* 单元格由子组件渲染，需用 :deep 穿透作用域 */
+/* 单元格由子组件渲染，需用 :deep 穿透作用域；使用实线，画布上不出现虚线 */
 .lc-layout-table--border :deep(td) {
-  border: 1px dashed #d9d9d9;
+  border: 1px solid #d9d9d9;
 }
 </style>
