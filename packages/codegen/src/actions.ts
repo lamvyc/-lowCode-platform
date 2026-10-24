@@ -6,6 +6,7 @@ export interface ActionRuntimeOptions {
   modelName: string
   variableNames: string[]
   datasourceIds: string[]
+  dataSources: Array<{ id: string; loadName: string }>
 }
 
 function pascalCase(value: string): string {
@@ -86,12 +87,37 @@ export function buildActionRuntime(schema: PageSchema, options: ActionRuntimeOpt
   lines.push('        else location.href = route')
   lines.push('        break')
   lines.push('      }')
-  lines.push("      case 'submit':")
-  lines.push("        console.warn('[codegen] submit 动作尚未生成')")
+  lines.push("      case 'submit': {")
+  lines.push('        if (!formRef.value) {')
+  lines.push("          console.warn('[codegen] 页面没有可提交的表单')")
+  lines.push('          break')
+  lines.push('        }')
+  lines.push('        formRef.value')
+  lines.push('          .validate()')
+  lines.push('          .then((valid) => {')
+  lines.push('            if (!valid) return')
+  lines.push('            window.dispatchEvent(')
+  lines.push("              new CustomEvent('lc-submit', {")
+  lines.push('                detail: JSON.parse(JSON.stringify(formData)),')
+  lines.push('              }),')
+  lines.push('            )')
+  lines.push('          })')
+  lines.push("          .catch(() => {})")
   lines.push('        break')
-  lines.push("      case 'refresh':")
-  lines.push("        console.warn('[codegen] refresh 动作尚未生成')")
+  lines.push('      }')
+  lines.push("      case 'refresh': {")
+  lines.push('        const dataSourceId = String(action.config.dataSourceId ?? "")')
+  lines.push('        switch (dataSourceId) {')
+  for (const source of options.dataSources) {
+    lines.push(`          case ${JSON.stringify(source.id)}:`)
+    lines.push(`            ${source.loadName}()`)
+    lines.push('            break')
+  }
+  lines.push('          default:')
+  lines.push("            console.warn('[codegen] 未找到数据源', dataSourceId)")
+  lines.push('        }')
   lines.push('        break')
+  lines.push('      }')
   lines.push('      default:')
   lines.push("        console.warn('[codegen] 未支持的动作类型', action.kind)")
   lines.push('    }')

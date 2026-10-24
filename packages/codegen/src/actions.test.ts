@@ -89,6 +89,50 @@ describe('事件与动作运行时', () => {
     expect(code).toContain('if (!show.value) continue')
   })
 
+  it('submit 生成表单校验与 lc-submit 事件', async () => {
+    const schema = schemaWith([
+      { id: 'f1', name: 'a', type: 'input', props: { label: 'A' } },
+      {
+        id: 'b1',
+        name: 'go',
+        type: 'button',
+        props: { label: '提交' },
+        events: { click: [{ id: 'a1', kind: 'submit', config: { formId: 'page' } }] },
+      },
+    ])
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('formRef.value')
+    expect(code).toContain('.validate()')
+    expect(code).toContain("new CustomEvent('lc-submit'")
+  })
+
+  it('refresh 调用对应数据源 loader', async () => {
+    const schema = schemaWith([
+      {
+        id: 'b1',
+        name: 'go',
+        type: 'button',
+        props: { label: '刷新' },
+        events: {
+          click: [{ id: 'a1', kind: 'refresh', config: { dataSourceId: 'remote' } }],
+        },
+      },
+    ])
+    schema.dataSources = [
+      { id: 'remote', name: '远程', type: 'rest', config: { url: '/api', method: 'GET' } },
+    ]
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('loadRemote()')
+  })
+
+  it('注入 core 同款表达式辅助函数', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([{ id: 'b1', name: 'go', type: 'button', props: { label: '去' } }]),
+    )
+    expect(code).toContain('function count(')
+    expect(code).toContain('function isEmpty(')
+  })
+
   it('模板为节点加 v-bind overrides', async () => {
     const { code } = await generateVueSfc(
       schemaWith([{ id: 'b1', name: 'go', type: 'button', props: { label: '去' } }]),

@@ -13,8 +13,8 @@ import {
   resolveForm,
 } from './form'
 import { actionHandlerName, buildActionRuntime } from './actions'
-import { buildDataSourceRuntime } from './datasources'
-import { rewriteExpression } from './expressions'
+import { buildDataSourceRuntime, dataSourceLoadName } from './datasources'
+import { buildExpressionHelpers, rewriteExpression } from './expressions'
 import { createDefaultRegistry } from './mappings'
 import { renderChildren } from './mappings/helpers'
 import type { ComponentMapping, MappingContext, MappingRegistry } from './mappings/types'
@@ -322,6 +322,9 @@ export class VueSfcGenerator implements ICodeGenerator {
     }
     scriptLines.push('')
 
+    scriptLines.push(buildExpressionHelpers())
+    scriptLines.push('')
+
     for (const variable of schema.variables) {
       const name = sanitizeIdentifier(variable.name, 'variable')
       if (name !== variable.name) {
@@ -343,14 +346,16 @@ export class VueSfcGenerator implements ICodeGenerator {
         modelName: form.modelName,
         variableNames: schema.variables.map((variable) => variable.name),
         datasourceIds: schema.dataSources.map((source) => source.id),
+        dataSources: schema.dataSources.map((source) => ({
+          id: source.id,
+          loadName: dataSourceLoadName(source.id),
+        })),
       }),
     )
 
-    if (hasFields) {
-      scriptLines.push(`const ${form.modelName} = reactive(${buildFormData(plan, this.registry)})`)
-      scriptLines.push(`const ${form.refName} = ref()`)
-      scriptLines.push(`const ${form.rulesName} = ${buildRulesObject(plan, ctx)}`)
-    }
+    scriptLines.push(`const ${form.modelName} = reactive(${buildFormData(plan, this.registry)})`)
+    scriptLines.push(`const ${form.refName} = ref()`)
+    scriptLines.push(`const ${form.rulesName} = ${buildRulesObject(plan, ctx)}`)
     if (setupLines.length > 0) {
       scriptLines.push(setupLines.join('\n'))
     }

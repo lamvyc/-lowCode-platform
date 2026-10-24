@@ -3,6 +3,12 @@ import { datasourceRefName } from './expressions'
 import { sanitizeIdentifier } from './plan'
 import type { CodegenWarning } from './types'
 
+/** 数据源 id → loader 函数名 */
+export function dataSourceLoadName(id: string): string {
+  const sanitized = sanitizeIdentifier(id, 'ds')
+  return `load${sanitized.charAt(0).toUpperCase()}${sanitized.slice(1)}`
+}
+
 export interface DataSourceRuntime {
   lines: string[]
   mountCalls: string[]
@@ -55,7 +61,7 @@ export function buildDataSourceRuntime(schema: PageSchema): DataSourceRuntime {
         const url = `${source.config.url ?? ''}${buildQuery(source.config.params)}`
         const hasBody = method !== 'GET' && method !== 'HEAD' && source.config.params
         lines.push(`const ${refName} = ref(null)`)
-        lines.push(`async function load${sanitizeIdentifier(source.id, 'ds').replace(/^./, (c) => c.toUpperCase())}() {`)
+        lines.push(`async function ${dataSourceLoadName(source.id)}() {`)
         lines.push('  try {')
         lines.push(`    const res = await fetch(${quote(url)}, {`)
         lines.push(`      method: ${quote(method)},`)
@@ -67,7 +73,7 @@ export function buildDataSourceRuntime(schema: PageSchema): DataSourceRuntime {
         lines.push(`    console.warn('[codegen] 数据源 ${source.id} 加载失败', error)`)
         lines.push('  }')
         lines.push('}')
-        const loadName = `load${sanitizeIdentifier(source.id, 'ds').replace(/^./, (c) => c.toUpperCase())}`
+        const loadName = dataSourceLoadName(source.id)
         if (source.autoLoad !== false) mountCalls.push(`  ${loadName}()`)
         if (source.config.pollInterval) {
           const timer = `timer_${refName}`
