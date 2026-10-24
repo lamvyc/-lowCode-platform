@@ -305,10 +305,22 @@ export class VueSfcGenerator implements ICodeGenerator {
       variableNames: schema.variables.map((variable) => variable.name),
     })
     const needsWatch = (Boolean(formSettings.onFormDataChange) && hasFields) || ruleRuntime.needsWatch
+    const nodeCreatedHooks: Array<{ node: PageNode; code: string; key: string }> = []
+    const nodeMountedHooks: Array<{ node: PageNode; code: string; key: string }> = []
+    for (const node of schema.nodes) {
+      const key = plan.modelKeys.get(node.id) ?? modelKey(node)
+      if (typeof node.props.onCreated === 'string' && node.props.onCreated.trim() !== '') {
+        nodeCreatedHooks.push({ node, code: node.props.onCreated, key })
+      }
+      if (typeof node.props.onMounted === 'string' && node.props.onMounted.trim() !== '') {
+        nodeMountedHooks.push({ node, code: node.props.onMounted, key })
+      }
+    }
     const needsMounted =
       Boolean(formSettings.onFormMounted) ||
       dataRuntime.mountCalls.length > 0 ||
-      ruleRuntime.needsMounted
+      ruleRuntime.needsMounted ||
+      nodeMountedHooks.length > 0
     const needsBeforeUnmount = dataRuntime.cleanupLines.length > 0
 
     const scriptLines: string[] = ['// 由低代码设计器生成']
@@ -379,8 +391,26 @@ export class VueSfcGenerator implements ICodeGenerator {
       )
     }
 
+    for (const hook of nodeCreatedHooks) {
+      const self = `self_${sanitizeIdentifier(hook.node.id, 'node')}`
+      scriptLines.push(
+        `const ${self} = { node: ${JSON.stringify(hook.node.id)}, get value() { return ${form.modelName}.${hook.key} }, setValue(v) { ${form.modelName}.${hook.key} = v }, getValue() { return ${form.modelName}.${hook.key} } }`,
+      )
+      scriptLines.push(
+        `try {\n  ;(function () {\n${indentCode(hook.code, 4)}\n  }).call(${self})\n} catch (error) {\n  console.warn('[codegen] onCreated 执行失败', error)\n}`,
+      )
+    }
+
     if (dataRuntime.mountCalls.length > 0) {
       scriptLines.push(`onMounted(() => {\n${dataRuntime.mountCalls.join('\n')}\n})`)
+    }
+
+    if (nodeMountedHooks.length > 0) {
+      const calls = nodeMountedHooks.map((hook) => {
+        const self = `self_${sanitizeIdentifier(hook.node.id, 'node')}`
+        return `  try {\n    ;(function () {\n${indentCode(hook.code, 6)}\n    }).call(${self})\n  } catch (error) {\n    console.warn('[codegen] onMounted 执行失败', error)\n  }`
+      })
+      scriptLines.push(`onMounted(() => {\n${calls.join('\n')}\n})`)
     }
 
     if (needsMounted && formSettings.onFormMounted) {
