@@ -109,6 +109,64 @@ describe('VueSfcGenerator', () => {
     expect(code).toContain('  userName: [\n    {\n      required: true,')
   })
 
+  it('model=content 生成 v-model:content，model=none 不生成 v-model', async () => {
+    const registry = createDefaultRegistry()
+    registry.register('content-field', {
+      tag: 'el-input',
+      field: true,
+      model: 'content',
+      attrs: () => ({}),
+      initialValue: () => '',
+    })
+    registry.register('plain-field', {
+      tag: 'el-input',
+      field: true,
+      model: 'none',
+      attrs: () => ({}),
+      initialValue: () => '',
+    })
+    const content = await new VueSfcGenerator({ registry }).generate(
+      schemaWith([{ id: 'a', name: 'a', type: 'content-field', props: {} }]),
+    )
+    const none = await new VueSfcGenerator({ registry }).generate(
+      schemaWith([{ id: 'b', name: 'b', type: 'plain-field', props: {} }]),
+    )
+    expect(content.code).toContain('v-model:content="formData.a"')
+    expect(none.code).not.toContain('v-model')
+  })
+
+  it('sideEffectImports 生成 CSS import', async () => {
+    const registry = createDefaultRegistry()
+    registry.register('rich', {
+      tag: 'el-input',
+      field: true,
+      sideEffectImports: ['@vueup/vue-quill/dist/vue-quill.snow.css'],
+      attrs: () => ({}),
+      initialValue: () => '',
+    })
+    const { code } = await new VueSfcGenerator({ registry }).generate(
+      schemaWith([{ id: 'r', name: 'r', type: 'rich', props: {} }]),
+    )
+    expect(code).toContain("import '@vueup/vue-quill/dist/vue-quill.snow.css'")
+  })
+
+  it('静态数据源生成 ref，动态数据源给 warning', async () => {
+    const schema = schemaWith([])
+    schema.dataSources = [
+      {
+        id: 'userList',
+        name: '用户',
+        type: 'static',
+        config: { staticData: { data: [{ name: '张三' }] } },
+      },
+      { id: 'remote', name: '远程', type: 'rest', config: { url: '/api' } },
+    ]
+    const { code, warnings } = await generateVueSfc(schema)
+    expect(code).toContain('const userList = ref({')
+    expect(code).toContain('const remote = ref(null)')
+    expect(warnings.some((warning) => warning.code === 'datasource-deferred')).toBe(true)
+  })
+
   it('生成的代码可被 @vue/compiler-sfc 解析', async () => {
     const { code } = await generateVueSfc(schemaWith([buttonNode(), staticTextNode()]))
     const { errors } = parse(code, { filename: 'page.vue' })

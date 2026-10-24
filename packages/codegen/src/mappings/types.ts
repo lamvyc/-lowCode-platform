@@ -34,6 +34,10 @@ export interface ElementMapping {
   attrs: (node: PageNode, ctx: MappingContext) => Record<string, string | true>
   /** 自定义渲染，默认 tag + 子节点 */
   render?: (node: PageNode, ctx: MappingContext) => TemplateNode
+  /** 字段的 v-model 目标：默认 value；rich-editor 用 content；upload 用 none */
+  model?: 'value' | 'content' | 'none'
+  /** 生成物需要的副作用 import（如 Quill CSS） */
+  sideEffectImports?: string[]
   /** 字段缺省值（Schema 未声明 modelValue 时使用） */
   initialValue?: (node: PageNode) => unknown
   /** 额外 setup 代码（如 tab active、卡片折叠） */

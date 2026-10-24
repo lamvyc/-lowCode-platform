@@ -12,6 +12,7 @@ import {
   buildFormItemAttrs,
   resolveForm,
 } from './form'
+import { datasourceRefName } from './expressions'
 import { createDefaultRegistry } from './mappings'
 import { renderChildren } from './mappings/helpers'
 import type { ComponentMapping, MappingContext, MappingRegistry } from './mappings/types'
@@ -166,8 +167,11 @@ export class VueSfcGenerator implements ICodeGenerator {
 
       const current = mapping!
       const attrs: Record<string, string | true> = { ...current.attrs(node, ctx) }
+      const modelTarget = current.model ?? 'value'
       if (current.field === true) {
-        attrs['v-model'] = `${form.modelName}.${modelKey(node)}`
+        const target = `${form.modelName}.${modelKey(node)}`
+        if (modelTarget === 'value') attrs['v-model'] = target
+        else if (modelTarget === 'content') attrs['v-model:content'] = target
       }
 
       let element: TemplateNode
@@ -223,6 +227,7 @@ export class VueSfcGenerator implements ICodeGenerator {
 
     const componentByTag = new Map<string, ComponentMapping>()
     const extraImports = new Map<string, Set<string>>()
+    const sideEffectImports = new Set<string>()
     for (const node of schema.nodes) {
       const component = this.registry.component(node.type)
       if (component) componentByTag.set(component.tag, component)
@@ -232,6 +237,7 @@ export class VueSfcGenerator implements ICodeGenerator {
         set.add(entry.name)
         extraImports.set(entry.from, set)
       }
+      for (const spec of mapping?.sideEffectImports ?? []) sideEffectImports.add(spec)
     }
     for (const tag of tags) {
       const component = componentByTag.get(tag)
@@ -259,7 +265,24 @@ export class VueSfcGenerator implements ICodeGenerator {
     for (const [from, names] of extraImports) {
       scriptLines.push(`import { ${[...names].sort().join(', ')} } from '${from}'`)
     }
+    for (const spec of sideEffectImports) {
+      scriptLines.push(`import '${spec}'`)
+    }
     scriptLines.push('')
+
+    for (const source of schema.dataSources) {
+      const refName = datasourceRefName(source.id)
+      if (source.type === 'static') {
+        scriptLines.push(`const ${refName} = ref(${JSON.stringify(source.config.staticData ?? null)})`)
+      } else {
+        scriptLines.push(`const ${refName} = ref(null)`)
+        warnings.push({
+          code: 'datasource-deferred',
+          message: `数据源 ${source.id}（${source.type}）将在 P2 生成`,
+        })
+      }
+    }
+    if (schema.dataSources.length > 0) scriptLines.push('')
 
     if (hasFields) {
       scriptLines.push(`const ${form.modelName} = reactive(${buildFormData(plan, this.registry)})`)
