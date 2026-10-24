@@ -32,6 +32,15 @@
 快捷键（Designer.vue）：`Delete/Backspace` 删除、`Ctrl/Cmd+C` 复制、`Ctrl/Cmd+V` 粘贴、
 `Ctrl/Cmd+Z` 撤销、`Ctrl/Cmd+Shift+Z` 重做。
 
+页面级弹窗（预览 / 生成 SFC / 导入 JSON / 导出 JSON，以及预览里的表单数据）与参考
+`variant-form` 一致，支持**按住标题栏拖动**：
+
+- 由 Element Plus 的 `draggable` 实现：整个标题栏（含弹窗上沿的 16px 内边距）都是拖拽区，
+  光标一进入顶部就是 `cursor: move`，位移限制在视口内；
+- 点击遮罩空白区或按 `Esc` 即可关闭（预览原先按参考实现禁用了这两个行为，现与其余弹窗一致）；
+- Pad / H5 预览本身是全屏弹窗，Element Plus 会自动禁用拖拽；
+- 弹窗关闭即销毁内容，因此重新打开会回到居中位置（与参考 `v-if` + `destroy-on-close` 的行为一致）。
+
 工具栏按窗口宽度自适应，避免设备组被挤成竖排：
 
 | 条件 | 表现 |
@@ -144,7 +153,15 @@ registerPageTemplate({
 
 - 工具栏「生成 SFC」→ 对话框内四个页签：**完整 SFC / Template / Script / Style**，展示文件名、行数、字符数，
   支持复制与下载（Blob，无需 file-saver）。
-- 生成走 `@lowcode/codegen` 的 `generateVueSfc(schema)`：Schema → 模板 AST → Prettier → Vue 3 SFC。
+- 生成走 `@lowcode/codegen` 的 `generateVueSfc(schema)`：Schema → 映射计划 → Element Plus 模板 AST → Prettier → Vue 3 SFC。
+- **输出是独立页面**：只依赖 `vue` + `element-plus`，不 import `@lowcode/materials`。
+  图标按需用 `@element-plus/icons-vue`，富文本按需用 `@vueup/vue-quill`（P1）。
+- **表单壳**：有字段时根节点是 `<el-form>`，生成 `formData / formRef / formRules`；
+  `settings.form` 的 labelPosition / labelWidth / size / modelName / refName / rulesName 生效，
+  字段按映射类型识别（不依赖 `modelValue` 是否存在）。
+- **校验**：`required` / `validation` / `minLength` / `maxLength` / `onValidate` 生成 Element Plus rules。
+- **当前覆盖（P0）**：10/12 内置模板；除「固定表格表单」（picture-upload）与「数据列表页」（data-table）。
+  其余动作、数据源、schema.rules 在 P2 补齐；未还原能力通过 `GeneratedCode.warnings` 暴露。
 - **懒加载**：`await import('@lowcode/codegen')` 独立分包，只有点击按钮时才下载（prettier 体积较大）。
 - 浏览器可用性：Prettier 以 `prettier/standalone` + `babel/estree/html/postcss` 插件显式调用，
   否则浏览器端会报 `Couldn't resolve parser "vue"`；格式化失败时回退为未格式化文本（结构仍完整）。
