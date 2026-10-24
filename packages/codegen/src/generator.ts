@@ -4,7 +4,7 @@ import * as prettierEstree from 'prettier/plugins/estree'
 import * as prettierHtml from 'prettier/plugins/html'
 import * as prettierPostcss from 'prettier/plugins/postcss'
 import * as prettierTypescript from 'prettier/plugins/typescript'
-import type { PageNode, PageSchema } from '@lowcode/schema'
+import { isExpressionBinding, type PageNode, type PageSchema } from '@lowcode/schema'
 import { el, stringifyTemplate, type TemplateNode } from './ast'
 import {
   buildFormAttrs,
@@ -12,7 +12,7 @@ import {
   buildFormItemAttrs,
   resolveForm,
 } from './form'
-import { datasourceRefName } from './expressions'
+import { datasourceRefName, rewriteExpression } from './expressions'
 import { createDefaultRegistry } from './mappings'
 import { renderChildren } from './mappings/helpers'
 import type { ComponentMapping, MappingContext, MappingRegistry } from './mappings/types'
@@ -96,6 +96,27 @@ function applyColumnWidth(node: PageNode, target: TemplateNode): void {
   if (typeof width !== 'string' || width === '') return
   const existing = typeof target.attrs.style === 'string' ? target.attrs.style : ''
   target.attrs.style = existing ? `${existing}; width: ${width}` : `width: ${width}`
+}
+
+/** 应用 visible / loop 绑定到目标元素 */
+function applyBindings(node: PageNode, target: TemplateNode, ctx: MappingContext): void {
+  if (target.kind !== 'element') return
+  const visible = node.bindings?.visible
+  if (visible) {
+    target.attrs['v-if'] = isExpressionBinding(visible)
+      ? rewriteExpression(visible.value, ctx.datasourceIds, ctx.variableNames, 'template')
+      : JSON.stringify(Boolean(visible.value))
+  }
+  const loop = node.bindings?.loop
+  if (loop) {
+    const config = isExpressionBinding(loop)
+      ? { source: loop.value, itemName: 'item', indexName: 'index' }
+      : (loop.value as { source: string; itemName: string; indexName?: string })
+    const source = rewriteExpression(config.source, ctx.datasourceIds, ctx.variableNames, 'template')
+    const indexName = config.indexName || 'index'
+    target.attrs['v-for'] = `(${config.itemName}, ${indexName}) in ${source}`
+    if (!target.attrs[':key']) target.attrs[':key'] = indexName
+  }
 }
 
 /** 合并节点 style / class 到已生成元素 */
@@ -185,10 +206,12 @@ export class VueSfcGenerator implements ICodeGenerator {
         applyColumnWidth(node, element)
         const itemAttrs = buildFormItemAttrs(node, ctx)
         const item = el('el-form-item', itemAttrs, [element])
+        applyBindings(node, item, ctx)
         applyStyleAndClass(node, item, ctx)
         return item
       }
 
+      applyBindings(node, element, ctx)
       applyStyleAndClass(node, element, ctx)
       return element
     }

@@ -167,6 +167,27 @@ describe('VueSfcGenerator', () => {
     expect(warnings.some((warning) => warning.code === 'datasource-deferred')).toBe(true)
   })
 
+  it('具名插槽与 v-if/v-for', async () => {
+    const schema = schemaWith([
+      { id: 'box', type: 'card', props: {}, children: ['t'], slots: { extra: ['s'] } },
+      { id: 't', type: 'static-text', props: { textContent: 'A' } },
+      { id: 's', type: 'static-text', props: { textContent: 'B' } },
+    ])
+    schema.nodes[0].bindings = {
+      visible: { type: 'expression', value: '$page.show' },
+      loop: { type: 'static', value: { source: '$datasource.list', itemName: 'item' } },
+    }
+    schema.variables = [{ id: 'v', name: 'show', value: true }]
+    schema.dataSources = [
+      { id: 'list', name: 'list', type: 'static', config: { staticData: [] } },
+    ]
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('<template #extra>')
+    expect(code).toContain('v-if="show"')
+    expect(code).toContain('v-for="(item, index) in list"')
+    expect(code).toContain(':key="index"')
+  })
+
   it('生成的代码可被 @vue/compiler-sfc 解析', async () => {
     const { code } = await generateVueSfc(schemaWith([buttonNode(), staticTextNode()]))
     const { errors } = parse(code, { filename: 'page.vue' })
