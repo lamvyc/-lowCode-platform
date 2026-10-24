@@ -18,6 +18,7 @@ interface GeneratedParts {
   template: string
   script: string
   style: string
+  warnings?: Array<{ code: string; message: string; nodeId?: string }>
 }
 
 type PartKey = 'sfc' | 'template' | 'script' | 'style'
@@ -55,6 +56,7 @@ watch(
   (open) => {
     if (open) void generate()
   },
+  { immediate: true },
 )
 
 const activeMode = computed<CodeMode>(
@@ -122,6 +124,20 @@ function download(): void {
       class="lc-sfc-dialog__alert"
     />
 
+    <el-alert
+      v-if="parts?.warnings?.length"
+      type="warning"
+      :closable="false"
+      class="lc-sfc-dialog__warnings"
+    >
+      <template #title>生成告警（{{ parts.warnings.length }}）</template>
+      <ul class="lc-sfc-dialog__warning-list">
+        <li v-for="(warning, index) in parts.warnings" :key="`${warning.code}-${index}`">
+          {{ warning.message }}
+        </li>
+      </ul>
+    </el-alert>
+
     <p v-if="loading" class="lc-sfc-dialog__status">正在生成 SFC…</p>
     <el-alert v-else-if="error" type="error" :closable="false" :title="`生成失败：${error}`" />
 
@@ -149,6 +165,16 @@ function download(): void {
 <style scoped>
 .lc-sfc-dialog__alert {
   margin-bottom: 10px;
+}
+.lc-sfc-dialog__warnings {
+  margin-bottom: 10px;
+}
+.lc-sfc-dialog__warning-list {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 120px;
+  overflow: auto;
+  font-size: 12px;
 }
 .lc-sfc-dialog__status {
   padding: 24px 0;

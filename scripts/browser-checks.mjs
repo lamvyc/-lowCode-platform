@@ -340,6 +340,37 @@ const CHECKS = [
   },
 
   {
+    name: 'sfc-dialog-codegen',
+    why: '生成 SFC 在真实浏览器里走懒加载 codegen + Prettier；只测 codegen 单测覆盖不到模块加载与真实对话框渲染。生成物必须是纯 Element Plus，不能回退到 @lowcode/materials',
+    steps: [
+      { click: '[title="单行输入"]' },
+      { wait: 600 },
+      { click: '.lc-toolbar__action[aria-label="生成 SFC"]' },
+      { wait: 2500 },
+      {
+        check: `(() => {
+          const dialog = document.querySelector('.lc-sfc-dialog')
+          if (!dialog) return { ok: false, detail: { error: 'SFC 弹窗未出现' } }
+          const textareas = [...dialog.querySelectorAll('textarea')].map((item) => item.value).join('\\n')
+          const text = dialog.textContent + '\\n' + textareas
+          const detail = {
+            含elementPlus: text.includes('element-plus'),
+            含materials: text.includes('@lowcode/materials'),
+            含formItem: text.includes('el-form-item'),
+            含未注册物料: text.includes('未注册物料'),
+            页签: [...dialog.querySelectorAll('.el-tabs__item')].map((item) => item.textContent.trim()),
+          }
+          return {
+            ok: detail.含elementPlus && !detail.含materials && detail.含formItem
+              && !detail.含未注册物料 && detail.页签.length === 4,
+            detail,
+          }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'page-templates',
     why: '页面模板是整页 Schema 的工厂：参考 variant-form 的 8 个模板转换后必须真的能载入、渲染不出现未注册物料，并且表单级排版（labelWidth / labelAlign）跟着模板生效',
     steps: [

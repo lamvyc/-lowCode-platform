@@ -50,6 +50,8 @@ pnpm verify:browser -- --url http://localhost:5174/ --only radio   # 只跑名�
 | `node-reorder-to-front` | `NodeTree.resolveIndex` 的 `beforeId` 对根级 `PageNode[]` 列表必须真的能匹配（否则退化成"总是追加末尾"，表现为拖不到最前） |
 | `node-move-real-mouse` | 真实鼠标点上移/下移后选中态**不跳到相邻组件** |
 | `cross-container-drag` | 根层节点拖进卡片后成为其子节点 |
+| `dialog-drag` | 预览 / 生成 SFC / 导入 / 导出弹窗：标题栏（含上沿 16px）可拖、遮罩空白区可关、全屏预览不拖 |
+| `sfc-dialog-codegen` | 真实浏览器里打开「生成 SFC」：懒加载 codegen + Prettier 后产物是纯 Element Plus，不回退到 `@lowcode/materials` |
 
 ## 三个"看起来像 UI 小毛病、其实是机制问题"的例子
 
