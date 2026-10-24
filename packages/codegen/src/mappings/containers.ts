@@ -154,4 +154,55 @@ export function registerContainerMappings(registry: MappingRegistry): void {
   registry.register('grid-col', gridColMapping)
   registry.register('tab', tabMapping)
   registry.register('tab-pane', tabPaneMapping)
+  registry.register('table', tableMapping)
+  registry.register('table-row', tableRowMapping)
+  registry.register('table-cell', tableCellMapping)
+}
+
+/** 布局表格：div.lc-layout-table > table > tbody > tr > td */
+const tableMapping: Parameters<MappingRegistry['register']>[1] = {
+  tag: 'div',
+  attrs: (node) => ({
+    class: node.props.border === false ? 'lc-layout-table' : 'lc-layout-table lc-layout-table--border',
+  }),
+  render: (node, ctx) => {
+    const rows = (node.children ?? [])
+      .map((id) => ctx.nodes.get(id))
+      .filter((child): child is PageNode => Boolean(child))
+      .map((child) => ctx.renderNode(child))
+    return el('div', tableMapping.attrs(node, ctx), [
+      el('table', {}, [el('tbody', {}, rows)]),
+    ])
+  },
+}
+
+const tableRowMapping: Parameters<MappingRegistry['register']>[1] = {
+  tag: 'tr',
+  attrs: () => ({}),
+  render: (node, ctx) => el('tr', {}, renderChildren(node, ctx)),
+}
+
+function cellStyle(node: PageNode): string | undefined {
+  const parts: string[] = []
+  const width = str(node.props.cellWidth)
+  if (width !== '') parts.push(`width: ${width}`)
+  const height = str(node.props.cellHeight)
+  if (height !== '') parts.push(`height: ${height}`)
+  if (node.props.wordBreak === true) parts.push('word-break: break-word')
+  return parts.length > 0 ? parts.join('; ') : undefined
+}
+
+const tableCellMapping: Parameters<MappingRegistry['register']>[1] = {
+  tag: 'td',
+  attrs: (node) => {
+    const attrs: Record<string, string | true> = {}
+    const colspan = num(node.props.colspan)
+    if (colspan !== undefined && colspan > 1) attrs.colspan = String(colspan)
+    const rowspan = num(node.props.rowspan)
+    if (rowspan !== undefined && rowspan > 1) attrs.rowspan = String(rowspan)
+    const style = cellStyle(node)
+    if (style) attrs.style = style
+    return attrs
+  },
+  render: (node, ctx) => el('td', tableCellMapping.attrs(node, ctx), renderChildren(node, ctx)),
 }

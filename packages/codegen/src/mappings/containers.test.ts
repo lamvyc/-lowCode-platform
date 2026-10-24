@@ -96,3 +96,37 @@ describe('容器映射', () => {
     expect(out).toContain('disabled')
   })
 })
+
+describe('布局表格映射', () => {
+  it('生成 table > tbody > tr > td，并带边框类', () => {
+    const table = node({
+      id: 'table1',
+      type: 'table',
+      props: { border: true },
+      children: ['row1'],
+    })
+    const row = node({ id: 'row1', type: 'table-row', props: {}, children: ['cell1'] })
+    const cell = node({ id: 'cell1', type: 'table-cell', props: {}, children: [] })
+    const out = renderNodeToTemplate(table, registry, [row, cell])
+    expect(out).toMatch(/<div class="lc-layout-table[^"]*">\s*<table>/)
+    expect(out).toContain('<tbody>')
+    expect(out).toContain('<tr>')
+    expect(out).toContain('<td')
+    expect(out).toContain('lc-layout-table--border')
+  })
+
+  it('表格单元格带 colspan/rowspan 与宽高', () => {
+    const out = renderNodeToTemplate(
+      node({
+        id: 'cell1',
+        type: 'table-cell',
+        props: { colspan: 2, rowspan: 3, cellWidth: '120px', wordBreak: true },
+      }),
+      registry,
+    )
+    expect(out).toContain('colspan="2"')
+    expect(out).toContain('rowspan="3"')
+    expect(out).toContain('width: 120px')
+    expect(out).toContain('word-break: break-word')
+  })
+})
