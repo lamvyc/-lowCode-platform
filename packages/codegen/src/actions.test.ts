@@ -58,7 +58,7 @@ describe('事件与动作运行时', () => {
     ])
     schema.variables = [{ id: 'v1', name: 'count', value: 0 }]
     const { code } = await generateVueSfc(schema)
-    expect(code).toContain('count.value = action.config.value')
+    expect(code).toContain('count.value = value')
     expect(code).toContain('setNodeProp(')
     expect(code).toContain('action.config.nodeId || nodeId')
     expect(code).toContain('new CustomEvent')
@@ -131,6 +131,50 @@ describe('事件与动作运行时', () => {
     )
     expect(code).toContain('function count(')
     expect(code).toContain('function isEmpty(')
+  })
+
+  it('config.expression 通过 evalExpression 求值', async () => {
+    const schema = schemaWith([
+      {
+        id: 'b1',
+        name: 'go',
+        type: 'button',
+        props: { label: '去' },
+        events: {
+          click: [
+            {
+              id: 'a1',
+              kind: 'setVariable',
+              config: { name: 'count', expression: '$page.count + 1' },
+            },
+          ],
+        },
+      },
+    ])
+    schema.variables = [{ id: 'v1', name: 'count', value: 0 }]
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('evalExpression(action.config.expression)')
+    expect(code).toContain('/\\$page\\./g')
+  })
+
+  it('openDialog / custom 动作进入 warnings', async () => {
+    const schema = schemaWith([
+      {
+        id: 'b1',
+        name: 'go',
+        type: 'button',
+        props: { label: '去' },
+        events: {
+          click: [
+            { id: 'a1', kind: 'openDialog', config: { dialogId: 'd1' } },
+            { id: 'a2', kind: 'custom', config: { actionId: 'x' } },
+          ],
+        },
+      },
+    ])
+    const { warnings } = await generateVueSfc(schema)
+    expect(warnings.some((warning) => warning.code === 'dialog-deferred')).toBe(true)
+    expect(warnings.some((warning) => warning.code === 'custom-action-deferred')).toBe(true)
   })
 
   it('模板为节点加 v-bind overrides', async () => {

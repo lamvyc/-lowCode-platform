@@ -1,5 +1,6 @@
 import type { PageSchema } from '@lowcode/schema'
-import { rewriteExpression } from './expressions'
+import type { CodegenWarning } from './types'
+import { datasourceRefName, rewriteExpression } from './expressions'
 import { sanitizeIdentifier } from './plan'
 
 export interface ActionRuntimeOptions {
@@ -25,6 +26,26 @@ export function actionHandlerName(nodeId: string, eventName: string): string {
 /** 生成动作运行期状态 + runAction + 按节点事件处理器 */
 export function buildActionRuntime(schema: PageSchema, options: ActionRuntimeOptions): string[] {
   const lines: string[] = []
+  lines.push('function expressionContext() {')
+  const contextParts = [`...${options.modelName}`]
+  for (const name of options.variableNames) contextParts.push(`${name}: ${name}.value`)
+  for (const id of options.datasourceIds) contextParts.push(`${datasourceRefName(id)}: ${datasourceRefName(id)}.value`)
+  contextParts.push('count', 'isEmpty', 'contains', 'toUpper', 'toLower', 'round', 'floor', 'ceil', 'join')
+  lines.push(`  return { ${contextParts.join(', ')} }`)
+  lines.push('}')
+  lines.push('')
+  lines.push('function evalExpression(expression) {')
+  lines.push('  try {')
+  lines.push("    const normalized = String(expression).replace(/\\$page\\./g, '').replace(/\\$datasource\\./g, '')")
+  lines.push("    // eslint-disable-next-line no-new-func")
+  lines.push("    const fn = new Function('ctx', 'with (ctx) { return (' + normalized + ') }')")
+  lines.push('    return fn(expressionContext())')
+  lines.push('  } catch (error) {')
+  lines.push("    console.warn('[codegen] 表达式求值失败', expression, error)")
+  lines.push('    return undefined')
+  lines.push('  }')
+  lines.push('}')
+  lines.push('')
   lines.push('const overrides = reactive({})')
   lines.push('const dialogs = reactive({})')
   lines.push('const requestResult = ref(null)')
@@ -37,18 +58,24 @@ export function buildActionRuntime(schema: PageSchema, options: ActionRuntimeOpt
   lines.push('function runAction(action, payload, nodeId) {')
   lines.push('  try {')
   lines.push('    switch (action.kind) {')
-  lines.push("      case 'setProp':")
-  lines.push(
-    '        setNodeProp(action.config.nodeId || nodeId, String(action.config.prop ?? ""), action.config.value)',
-  )
+  lines.push("      case 'setProp': {")
+  lines.push('        const value = action.config.expression')
+  lines.push('          ? evalExpression(action.config.expression)')
+  lines.push('          : action.config.value')
+  lines.push('        setNodeProp(action.config.nodeId || nodeId, String(action.config.prop ?? ""), value)')
+  lines.push('        break')
+  lines.push('      }')
   lines.push('        break')
   lines.push("      case 'setVariable': {")
   lines.push('        const name = String(action.config.name ?? "")')
+  lines.push('        const value = action.config.expression')
+  lines.push('          ? evalExpression(action.config.expression)')
+  lines.push('          : action.config.value')
   lines.push('        switch (name) {')
   for (const variable of schema.variables) {
     const name = sanitizeIdentifier(variable.name, 'variable')
     lines.push(`          case ${JSON.stringify(variable.name)}:`)
-    lines.push(`            ${name}.value = action.config.value`)
+    lines.push(`            ${name}.value = value`)
     lines.push('            break')
   }
   lines.push('          default:')
@@ -154,4 +181,31 @@ export function buildActionRuntime(schema: PageSchema, options: ActionRuntimeOpt
     }
   }
   return lines
+}
+
+
+/** 收集无法在独立页 1:1 还原的动作 */
+export function collectActionWarnings(schema: PageSchema): CodegenWarning[] {
+  const warnings: CodegenWarning[] = []
+  for (const node of schema.nodes) {
+    for (const actions of Object.values(node.events ?? {})) {
+      for (const action of actions) {
+        if (action.kind === 'openDialog' || action.kind === 'closeDialog') {
+          warnings.push({
+            code: 'dialog-deferred',
+            message: `节点 ${node.id} 使用了 ${action.kind}：独立页没有弹窗宿主，只写入 dialogs 状态`,
+            nodeId: node.id,
+          })
+        }
+        if (action.kind === 'custom') {
+          warnings.push({
+            code: 'custom-action-deferred',
+            message: `节点 ${node.id} 使用了 custom 动作：独立页无法访问平台动作注册表`,
+            nodeId: node.id,
+          })
+        }
+      }
+    }
+  }
+  return warnings
 }

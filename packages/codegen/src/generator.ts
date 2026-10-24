@@ -12,7 +12,7 @@ import {
   buildFormItemAttrs,
   resolveForm,
 } from './form'
-import { actionHandlerName, buildActionRuntime } from './actions'
+import { actionHandlerName, buildActionRuntime, collectActionWarnings } from './actions'
 import { buildDataSourceRuntime, dataSourceLoadName } from './datasources'
 import { buildExpressionHelpers, rewriteExpression } from './expressions'
 import { createDefaultRegistry } from './mappings'
@@ -176,7 +176,7 @@ export class VueSfcGenerator implements ICodeGenerator {
     const plan = buildPlan(schema, this.registry)
     const form = resolveForm(schema)
     const nodes = new Map(schema.nodes.map((node) => [node.id, node]))
-    const warnings: CodegenWarning[] = plan.warnings
+    const warnings: CodegenWarning[] = [...plan.warnings, ...collectActionWarnings(schema)]
     const dynamicImports = new Map<string, Set<string>>()
 
     let ctx!: MappingContext

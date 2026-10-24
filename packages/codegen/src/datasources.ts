@@ -115,7 +115,7 @@ export function buildDataSourceRuntime(schema: PageSchema): DataSourceRuntime {
         lines.push(`const ${refName} = ref(null)`)
         warnings.push({
           code: 'datasource-deferred',
-          message: `数据源 ${source.id}（${source.type}）将在 P2 后续生成`,
+          message: `数据源 ${source.id}（${source.type}）无法在独立页解析，已用 null 占位`,
         })
     }
   }
