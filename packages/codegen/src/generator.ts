@@ -13,7 +13,8 @@ import {
   resolveForm,
 } from './form'
 import { actionHandlerName, buildActionRuntime } from './actions'
-import { datasourceRefName, rewriteExpression } from './expressions'
+import { buildDataSourceRuntime } from './datasources'
+import { rewriteExpression } from './expressions'
 import { createDefaultRegistry } from './mappings'
 import { renderChildren } from './mappings/helpers'
 import type { ComponentMapping, MappingContext, MappingRegistry } from './mappings/types'
@@ -298,12 +299,15 @@ export class VueSfcGenerator implements ICodeGenerator {
 
     const formSettings = getFormSettings(schema.settings)
     const needsWatch = Boolean(formSettings.onFormDataChange) && hasFields
-    const needsMounted = Boolean(formSettings.onFormMounted)
+    const dataRuntime = buildDataSourceRuntime(schema)
+    const needsMounted = Boolean(formSettings.onFormMounted) || dataRuntime.mountCalls.length > 0
+    const needsBeforeUnmount = dataRuntime.cleanupLines.length > 0
 
     const scriptLines: string[] = ['// 由低代码设计器生成']
     const vueImports = ['reactive', 'ref']
     if (needsWatch) vueImports.push('watch')
     if (needsMounted) vueImports.push('onMounted')
+    if (needsBeforeUnmount) vueImports.push('onBeforeUnmount')
     scriptLines.push(`import { ${vueImports.join(', ')} } from 'vue'`)
     if (elementPlusImports.size > 0) {
       scriptLines.push(
@@ -318,20 +322,6 @@ export class VueSfcGenerator implements ICodeGenerator {
     }
     scriptLines.push('')
 
-    for (const source of schema.dataSources) {
-      const refName = datasourceRefName(source.id)
-      if (source.type === 'static') {
-        scriptLines.push(`const ${refName} = ref(${JSON.stringify(source.config.staticData ?? null)})`)
-      } else {
-        scriptLines.push(`const ${refName} = ref(null)`)
-        warnings.push({
-          code: 'datasource-deferred',
-          message: `数据源 ${source.id}（${source.type}）将在 P2 生成`,
-        })
-      }
-    }
-    if (schema.dataSources.length > 0) scriptLines.push('')
-
     for (const variable of schema.variables) {
       const name = sanitizeIdentifier(variable.name, 'variable')
       if (name !== variable.name) {
@@ -343,6 +333,10 @@ export class VueSfcGenerator implements ICodeGenerator {
       scriptLines.push(`const ${name} = ref(${JSON.stringify(variable.value ?? null)})`)
     }
     if (schema.variables.length > 0) scriptLines.push('')
+
+    scriptLines.push(...dataRuntime.lines)
+    if (dataRuntime.lines.length > 0) scriptLines.push('')
+    warnings.push(...dataRuntime.warnings)
 
     scriptLines.push(
       ...buildActionRuntime(schema, {
@@ -371,10 +365,18 @@ export class VueSfcGenerator implements ICodeGenerator {
       )
     }
 
-    if (needsMounted) {
+    if (dataRuntime.mountCalls.length > 0) {
+      scriptLines.push(`onMounted(() => {\n${dataRuntime.mountCalls.join('\n')}\n})`)
+    }
+
+    if (needsMounted && formSettings.onFormMounted) {
       scriptLines.push(
-        `onMounted(() => {\n  try {\n${indentCode(formSettings.onFormMounted!, 4)}\n  } catch (error) {\n    console.warn('[codegen] onFormMounted 执行失败', error)\n  }\n})`,
+        `onMounted(() => {\n  try {\n${indentCode(formSettings.onFormMounted, 4)}\n  } catch (error) {\n    console.warn('[codegen] onFormMounted 执行失败', error)\n  }\n})`,
       )
+    }
+
+    if (needsBeforeUnmount) {
+      scriptLines.push(`onBeforeUnmount(() => {\n${dataRuntime.cleanupLines.join('\n')}\n})`)
     }
 
     if (needsWatch) {

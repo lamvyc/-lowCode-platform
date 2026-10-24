@@ -159,7 +159,7 @@ describe('VueSfcGenerator', () => {
         type: 'static',
         config: { staticData: { data: [{ name: '张三' }] } },
       },
-      { id: 'remote', name: '远程', type: 'rest', config: { url: '/api' } },
+      { id: 'remote', name: '远程', type: 'DataModel', config: { modelRef: 'm1' } },
     ]
     const { code, warnings } = await generateVueSfc(schema)
     expect(code).toContain('const userList = ref({')
