@@ -55,6 +55,13 @@ describe('字段映射 A', () => {
     expect(code).toContain("userName: ''")
   })
 
+  it('columnWidth 落到控件宽度', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([fieldNode('input', { label: '姓名', columnWidth: '200px' })]),
+    )
+    expect(code).toContain('width: 200px')
+  })
+
   it('textarea 输出 type=textarea 与 rows', async () => {
     const { code } = await generateVueSfc(
       schemaWith([fieldNode('textarea', { rows: 5, placeholder: '备注' })]),

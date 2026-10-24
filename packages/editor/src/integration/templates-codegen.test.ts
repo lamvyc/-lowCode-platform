@@ -23,6 +23,9 @@ describe('P0 内置模板生成回归', () => {
         expect(code).not.toContain('xState')
         expect(() => compileScript(parse(code).descriptor, { id: 't' })).not.toThrow()
         expect(warnings.filter((warning) => warning.code === 'unknown-material')).toEqual([])
+        const { wrapper } = await mountGeneratedSfc(code)
+        expect(wrapper.find('.lc-page').exists()).toBe(true)
+        wrapper.unmount()
       }
     },
   )

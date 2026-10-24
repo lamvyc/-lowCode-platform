@@ -88,6 +88,15 @@ function collectTags(node: TemplateNode, tags: Set<string>): void {
   for (const child of node.children) collectTags(child, tags)
 }
 
+/** 字段的 columnWidth 落到控件本身（对齐物料 FormItem 的 control width） */
+function applyColumnWidth(node: PageNode, target: TemplateNode): void {
+  if (target.kind !== 'element') return
+  const width = node.props.columnWidth
+  if (typeof width !== 'string' || width === '') return
+  const existing = typeof target.attrs.style === 'string' ? target.attrs.style : ''
+  target.attrs.style = existing ? `${existing}; width: ${width}` : `width: ${width}`
+}
+
 /** 合并节点 style / class 到已生成元素 */
 function applyStyleAndClass(
   node: PageNode,
@@ -169,6 +178,7 @@ export class VueSfcGenerator implements ICodeGenerator {
       }
 
       if (current.field === true) {
+        applyColumnWidth(node, element)
         const itemAttrs = buildFormItemAttrs(node, ctx)
         const item = el('el-form-item', itemAttrs, [element])
         applyStyleAndClass(node, item, ctx)
