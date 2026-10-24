@@ -148,6 +148,7 @@ export function buildActionRuntime(schema: PageSchema, options: ActionRuntimeOpt
         lines.push(`    runAction(${JSON.stringify(action)}, payload, ${JSON.stringify(node.id)})`)
       }
       lines.push('  }')
+      lines.push("  runRules('event')")
       lines.push('}')
       lines.push('')
     }

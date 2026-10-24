@@ -19,6 +19,7 @@ import { createDefaultRegistry } from './mappings'
 import { renderChildren } from './mappings/helpers'
 import type { ComponentMapping, MappingContext, MappingRegistry } from './mappings/types'
 import { buildPlan, sanitizeIdentifier } from './plan'
+import { buildRuleRuntime } from './rules'
 import { buildNodeClass, buildNodeStyle, buildStyleBlock } from './styles'
 import type { CodegenWarning, GeneratedCode } from './types'
 import { buildRulesObject } from './validation'
@@ -298,9 +299,16 @@ export class VueSfcGenerator implements ICodeGenerator {
     }
 
     const formSettings = getFormSettings(schema.settings)
-    const needsWatch = Boolean(formSettings.onFormDataChange) && hasFields
     const dataRuntime = buildDataSourceRuntime(schema)
-    const needsMounted = Boolean(formSettings.onFormMounted) || dataRuntime.mountCalls.length > 0
+    const ruleRuntime = buildRuleRuntime(schema, {
+      datasourceIds: schema.dataSources.map((source) => source.id),
+      variableNames: schema.variables.map((variable) => variable.name),
+    })
+    const needsWatch = (Boolean(formSettings.onFormDataChange) && hasFields) || ruleRuntime.needsWatch
+    const needsMounted =
+      Boolean(formSettings.onFormMounted) ||
+      dataRuntime.mountCalls.length > 0 ||
+      ruleRuntime.needsMounted
     const needsBeforeUnmount = dataRuntime.cleanupLines.length > 0
 
     const scriptLines: string[] = ['// 由低代码设计器生成']
@@ -352,6 +360,7 @@ export class VueSfcGenerator implements ICodeGenerator {
         })),
       }),
     )
+    scriptLines.push(...ruleRuntime.lines)
 
     scriptLines.push(`const ${form.modelName} = reactive(${buildFormData(plan, this.registry)})`)
     scriptLines.push(`const ${form.refName} = ref()`)
@@ -382,6 +391,16 @@ export class VueSfcGenerator implements ICodeGenerator {
 
     if (needsBeforeUnmount) {
       scriptLines.push(`onBeforeUnmount(() => {\n${dataRuntime.cleanupLines.join('\n')}\n})`)
+    }
+
+    if (ruleRuntime.needsMounted) {
+      scriptLines.push(`onMounted(() => {\n  runRules('mount')\n})`)
+    }
+
+    if (ruleRuntime.needsWatch) {
+      scriptLines.push(
+        `watch(\n  () => ${form.modelName},\n  () => runRules('expression'),\n  { deep: true },\n)`,
+      )
     }
 
     if (needsWatch) {

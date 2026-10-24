@@ -69,6 +69,7 @@ export function buildDataSourceRuntime(schema: PageSchema): DataSourceRuntime {
         if (hasBody) lines.push(`      body: JSON.stringify(${quote(source.config.params)}),`)
         lines.push('    })')
         lines.push(`    ${refName}.value = await res.json()`)
+        lines.push("    runRules('datasource')")
         lines.push('  } catch (error) {')
         lines.push(`    console.warn('[codegen] 数据源 ${source.id} 加载失败', error)`)
         lines.push('  }')
