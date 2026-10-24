@@ -6,9 +6,7 @@ import { generateVueSfc } from '@lowcode/codegen'
 import { BUILTIN_TEMPLATES } from '../designer/templates'
 import { mountGeneratedSfc } from './generated-harness'
 
-const GENERATED_TEMPLATES = BUILTIN_TEMPLATES.filter(
-  (template) => template.id !== 'fixed-table',
-)
+const GENERATED_TEMPLATES = BUILTIN_TEMPLATES
 
 describe('内置模板生成回归（P1）', () => {
   it.each(GENERATED_TEMPLATES.map((template) => [template.name, template] as const))(
@@ -37,6 +35,14 @@ describe('内置模板生成回归（P1）', () => {
     expect(wrapper.findAll('input').length).toBe(2)
     expect(wrapper.text()).toContain('登录')
     expect(wrapper.text()).toContain('账号登录')
+  })
+
+  it('固定表格表单可挂载，渲染 upload 与布局表格', async () => {
+    const schema = BUILTIN_TEMPLATES.find((template) => template.id === 'fixed-table')!.create() as PageSchema
+    const { code } = await generateVueSfc(schema)
+    const { wrapper } = await mountGeneratedSfc(code)
+    expect(wrapper.find('.el-upload').exists()).toBe(true)
+    expect(wrapper.find('.lc-layout-table').exists()).toBe(true)
   })
 
   it('数据列表页可挂载，渲染 el-table 与静态数据行', async () => {

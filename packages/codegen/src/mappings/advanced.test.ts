@@ -19,6 +19,41 @@ function schemaWith(nodes: PageNode[], dataSources: PageSchema['dataSources'] = 
   }
 }
 
+function fieldNode(type: string, props: Record<string, unknown> = {}): PageNode {
+  return {
+    id: `f_${type.replace(/-/g, '_')}`,
+    name: type.replace(/-/g, '_'),
+    type,
+    props: { label: '字段', ...props },
+  }
+}
+
+describe('上传映射', () => {
+  it('picture-upload 生成 el-upload 与文件同步函数', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([fieldNode('picture-upload', { uploadURL: '', limit: 3 })]),
+    )
+    expect(code).toContain('<el-upload')
+    expect(code).toContain('list-type="picture-card"')
+    expect(code).toContain(':file-list="formData.picture_upload"')
+    expect(code).toContain('beforeUpload_f_picture_upload')
+    expect(code).toContain('onUploadSuccess_f_picture_upload')
+    expect(code).toContain('ElMessage')
+    expect(code).toContain(':auto-upload="false"')
+    expect(code).toContain('}\nfunction onUploadError_')
+  })
+
+  it('file-upload 不带 picture-card，且 auto-upload 跟 URL', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([fieldNode('file-upload', { uploadURL: '/api/upload' })]),
+    )
+    expect(code).toContain('<el-upload')
+    expect(code).not.toContain('list-type="picture-card"')
+    expect(code).toContain(':auto-upload="true"')
+    expect(code).toContain('action="/api/upload"')
+  })
+})
+
 describe('data-table 映射', () => {
   it('生成 el-table + 列定义 + 表达式数据', async () => {
     const { code } = await generateVueSfc(

@@ -251,7 +251,8 @@ export class VueSfcGenerator implements ICodeGenerator {
     const setupLines: string[] = []
     for (const node of schema.nodes) {
       const lines = this.registry.get(node.type)?.setup?.(node, ctx) ?? []
-      for (const line of lines) if (!setupLines.includes(line)) setupLines.push(line)
+      // 按节点整体追加：不能按单行去重（函数体的 `}` 行会重复，去重会把后续函数截断）
+      setupLines.push(...lines)
     }
 
     const scriptLines: string[] = ['// 由低代码设计器生成']
