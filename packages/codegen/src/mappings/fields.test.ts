@@ -116,3 +116,78 @@ describe('字段映射 A', () => {
     expect(code).toContain(':width="60"')
   })
 })
+
+describe('字段映射 B', () => {
+  it('time/date 生成对应 picker 与格式属性', async () => {
+    const time = (
+      await generateVueSfc(
+        schemaWith([fieldNode('time', { format: 'HH:mm', valueFormat: 'HH:mm:ss' })]),
+      )
+    ).code
+    expect(time).toContain('<el-time-picker')
+    expect(time).toContain('format="HH:mm"')
+    expect(time).toContain('value-format="HH:mm:ss"')
+
+    const date = (await generateVueSfc(schemaWith([fieldNode('date', { type: 'date' })]))).code
+    expect(date).toContain('<el-date-picker')
+    expect(date).toContain('type="date"')
+  })
+
+  it('time-range/date-range 带 is-range', async () => {
+    const timeRange = (
+      await generateVueSfc(schemaWith([fieldNode('time-range', {})]))
+    ).code
+    expect(timeRange).toContain('<el-time-picker')
+    expect(timeRange).toContain('is-range')
+    const dateRange = (
+      await generateVueSfc(schemaWith([fieldNode('date-range', {})]))
+    ).code
+    expect(dateRange).toContain('<el-date-picker')
+    expect(dateRange).toContain('is-range')
+  })
+
+  it('rate 映射阈值与半星', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([fieldNode('rate', { max: 10, allowHalf: true, showScore: true })]),
+    )
+    expect(code).toContain('<el-rate')
+    expect(code).toContain(':max="10"')
+    expect(code).toContain('allow-half')
+    expect(code).toContain('show-score')
+  })
+
+  it('color 映射 show-alpha', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([fieldNode('color', { showAlpha: true })]),
+    )
+    expect(code).toContain('<el-color-picker')
+    expect(code).toContain('show-alpha')
+  })
+
+  it('slider 映射范围/垂直/步长', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([fieldNode('slider', { range: true, vertical: true, min: 10, max: 90, step: 5 })]),
+    )
+    expect(code).toContain('<el-slider')
+    expect(code).toContain(':min="10"')
+    expect(code).toContain(':max="90"')
+    expect(code).toContain(':step="5"')
+    expect(code).toContain('vertical')
+  })
+
+  it('cascader 映射 options 与多选', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([
+        fieldNode('cascader', {
+          optionItems: [{ label: 'A', value: 'a', children: [] }],
+          multiple: true,
+          checkStrictly: true,
+        }),
+      ]),
+    )
+    expect(code).toContain('<el-cascader')
+    expect(code).toContain(':options=')
+    expect(code).toContain('multiple')
+    expect(code).toContain('check-strictly')
+  })
+})

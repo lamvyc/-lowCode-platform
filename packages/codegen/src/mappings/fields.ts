@@ -205,4 +205,133 @@ export function registerFieldMappings(registry: MappingRegistry): void {
       return attrs
     },
   })
+
+  registerDateTimeMappings(registry)
+}
+
+/** 时间/日期/评分/颜色/滑块/级联 */
+function registerDateTimeMappings(registry: MappingRegistry): void {
+  const pickerAttrs = (node: PageNode, range: boolean): Record<string, string | true> => {
+    const attrs: Record<string, string | true> = {}
+    Object.assign(attrs, staticAttr('format', node.props.format))
+    Object.assign(attrs, staticAttr('value-format', node.props.valueFormat))
+    Object.assign(attrs, staticAttr('placeholder', node.props.placeholder))
+    Object.assign(attrs, boolAttr('clearable', node.props.clearable !== false))
+    Object.assign(attrs, boolAttr('disabled', node.props.disabled === true))
+    Object.assign(attrs, boolAttr('readonly', node.props.readonly === true))
+    Object.assign(attrs, bindAttr('editable', String(node.props.editable === true)))
+    Object.assign(attrs, staticAttr('size', node.props.size))
+    if (range) {
+      Object.assign(attrs, boolAttr('is-range', true))
+      Object.assign(attrs, staticAttr('start-placeholder', node.props.startPlaceholder))
+      Object.assign(attrs, staticAttr('end-placeholder', node.props.endPlaceholder))
+    }
+    return attrs
+  }
+
+  registry.register('time', {
+    tag: 'el-time-picker',
+    field: true,
+    initialValue: () => null,
+    attrs: (node) => pickerAttrs(node, false),
+  })
+
+  registry.register('time-range', {
+    tag: 'el-time-picker',
+    field: true,
+    initialValue: () => [],
+    attrs: (node) => pickerAttrs(node, true),
+  })
+
+  registry.register('date', {
+    tag: 'el-date-picker',
+    field: true,
+    initialValue: () => null,
+    attrs: (node) => {
+      const attrs = pickerAttrs(node, false)
+      Object.assign(attrs, staticAttr('type', node.props.type))
+      return attrs
+    },
+  })
+
+  registry.register('date-range', {
+    tag: 'el-date-picker',
+    field: true,
+    initialValue: () => [],
+    attrs: (node) => {
+      const attrs = pickerAttrs(node, true)
+      Object.assign(attrs, staticAttr('type', node.props.type || 'daterange'))
+      return attrs
+    },
+  })
+
+  registry.register('rate', {
+    tag: 'el-rate',
+    field: true,
+    initialValue: () => null,
+    attrs: (node) => {
+      const attrs: Record<string, string | true> = {}
+      for (const key of ['max', 'lowThreshold', 'highThreshold'] as const) {
+        const value = num(node.props[key])
+        if (value !== undefined) Object.assign(attrs, bindAttr(key, String(value)))
+      }
+      Object.assign(attrs, boolAttr('allow-half', node.props.allowHalf === true))
+      Object.assign(attrs, boolAttr('show-text', node.props.showText === true))
+      Object.assign(attrs, boolAttr('show-score', node.props.showScore === true))
+      Object.assign(attrs, boolAttr('disabled', node.props.disabled === true))
+      return attrs
+    },
+  })
+
+  registry.register('color', {
+    tag: 'el-color-picker',
+    field: true,
+    initialValue: () => null,
+    attrs: (node) => {
+      const attrs: Record<string, string | true> = {}
+      Object.assign(attrs, boolAttr('show-alpha', node.props.showAlpha === true))
+      Object.assign(attrs, boolAttr('disabled', node.props.disabled === true))
+      return attrs
+    },
+  })
+
+  registry.register('slider', {
+    tag: 'el-slider',
+    field: true,
+    initialValue: (node) => (node.props.range === true ? [] : 0),
+    attrs: (node) => {
+      const attrs: Record<string, string | true> = {}
+      for (const key of ['min', 'max', 'step'] as const) {
+        const value = num(node.props[key])
+        if (value !== undefined) Object.assign(attrs, bindAttr(key, String(value)))
+      }
+      Object.assign(attrs, boolAttr('range', node.props.range === true))
+      Object.assign(attrs, boolAttr('show-stops', node.props.showStops === true))
+      Object.assign(attrs, boolAttr('vertical', node.props.vertical === true))
+      const height = num(node.props.height)
+      if (height !== undefined && height > 0) Object.assign(attrs, bindAttr('height', String(height)))
+      Object.assign(attrs, boolAttr('disabled', node.props.disabled === true))
+      return attrs
+    },
+  })
+
+  registry.register('cascader', {
+    tag: 'el-cascader',
+    field: true,
+    initialValue: (node) => (node.props.multiple === true ? [] : null),
+    attrs: (node) => {
+      const attrs: Record<string, string | true> = {
+        ':options': JSON.stringify(optionItems(node)),
+      }
+      Object.assign(attrs, staticAttr('placeholder', node.props.placeholder))
+      Object.assign(attrs, boolAttr('multiple', node.props.multiple === true))
+      Object.assign(attrs, boolAttr('check-strictly', node.props.checkStrictly === true))
+      Object.assign(attrs, boolAttr('show-all-levels', node.props.showAllLevels !== false))
+      Object.assign(attrs, boolAttr('clearable', node.props.clearable !== false))
+      Object.assign(attrs, boolAttr('filterable', node.props.filterable === true))
+      Object.assign(attrs, boolAttr('disabled', node.props.disabled === true))
+      Object.assign(attrs, staticAttr('size', node.props.size))
+      return attrs
+    },
+  })
 }
