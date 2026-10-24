@@ -94,17 +94,19 @@ const emit = defineEmits<{
     :column-width="columnWidth"
   
     class="lc-switch">
-    <ElSwitch
-      :model-value="modelValue"
-      :disabled="disabled"
-      :width="switchWidth"
-      :active-text="activeText"
-      :inactive-text="inactiveText"
-      :active-color="activeColor || undefined"
-      :inactive-color="inactiveColor || undefined"
-      @update:model-value="emit('update:modelValue', $event)"
-      @change="emit('change', $event)"
-    />
+    <div class="lc-switch__control">
+      <ElSwitch
+        :model-value="modelValue"
+        :disabled="disabled"
+        :width="switchWidth"
+        :active-text="activeText"
+        :inactive-text="inactiveText"
+        :active-color="activeColor || undefined"
+        :inactive-color="inactiveColor || undefined"
+        @update:model-value="emit('update:modelValue', $event)"
+        @change="emit('change', $event)"
+      />
+    </div>
   </FormItem>
 </template>
 
@@ -121,8 +123,12 @@ const emit = defineEmits<{
 }
 
 /* 开关只有 20px 高，但参考的控件区仍保持表单行高（实测 36px）——
-   否则整行会比别的字段明显矮一截。 */
-.lc-switch .lc-form-item__control {
+   否则整行会比别的字段明显矮一截。
+   ⚠️ 光撑高不够：控件区默认把子项顶对齐，20px 的开关会贴在最上面，
+   比标签中线高 8px（参考实现里开关是垂直居中的）。这里显式居中。 */
+.lc-switch .lc-switch__control {
+  display: flex;
+  align-items: center;
   min-height: 36px;
 }
 </style>
