@@ -6,12 +6,12 @@ import { generateVueSfc } from '@lowcode/codegen'
 import { BUILTIN_TEMPLATES } from '../designer/templates'
 import { mountGeneratedSfc } from './generated-harness'
 
-const P0_TEMPLATES = BUILTIN_TEMPLATES.filter(
-  (template) => !['fixed-table', 'list'].includes(template.id),
+const GENERATED_TEMPLATES = BUILTIN_TEMPLATES.filter(
+  (template) => template.id !== 'fixed-table',
 )
 
-describe('P0 内置模板生成回归', () => {
-  it.each(P0_TEMPLATES.map((template) => [template.name, template] as const))(
+describe('内置模板生成回归（P1）', () => {
+  it.each(GENERATED_TEMPLATES.map((template) => [template.name, template] as const))(
     '%s：生成、编译、无未知物料',
     async (_name, template) => {
       const raw = template.create() as PageSchema
@@ -37,6 +37,15 @@ describe('P0 内置模板生成回归', () => {
     expect(wrapper.findAll('input').length).toBe(2)
     expect(wrapper.text()).toContain('登录')
     expect(wrapper.text()).toContain('账号登录')
+  })
+
+  it('数据列表页可挂载，渲染 el-table 与静态数据行', async () => {
+    const schema = BUILTIN_TEMPLATES.find((template) => template.id === 'list')!.create() as PageSchema
+    const { code } = await generateVueSfc(schema)
+    const { wrapper } = await mountGeneratedSfc(code)
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    expect(wrapper.find('.el-table').exists()).toBe(true)
+    expect(wrapper.text()).toContain('张三')
   })
 
   it('问卷模板可挂载，渲染单选与多选选项', async () => {

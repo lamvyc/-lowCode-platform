@@ -1,3 +1,4 @@
+import { registerAdvancedMappings } from './advanced'
 import { registerBasicMappings } from './basic'
 import { registerContainerMappings } from './containers'
 import { registerFieldMappings } from './fields'
@@ -10,5 +11,6 @@ export function createDefaultRegistry(): MappingRegistry {
   registerContainerMappings(registry)
   registerBasicMappings(registry)
   registerFieldMappings(registry)
+  registerAdvancedMappings(registry)
   return registry
 }
