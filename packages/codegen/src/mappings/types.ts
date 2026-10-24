@@ -31,7 +31,7 @@ export interface ElementMapping {
   /** 额外导入（默认由 tag 推导 ElXxx from element-plus） */
   imports?: Array<{ name: string; from: string }>
   /** 模板属性（不含通用 style/class/v-if/v-for） */
-  attrs: (node: PageNode, ctx: MappingContext) => Record<string, string>
+  attrs: (node: PageNode, ctx: MappingContext) => Record<string, string | true>
   /** 自定义渲染，默认 tag + 子节点 */
   render?: (node: PageNode, ctx: MappingContext) => TemplateNode
   /** 字段缺省值（Schema 未声明 modelValue 时使用） */

@@ -7,13 +7,18 @@ export type TemplateNode =
       kind: 'element'
       tag: string
       /** 属性名 → 最终渲染值（含 v-bind / v-on 前缀） */
-      attrs: Record<string, string>
+      /** 值为 true 时渲染为裸属性（如 `#header`、`clearable`） */
+      attrs: Record<string, string | true>
       children: TemplateNode[]
     }
   | { kind: 'text'; value: string }
   | { kind: 'comment'; value: string }
 
-export function el(tag: string, attrs: Record<string, string> = {}, children: TemplateNode[] = []): TemplateNode {
+export function el(
+  tag: string,
+  attrs: Record<string, string | true> = {},
+  children: TemplateNode[] = [],
+): TemplateNode {
   return { kind: 'element', tag, attrs, children }
 }
 
@@ -59,7 +64,7 @@ export function stringifyTemplate(node: TemplateNode, indent = 0): string {
       return node.value ? `${pad}${node.value.replaceAll('<', '&lt;').replaceAll('>', '&gt;')}` : ''
     case 'element': {
       const attrs = Object.entries(node.attrs)
-        .map(([name, value]) => `${name}="${escapeAttr(value)}"`)
+        .map(([name, value]) => (value === true ? name : `${name}="${escapeAttr(value)}"`))
         .join(' ')
       const open = attrs ? `<${node.tag} ${attrs}>` : `<${node.tag}>`
       if (node.children.length === 0) {
