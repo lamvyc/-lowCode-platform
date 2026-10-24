@@ -3,6 +3,7 @@ import * as prettierBabel from 'prettier/plugins/babel'
 import * as prettierEstree from 'prettier/plugins/estree'
 import * as prettierHtml from 'prettier/plugins/html'
 import * as prettierPostcss from 'prettier/plugins/postcss'
+import * as prettierTypescript from 'prettier/plugins/typescript'
 import type { PageNode, PageSchema } from '@lowcode/schema'
 import { el, stringifyTemplate, type TemplateNode } from './ast'
 import {
@@ -26,7 +27,13 @@ export { rewriteExpression } from './expressions'
  * Prettier 浏览器/Node 通用的 standalone 用法：
  * vue 解析器来自 html 插件，内嵌脚本用 babel + estree，内嵌样式用 postcss。
  */
-const PRETTIER_PLUGINS = [prettierBabel, prettierEstree, prettierHtml, prettierPostcss]
+const PRETTIER_PLUGINS = [
+  prettierBabel,
+  prettierEstree,
+  prettierHtml,
+  prettierPostcss,
+  prettierTypescript,
+]
 
 /** 格式化 SFC；格式化不可用时回退为未格式化文本（结构仍然完整可解析） */
 async function formatSfc(raw: string): Promise<string> {
@@ -34,6 +41,7 @@ async function formatSfc(raw: string): Promise<string> {
     return await formatWithPrettier(raw, {
       parser: 'vue',
       semi: false,
+      singleQuote: true,
       plugins: PRETTIER_PLUGINS,
     })
   } catch {

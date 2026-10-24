@@ -99,6 +99,16 @@ describe('VueSfcGenerator', () => {
     expect(code).toContain('<MyCard')
   })
 
+  it('生成物经过 Prettier 格式化（含 TS 插件）', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([
+        { id: 'f1', name: 'userName', type: 'input', props: { label: '姓名', required: true } },
+      ]),
+    )
+    // 未格式化时规则对象是 `userName: [\n  {`；格式化后应是 4 空格缩进
+    expect(code).toContain('  userName: [\n    {\n      required: true,')
+  })
+
   it('生成的代码可被 @vue/compiler-sfc 解析', async () => {
     const { code } = await generateVueSfc(schemaWith([buttonNode(), staticTextNode()]))
     const { errors } = parse(code, { filename: 'page.vue' })

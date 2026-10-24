@@ -52,7 +52,7 @@ describe('字段映射 A', () => {
     expect(code).toContain('v-model="formData.userName"')
     expect(code).toContain('<el-input')
     expect(code).toContain('placeholder="请输入"')
-    expect(code).toContain('userName: ""')
+    expect(code).toContain("userName: ''")
   })
 
   it('textarea 输出 type=textarea 与 rows', async () => {

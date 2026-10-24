@@ -30,6 +30,10 @@ export function comment(value: string): TemplateNode {
   return { kind: 'comment', value }
 }
 
+function escapeText(value: string): string {
+  return value.replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+}
+
 function escapeAttr(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
 }
@@ -61,7 +65,7 @@ export function stringifyTemplate(node: TemplateNode, indent = 0): string {
     case 'comment':
       return `${pad}<!-- ${node.value} -->`
     case 'text':
-      return node.value ? `${pad}${node.value.replaceAll('<', '&lt;').replaceAll('>', '&gt;')}` : ''
+      return node.value ? `${pad}${escapeText(node.value)}` : ''
     case 'element': {
       const attrs = Object.entries(node.attrs)
         .map(([name, value]) => (value === true ? name : `${name}="${escapeAttr(value)}"`))
@@ -69,6 +73,13 @@ export function stringifyTemplate(node: TemplateNode, indent = 0): string {
       const open = attrs ? `<${node.tag} ${attrs}>` : `<${node.tag}>`
       if (node.children.length === 0) {
         return `${pad}${open}</${node.tag}>`
+      }
+      // 纯文本子节点内联输出，避免 Prettier 在标签内留下首尾空格
+      if (node.children.every((child) => child.kind === 'text')) {
+        const inner = node.children
+          .map((child) => (child.kind === 'text' ? escapeText(child.value) : ''))
+          .join('')
+        return `${pad}${open}${inner}</${node.tag}>`
       }
       const inner = node.children.map((child) => stringifyTemplate(child, indent + 1)).join('\n')
       return `${pad}${open}\n${inner}\n${pad}</${node.tag}>`
