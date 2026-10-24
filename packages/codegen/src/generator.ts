@@ -12,6 +12,7 @@ import {
   buildFormItemAttrs,
   resolveForm,
 } from './form'
+import { actionHandlerName, buildActionRuntime } from './actions'
 import { datasourceRefName, rewriteExpression } from './expressions'
 import { createDefaultRegistry } from './mappings'
 import { renderChildren } from './mappings/helpers'
@@ -196,6 +197,13 @@ export class VueSfcGenerator implements ICodeGenerator {
 
       const current = mapping!
       const attrs: Record<string, string | true> = { ...current.attrs(node, ctx) }
+      const interactiveAttrs: Record<string, string | true> = {
+        'v-bind': `overrides[${JSON.stringify(node.id)}]`,
+      }
+      for (const eventName of Object.keys(node.events ?? {})) {
+        interactiveAttrs[`@${eventName}`] = actionHandlerName(node.id, eventName)
+      }
+      Object.assign(attrs, interactiveAttrs)
       const modelTarget = current.model ?? 'value'
       if (current.field === true) {
         const target = `${form.modelName}.${modelKey(node)}`
@@ -206,6 +214,7 @@ export class VueSfcGenerator implements ICodeGenerator {
       let element: TemplateNode
       if (current.render) {
         element = current.render(node, ctx)
+        if (element.kind === 'element') Object.assign(element.attrs, interactiveAttrs)
       } else {
         element = el(current.tag, attrs, renderChildren(node, ctx))
       }
@@ -213,6 +222,7 @@ export class VueSfcGenerator implements ICodeGenerator {
       if (current.field === true) {
         applyColumnWidth(node, element)
         const itemAttrs = buildFormItemAttrs(node, ctx)
+        itemAttrs['v-bind'] = `overrides[${JSON.stringify(node.id)}]`
         const item = el('el-form-item', itemAttrs, [element])
         applyBindings(node, item, ctx)
         applyStyleAndClass(node, item, ctx)
@@ -291,7 +301,7 @@ export class VueSfcGenerator implements ICodeGenerator {
     const needsMounted = Boolean(formSettings.onFormMounted)
 
     const scriptLines: string[] = ['// 由低代码设计器生成']
-    const vueImports = hasFields ? ['reactive', 'ref'] : ['ref']
+    const vueImports = ['reactive', 'ref']
     if (needsWatch) vueImports.push('watch')
     if (needsMounted) vueImports.push('onMounted')
     scriptLines.push(`import { ${vueImports.join(', ')} } from 'vue'`)
@@ -321,6 +331,26 @@ export class VueSfcGenerator implements ICodeGenerator {
       }
     }
     if (schema.dataSources.length > 0) scriptLines.push('')
+
+    for (const variable of schema.variables) {
+      const name = sanitizeIdentifier(variable.name, 'variable')
+      if (name !== variable.name) {
+        warnings.push({
+          code: 'variable-name',
+          message: `页面变量「${variable.name}」不是合法标识符，已用「${name}」代替`,
+        })
+      }
+      scriptLines.push(`const ${name} = ref(${JSON.stringify(variable.value ?? null)})`)
+    }
+    if (schema.variables.length > 0) scriptLines.push('')
+
+    scriptLines.push(
+      ...buildActionRuntime(schema, {
+        modelName: form.modelName,
+        variableNames: schema.variables.map((variable) => variable.name),
+        datasourceIds: schema.dataSources.map((source) => source.id),
+      }),
+    )
 
     if (hasFields) {
       scriptLines.push(`const ${form.modelName} = reactive(${buildFormData(plan, this.registry)})`)
