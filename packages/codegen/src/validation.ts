@@ -66,7 +66,7 @@ export function buildRulesForField(node: PageNode, ctx: MappingContext): string[
         : '字段值不可为空'
     rules.push(
       ruleObject([
-        'required: true',
+        'required: true,',
         `message: ${JSON.stringify(message)},`,
         `trigger: ${TRIGGER},`,
       ]),

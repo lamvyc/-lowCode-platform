@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { MATERIAL_MANIFESTS } from '@lowcode/materials'
-import { isSchemaEnvelope, normalizePageSchema, parsePageSchema } from '@lowcode/schema'
+import {
+  isSchemaEnvelope,
+  normalizePageSchema,
+  parsePageSchema,
+  type PageSchema,
+} from '@lowcode/schema'
 import { buildOutlineTree, countOutlineNodes } from './outline'
 import { REFERENCE_FORM_PRESETS } from './template-presets'
 import {
@@ -185,7 +190,7 @@ describe('参考 variant-form 的表单模板', () => {
 describe('页面模板的数据语义', () => {
   it('数据列表页用 data-table，按钮用 label', () => {
     const template = BUILTIN_TEMPLATES.find((item) => item.id === 'list')!
-    const schema = template.create()
+    const schema = template.create() as PageSchema
     expect(schema.nodes.find((node) => 'columns' in node.props)?.type).toBe('data-table')
     const buttons = schema.nodes.filter((node) => node.type === 'button')
     expect(buttons.length).toBeGreaterThan(0)
