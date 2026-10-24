@@ -377,10 +377,12 @@ export class VueSfcGenerator implements ICodeGenerator {
         modelName: form.modelName,
         variableNames: schema.variables.map((variable) => variable.name),
         datasourceIds: schema.dataSources.map((source) => source.id),
-        dataSources: schema.dataSources.map((source) => ({
-          id: source.id,
-          loadName: dataSourceLoadName(source.id),
-        })),
+        dataSources: schema.dataSources
+          .filter((source) => source.type === 'rest')
+          .map((source) => ({
+            id: source.id,
+            loadName: dataSourceLoadName(source.id),
+          })),
       }),
     )
     scriptLines.push(...ruleRuntime.lines)

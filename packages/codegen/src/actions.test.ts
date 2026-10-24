@@ -21,7 +21,7 @@ function schemaWith(nodes: PageNode[]): PageSchema {
 
 describe('事件与动作运行时', () => {
   it('按钮 click 生成处理器并绑定 @click', async () => {
-    const { code } = await generateVueSfc(
+    const { code, warnings } = await generateVueSfc(
       schemaWith([
         {
           id: 'b1',
@@ -34,6 +34,7 @@ describe('事件与动作运行时', () => {
         },
       ]),
     )
+    expect(warnings.some((warning) => warning.code === 'events-deferred')).toBe(false)
     expect(code).toContain('@click="onClick_b1"')
     expect(code).toContain('function onClick_b1(payload)')
     expect(code).toContain('location.hash = route')
@@ -123,6 +124,25 @@ describe('事件与动作运行时', () => {
     ]
     const { code } = await generateVueSfc(schema)
     expect(code).toContain('loadRemote()')
+  })
+
+  it('refresh 不会为 static 数据源生成不存在的 loader', async () => {
+    const schema = schemaWith([
+      {
+        id: 'b1',
+        name: 'go',
+        type: 'button',
+        props: { label: '刷新' },
+        events: {
+          click: [{ id: 'a1', kind: 'refresh', config: { dataSourceId: 'local' } }],
+        },
+      },
+    ])
+    schema.dataSources = [
+      { id: 'local', name: '本地', type: 'static', config: { staticData: [] } },
+    ]
+    const { code } = await generateVueSfc(schema)
+    expect(code).not.toContain('loadLocal()')
   })
 
   it('注入 core 同款表达式辅助函数', async () => {

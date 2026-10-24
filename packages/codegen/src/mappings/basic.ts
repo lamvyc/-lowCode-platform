@@ -1,7 +1,6 @@
 import { el, text } from '../ast'
-import type { PageNode } from '@lowcode/schema'
 import { boolAttr, isIconName, registerIcon, staticAttr } from './helpers'
-import type { MappingContext, MappingRegistry } from './types'
+import type { MappingRegistry } from './types'
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value)
@@ -18,11 +17,6 @@ function fontSize(value: unknown): string | undefined {
   return undefined
 }
 
-function warnDeferred(node: PageNode, ctx: MappingContext): void {
-  if (node.events && Object.keys(node.events).length > 0) {
-    ctx.warn('events-deferred', `节点 ${node.id} 的事件动作将在 P2 生成`, node.id)
-  }
-}
 
 /** 基础组件：文本 / 静态文字 / HTML / 按钮 / 分隔线 / 图片 / 提示 */
 export function registerBasicMappings(registry: MappingRegistry): void {
@@ -83,7 +77,6 @@ export function registerBasicMappings(registry: MappingRegistry): void {
   registry.register('button', {
     tag: 'el-button',
     attrs: (node, ctx) => {
-      warnDeferred(node, ctx)
       const attrs: Record<string, string | true> = { class: 'lc-button' }
       Object.assign(attrs, staticAttr('type', node.props.type))
       Object.assign(attrs, staticAttr('size', node.props.size))
