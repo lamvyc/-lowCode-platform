@@ -1,6 +1,6 @@
 import { el, text, type TemplateNode } from '../ast'
 import type { PageNode } from '@lowcode/schema'
-import { bindAttr, boolAttr, staticAttr } from './helpers'
+import { bindAttr, boolAttr, isIconName, registerIcon, staticAttr } from './helpers'
 import type { MappingContext, MappingRegistry } from './types'
 
 function str(value: unknown): string {
@@ -30,7 +30,7 @@ function optionAttrs(option: Record<string, unknown>): Record<string, string | t
 }
 
 /** 输入框公共属性 */
-function inputAttrs(node: PageNode): Record<string, string | true> {
+function inputAttrs(node: PageNode, ctx: MappingContext): Record<string, string | true> {
   const attrs: Record<string, string | true> = {}
   const type = str(node.props.type)
   if (type && type !== 'text' && type !== 'number') attrs.type = type
@@ -45,15 +45,20 @@ function inputAttrs(node: PageNode): Record<string, string | true> {
   const maxLength = num(node.props.maxLength)
   if (maxLength !== undefined && maxLength > 0) Object.assign(attrs, bindAttr('maxlength', String(maxLength)))
   Object.assign(attrs, boolAttr('show-word-limit', node.props.showWordLimit === true))
+  for (const [prop, attr] of [
+    ['prefixIcon', ':prefix-icon'],
+    ['suffixIcon', ':suffix-icon'],
+  ] as const) {
+    const icon = node.props[prop]
+    if (typeof icon === 'string' && icon !== '') {
+      if (isIconName(icon)) Object.assign(attrs, { [attr]: registerIcon(ctx, icon) })
+      else ctx.warn('icon-invalid', `节点 ${node.id} 的图标名「${icon}」不是 Element Plus 图标组件名`, node.id)
+    }
+  }
   return attrs
 }
 
 function warnIcons(node: PageNode, ctx: MappingContext): void {
-  for (const key of ['prefixIcon', 'suffixIcon']) {
-    if (typeof node.props[key] === 'string' && node.props[key] !== '') {
-      ctx.warn('icon-deferred', `节点 ${node.id} 的图标属性 ${key} 暂未生成`, node.id)
-    }
-  }
   if (node.props.appendButton === true) {
     ctx.warn('append-button-deferred', `节点 ${node.id} 的 appendButton 暂未生成`, node.id)
   }
@@ -80,7 +85,7 @@ export function registerFieldMappings(registry: MappingRegistry): void {
     initialValue: () => '',
     attrs: (node, ctx) => {
       warnIcons(node, ctx)
-      return inputAttrs(node)
+      return inputAttrs(node, ctx)
     },
   })
 
@@ -90,7 +95,7 @@ export function registerFieldMappings(registry: MappingRegistry): void {
     initialValue: () => '',
     attrs: (node, ctx) => {
       warnIcons(node, ctx)
-      const attrs = inputAttrs(node)
+      const attrs = inputAttrs(node, ctx)
       attrs.type = 'textarea'
       const rows = num(node.props.rows)
       if (rows !== undefined && rows > 0) Object.assign(attrs, bindAttr('rows', String(rows)))

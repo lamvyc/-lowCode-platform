@@ -1,9 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import type { PageNode } from '@lowcode/schema'
+import type { PageNode, PageSchema } from '@lowcode/schema'
+import { generateVueSfc } from '../generator'
 import { createDefaultRegistry } from './index'
 import { renderNodeToTemplate } from './test-utils'
 
 const registry = createDefaultRegistry()
+
+function schemaWith(nodes: PageNode[]): PageSchema {
+  return {
+    version: '2.0.0',
+    meta: { id: 'p1', name: '基础', createdAt: '', updatedAt: '' },
+    nodes,
+    materials: [],
+    dataSources: [],
+    variables: [],
+    rules: [],
+  }
+}
 
 function node(patch: Partial<PageNode> & { props?: Record<string, unknown> }): PageNode {
   return { id: 'n1', type: 'text', props: {}, ...patch } as PageNode
@@ -72,6 +85,14 @@ describe('基础组件映射', () => {
     expect(out).toContain('round')
     expect(out).toContain('disabled')
     expect(out).toContain('width: 100%')
+  })
+
+  it('button 图标按需从 @element-plus/icons-vue 导入', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([{ id: 'b1', name: 'b', type: 'button', props: { label: '搜索', icon: 'Search' } }]),
+    )
+    expect(code).toContain("import { Search } from '@element-plus/icons-vue'")
+    expect(code).toContain(':icon="Search"')
   })
 
   it('divider 的 label 走默认插槽', () => {

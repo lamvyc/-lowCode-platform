@@ -55,6 +55,16 @@ describe('字段映射 A', () => {
     expect(code).toContain("userName: ''")
   })
 
+  it('前缀/后缀图标按需从 @element-plus/icons-vue 导入', async () => {
+    const { code, warnings } = await generateVueSfc(
+      schemaWith([fieldNode('input', { prefixIcon: 'User', suffixIcon: 'Search' })]),
+    )
+    expect(code).toContain("import { Search, User } from '@element-plus/icons-vue'")
+    expect(code).toContain(':prefix-icon="User"')
+    expect(code).toContain(':suffix-icon="Search"')
+    expect(warnings.some((warning) => warning.code === 'icon-invalid')).toBe(false)
+  })
+
   it('columnWidth 落到控件宽度', async () => {
     const { code } = await generateVueSfc(
       schemaWith([fieldNode('input', { label: '姓名', columnWidth: '200px' })]),

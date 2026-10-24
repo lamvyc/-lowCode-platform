@@ -15,6 +15,8 @@ export interface MappingContext {
   mode: CodegenMode
   warnings: CodegenWarning[]
   warn(code: string, message: string, nodeId?: string): void
+  /** 运行期按节点追加组件导入（如 Element Plus 图标） */
+  addImport(name: string, from: string): void
   modelKey(node: PageNode): string
   prop(node: PageNode, name: string): unknown
   renderNode(node: PageNode): TemplateNode

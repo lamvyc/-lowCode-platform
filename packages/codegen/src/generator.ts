@@ -177,6 +177,7 @@ export class VueSfcGenerator implements ICodeGenerator {
     const form = resolveForm(schema)
     const nodes = new Map(schema.nodes.map((node) => [node.id, node]))
     const warnings: CodegenWarning[] = plan.warnings
+    const dynamicImports = new Map<string, Set<string>>()
 
     let ctx!: MappingContext
 
@@ -245,6 +246,11 @@ export class VueSfcGenerator implements ICodeGenerator {
       mode: 'template',
       warnings,
       warn: (code, message, nodeId) => warnings.push({ code, message, nodeId }),
+      addImport: (name, from) => {
+        const set = dynamicImports.get(from) ?? new Set<string>()
+        set.add(name)
+        dynamicImports.set(from, set)
+      },
       modelKey,
       prop: (node, name) => node.props[name],
       renderNode,
@@ -333,6 +339,11 @@ export class VueSfcGenerator implements ICodeGenerator {
       scriptLines.push(
         `import { ${[...elementPlusImports].sort().join(', ')} } from 'element-plus'`,
       )
+    }
+    for (const [from, names] of dynamicImports) {
+      const set = extraImports.get(from) ?? new Set<string>()
+      for (const name of names) set.add(name)
+      extraImports.set(from, set)
     }
     for (const [from, names] of extraImports) {
       scriptLines.push(`import { ${[...names].sort().join(', ')} } from '${from}'`)

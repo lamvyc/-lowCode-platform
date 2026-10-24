@@ -36,3 +36,14 @@ export function renderChildren(node: import('@lowcode/schema').PageNode, ctx: Ma
   }
   return children
 }
+
+
+/** Element Plus 图标名（PascalCase，如 Search）；否则按非法图标处理 */
+export function isIconName(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Z][A-Za-z0-9]*$/.test(value)
+}
+
+export function registerIcon(ctx: MappingContext, name: string): string {
+  ctx.addImport(name, '@element-plus/icons-vue')
+  return name
+}

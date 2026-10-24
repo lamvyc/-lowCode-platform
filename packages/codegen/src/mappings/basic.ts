@@ -1,6 +1,6 @@
 import { el, text } from '../ast'
 import type { PageNode } from '@lowcode/schema'
-import { boolAttr, staticAttr } from './helpers'
+import { boolAttr, isIconName, registerIcon, staticAttr } from './helpers'
 import type { MappingContext, MappingRegistry } from './types'
 
 function str(value: unknown): string {
@@ -21,11 +21,6 @@ function fontSize(value: unknown): string | undefined {
 function warnDeferred(node: PageNode, ctx: MappingContext): void {
   if (node.events && Object.keys(node.events).length > 0) {
     ctx.warn('events-deferred', `节点 ${node.id} 的事件动作将在 P2 生成`, node.id)
-  }
-  for (const key of ['icon', 'prefixIcon', 'suffixIcon']) {
-    if (typeof node.props[key] === 'string' && node.props[key] !== '') {
-      ctx.warn('icon-deferred', `节点 ${node.id} 的图标属性 ${key} 暂未生成`, node.id)
-    }
   }
 }
 
@@ -96,6 +91,13 @@ export function registerBasicMappings(registry: MappingRegistry): void {
       Object.assign(attrs, boolAttr('round', node.props.round === true))
       Object.assign(attrs, boolAttr('circle', node.props.circle === true))
       Object.assign(attrs, boolAttr('disabled', node.props.disabled === true))
+      if (typeof node.props.icon === 'string' && node.props.icon !== '') {
+        if (isIconName(node.props.icon)) {
+          attrs[':icon'] = registerIcon(ctx, node.props.icon)
+        } else {
+          ctx.warn('icon-invalid', `节点 ${node.id} 的图标名「${node.props.icon}」不是 Element Plus 图标组件名`, node.id)
+        }
+      }
       const width =
         node.props.displayStyle === 'block'
           ? '100%'

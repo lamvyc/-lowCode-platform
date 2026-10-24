@@ -35,6 +35,7 @@ function makeContext(): MappingContext {
     mode: 'template',
     warnings,
     warn: (code, message, nodeId) => warnings.push({ code, message, nodeId }),
+    addImport: () => {},
     modelKey: (node) => sanitizeIdentifier(node.name || node.id, node.id),
     prop: (node, name) => node.props[name],
     renderNode: () => ({ kind: 'text', value: '' }),
