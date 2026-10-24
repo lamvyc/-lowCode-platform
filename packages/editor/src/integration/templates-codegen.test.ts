@@ -36,6 +36,14 @@ describe('P0 内置模板生成回归', () => {
     expect(wrapper.text()).toContain('账号登录')
   })
 
+  it('问卷模板可挂载，渲染单选与多选选项', async () => {
+    const schema = BUILTIN_TEMPLATES.find((template) => template.id === 'survey')!.create() as PageSchema
+    const { code } = await generateVueSfc(schema)
+    const { wrapper } = await mountGeneratedSfc(code)
+    expect(wrapper.findAll('.el-radio').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.el-checkbox').length).toBeGreaterThan(0)
+  })
+
   it('原始模板即使没有 modelValue 也生成字段', async () => {
     const raw = BUILTIN_TEMPLATES.find((template) => template.id === 'single')!.create() as PageSchema
     const fieldTypes = new Set(['input', 'textarea', 'checkbox', 'switch', 'time-range', 'slider'])
