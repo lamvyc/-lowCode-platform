@@ -160,9 +160,12 @@ registerPageTemplate({
   `settings.form` 的 labelPosition / labelWidth / size / modelName / refName / rulesName 生效，
   字段按映射类型识别（不依赖 `modelValue` 是否存在）。
 - **校验**：`required` / `validation` / `minLength` / `maxLength` / `onValidate` 生成 Element Plus rules。
-- **当前覆盖（P1）**：12/12 内置模板，含 picture/file upload、rich-editor（Quill）、data-table；
-  具名插槽、v-if/v-for、表单事件与 `functions` 已生成；静态数据源生成 `ref`。
-  动态数据源、动作链、schema.rules 在 P2 补齐；未还原能力通过 `GeneratedCode.warnings` 暴露。
+- **当前覆盖（P2）**：12/12 内置模板，含 picture/file upload、rich-editor（Quill）、data-table；
+  具名插槽、v-if/v-for、表单事件与 `functions`、节点 onCreated/onMounted 已生成。
+- **行为**：`navigate / emitEvent / setVariable / setProp / request / submit / refresh / openDialog / closeDialog` 生成运行时；
+  `rest / static / localStorage / sessionStorage / pageVariable` 数据源生成 loader（autoLoad / poll）；
+  `schema.rules` 的 mount / expression / event / datasource 触发已生成。`DataModel/API` 数据源、`custom` 动作仍通过
+  `GeneratedCode.warnings` 暴露。
 - **懒加载**：`await import('@lowcode/codegen')` 独立分包，只有点击按钮时才下载（prettier 体积较大）。
 - 浏览器可用性：Prettier 以 `prettier/standalone` + `babel/estree/html/postcss/typescript` 插件显式调用，
   否则浏览器端会报 `Couldn't resolve parser "vue"`；格式化失败时回退为未格式化文本（结构仍完整）。
