@@ -155,15 +155,16 @@ registerPageTemplate({
   支持复制与下载（Blob，无需 file-saver）。
 - 生成走 `@lowcode/codegen` 的 `generateVueSfc(schema)`：Schema → 映射计划 → Element Plus 模板 AST → Prettier → Vue 3 SFC。
 - **输出是独立页面**：只依赖 `vue` + `element-plus`，不 import `@lowcode/materials`。
-  图标按需用 `@element-plus/icons-vue`，富文本按需用 `@vueup/vue-quill`（P1）。
+  富文本按需用 `@vueup/vue-quill`；图标属性暂未生成（通过 warnings 暴露）。
 - **表单壳**：有字段时根节点是 `<el-form>`，生成 `formData / formRef / formRules`；
   `settings.form` 的 labelPosition / labelWidth / size / modelName / refName / rulesName 生效，
   字段按映射类型识别（不依赖 `modelValue` 是否存在）。
 - **校验**：`required` / `validation` / `minLength` / `maxLength` / `onValidate` 生成 Element Plus rules。
-- **当前覆盖（P0）**：10/12 内置模板；除「固定表格表单」（picture-upload）与「数据列表页」（data-table）。
-  其余动作、数据源、schema.rules 在 P2 补齐；未还原能力通过 `GeneratedCode.warnings` 暴露。
+- **当前覆盖（P1）**：12/12 内置模板，含 picture/file upload、rich-editor（Quill）、data-table；
+  具名插槽、v-if/v-for、表单事件与 `functions` 已生成；静态数据源生成 `ref`。
+  动态数据源、动作链、schema.rules 在 P2 补齐；未还原能力通过 `GeneratedCode.warnings` 暴露。
 - **懒加载**：`await import('@lowcode/codegen')` 独立分包，只有点击按钮时才下载（prettier 体积较大）。
-- 浏览器可用性：Prettier 以 `prettier/standalone` + `babel/estree/html/postcss` 插件显式调用，
+- 浏览器可用性：Prettier 以 `prettier/standalone` + `babel/estree/html/postcss/typescript` 插件显式调用，
   否则浏览器端会报 `Couldn't resolve parser "vue"`；格式化失败时回退为未格式化文本（结构仍完整）。
 
 ## 七、扩展点
