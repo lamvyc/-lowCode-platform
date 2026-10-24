@@ -145,6 +145,27 @@ describe('事件与动作运行时', () => {
     expect(code).not.toContain('loadLocal()')
   })
 
+  it('request 带 dataSourceId 时走数据源 loader', async () => {
+    const schema = schemaWith([
+      {
+        id: 'b1',
+        name: 'go',
+        type: 'button',
+        props: { label: '加载' },
+        events: {
+          click: [
+            { id: 'a1', kind: 'request', config: { dataSourceId: 'remote' } },
+          ],
+        },
+      },
+    ])
+    schema.dataSources = [
+      { id: 'remote', name: '远程', type: 'rest', config: { url: '/api' } },
+    ]
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('loadRemote()')
+  })
+
   it('注入 core 同款表达式辅助函数', async () => {
     const { code } = await generateVueSfc(
       schemaWith([{ id: 'b1', name: 'go', type: 'button', props: { label: '去' } }]),
