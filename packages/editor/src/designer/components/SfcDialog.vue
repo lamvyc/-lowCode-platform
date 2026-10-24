@@ -111,7 +111,8 @@ function download(): void {
     width="72%"
     append-to-body
     destroy-on-close
-    class="lc-sfc-dialog"
+    draggable
+    class="lc-sfc-dialog lc-draggable-dialog"
     @update:model-value="(value: boolean) => emit('update:modelValue', value)"
   >
     <el-alert

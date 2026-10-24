@@ -1,0 +1,18 @@
+/**
+ * 可拖拽弹窗（`<el-dialog draggable>` + `.lc-draggable-dialog`）。
+ *
+ * Element Plus 把拖拽的 mousedown 绑在 `.el-dialog__header` 上，但 `.el-dialog`
+ * 自身有 `--el-dialog-padding-primary`（16px）的上内边距：鼠标从弹窗上沿进入时
+ * 先落在 padding 上，光标不变、也按不动，要再往下移 16px 才命中标题栏。
+ *
+ * 这里把上内边距从弹窗外壳挪到标题栏：视觉间距一分不差，但整个顶部区域从
+ * 第一个像素起就是标题栏（`cursor: move` + 可拖拽），与参考实现「移到顶部即可拖」
+ * 的手感一致。
+ */
+.lc-draggable-dialog.is-draggable {
+  padding-top: 0;
+}
+
+.lc-draggable-dialog.is-draggable > .el-dialog__header {
+  padding-top: var(--el-dialog-padding-primary, 16px);
+}

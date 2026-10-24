@@ -196,7 +196,15 @@ function handleClear(): void {
       </el-button>
     </div>
 
-    <el-dialog v-model="importVisible" title="导入 JSON" width="620px" append-to-body>
+    <el-dialog
+      v-model="importVisible"
+      title="导入 JSON"
+      width="620px"
+      append-to-body
+      draggable
+      destroy-on-close
+      class="lc-draggable-dialog"
+    >
       <p class="lc-toolbar__hint">粘贴页面 Schema JSON（支持旧版扁平结构与统一 2.x 结构）</p>
       <el-input
         v-model="importText"
@@ -211,7 +219,15 @@ function handleClear(): void {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="exportVisible" title="导出 JSON" width="620px" append-to-body>
+    <el-dialog
+      v-model="exportVisible"
+      title="导出 JSON"
+      width="620px"
+      append-to-body
+      draggable
+      destroy-on-close
+      class="lc-draggable-dialog"
+    >
       <el-input v-model="exportText" type="textarea" :rows="16" readonly />
       <template #footer>
         <el-button @click="exportVisible = false">关闭</el-button>

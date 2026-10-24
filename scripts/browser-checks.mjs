@@ -157,6 +157,96 @@ const orderCheck = (expectFn, label) => ({
   })()`,
 })
 
+/**
+ * 弹窗拖拽检查：点开工具栏弹窗 → 记录位置并给标题栏打 id →
+ * 真实鼠标按住标题栏拖动 120×60 → 断言位移、光标与 `is-draggable` →
+ * 点击遮罩空白区断言弹窗关闭。
+ *
+ * 为什么要真实鼠标：Element Plus 的 draggable 监听的是标题栏上的
+ * mousedown + document mousemove/mouseup，`element.click()` 这类合成事件
+ * 完全触发不到拖拽路径（与画布拖拽同理）。
+ */
+const dialogDragSteps = (label, openSelector, waitMs = 400) => {
+  const name = label.split('：')[0]
+  return [
+    { click: openSelector },
+    { wait: waitMs },
+    {
+      eval: `(() => {
+        const dialogs = [...document.querySelectorAll('.el-dialog')].filter((el) => el.offsetParent !== null)
+        if (dialogs.length !== 1) return JSON.stringify({ error: '可见弹窗数量=' + dialogs.length })
+        const dialog = dialogs[0]
+        const header = dialog.querySelector('.el-dialog__header')
+        if (!header) return JSON.stringify({ error: '找不到标题栏' })
+        const headerRect = header.getBoundingClientRect()
+        window.__dialogBefore = dialog.getBoundingClientRect()
+        window.__dialogDragTo = {
+          x: Math.round(headerRect.left + headerRect.width / 2 + 120),
+          y: Math.round(headerRect.top + headerRect.height / 2 + 60),
+        }
+        header.id = 'dialog-drag-header'
+        return JSON.stringify({ ok: true })
+      })()`,
+    },
+    { drag: { from: '#dialog-drag-header', toExpr: 'window.__dialogDragTo', steps: 12 } },
+    { wait: 250 },
+    {
+      label,
+      check: `(() => {
+        const header = document.querySelector('#dialog-drag-header')
+        if (!header) return { ok: false, detail: { error: '标题栏不存在' } }
+        const dialog = header.closest('.el-dialog')
+        const before = window.__dialogBefore
+        const after = dialog.getBoundingClientRect()
+        const dx = Math.round(after.left - before.left)
+        const dy = Math.round(after.top - before.top)
+        // 上沿 2px 处必须已经命中标题栏（光标 move），不能有 16px 的拖拽死区
+        const topHit = document.elementFromPoint(
+          Math.round(after.left + after.width / 2),
+          Math.round(after.top + 2),
+        )
+        const detail = {
+          位移: [dx, dy],
+          光标: getComputedStyle(header).cursor,
+          isDraggable类: dialog.classList.contains('is-draggable'),
+          transform: getComputedStyle(dialog).transform,
+          上沿光标: topHit ? getComputedStyle(topHit).cursor : null,
+          上沿命中标题栏: Boolean(topHit && topHit.closest('.el-dialog__header')),
+        }
+        return {
+          ok: detail.isDraggable类 && detail.光标 === 'move'
+            && detail.上沿光标 === 'move' && detail.上沿命中标题栏
+            && Math.abs(dx - 120) <= 8 && Math.abs(dy - 60) <= 8,
+          detail,
+        }
+      })()`,
+    },
+    {
+      eval: `(() => {
+        // 空白区打点：pointer-events:none 的小方块只提供坐标，真实点击会落到遮罩上
+        let marker = document.getElementById('dialog-mask-marker')
+        if (!marker) {
+          marker = document.createElement('div')
+          marker.id = 'dialog-mask-marker'
+          marker.style.cssText = 'position:fixed;left:30px;top:690px;width:20px;height:20px;pointer-events:none'
+          document.body.appendChild(marker)
+        }
+        const target = document.elementFromPoint(40, 700)
+        return JSON.stringify({ 遮罩: target ? target.className : null })
+      })()`,
+    },
+    { click: '#dialog-mask-marker' },
+    { wait: 600 },
+    {
+      label: `${name}：点击遮罩空白区关闭`,
+      check: `(() => {
+        const visible = [...document.querySelectorAll('.el-dialog')].filter((el) => el.offsetParent !== null).length
+        return { ok: visible === 0, detail: { 可见弹窗: visible } }
+      })()`,
+    },
+  ]
+}
+
 const CHECKS = [
   {
     name: 'canvas-smoke',
@@ -212,6 +302,40 @@ const CHECKS = [
           }
         })()`,
       },
+    ],
+  },
+
+  {
+    name: 'dialog-drag',
+    why: '预览 / 生成 SFC / 导入 JSON / 导出 JSON 四个弹窗要像参考 variant-form 一样能按住标题栏拖动，且从弹窗上沿第一个像素起就是拖拽区（不能有 16px 内边距死区）；点击遮罩空白区要能关闭（预览原先按参考实现禁用了遮罩关闭）。Element Plus 的 draggable 走 mousedown + mousemove 序列，合成 click 测不到，只有真实鼠标事件能覆盖',
+    steps: [
+      ...dialogDragSteps('导入 JSON：按住标题栏可拖动', '.lc-toolbar__action[aria-label="导入 JSON"]'),
+      ...dialogDragSteps('导出 JSON：按住标题栏可拖动', '.lc-toolbar__action[aria-label="导出 JSON"]'),
+      ...dialogDragSteps('生成 SFC：按住标题栏可拖动', '.lc-toolbar__action[aria-label="生成 SFC"]', 900),
+      ...dialogDragSteps('预览：按住标题栏可拖动', '.lc-toolbar__action[aria-label="预览"]', 900),
+      {
+        eval: `(() => {
+          const pad = [...document.querySelectorAll('.lc-toolbar__devices .el-button')]
+            .find((b) => b.textContent.trim() === 'Pad')
+          if (!pad) return 'NO_PAD'
+          pad.click()
+          return 'ok'
+        })()`,
+      },
+      { click: '[aria-label="预览"]' },
+      { wait: 900 },
+      {
+        label: 'Pad 预览是全屏弹窗，不出现拖拽光标（全屏下禁用拖拽）',
+        check: `(() => {
+          const dialog = document.querySelector('.el-dialog.is-fullscreen')
+          if (!dialog) return { ok: false, detail: { error: '没有全屏弹窗' } }
+          const cursor = getComputedStyle(dialog.querySelector('.el-dialog__header')).cursor
+          const detail = { 全屏: dialog.classList.contains('is-fullscreen'), isDraggable类: dialog.classList.contains('is-draggable'), 光标: cursor }
+          return { ok: !detail.isDraggable类 && detail.光标 !== 'move', detail }
+        })()`,
+      },
+      { click: '.el-dialog__headerbtn' },
+      { wait: 450 },
     ],
   },
 

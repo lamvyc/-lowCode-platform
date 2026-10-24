@@ -5,6 +5,7 @@ import type { PageSchema } from '@lowcode/schema'
 import { RuntimeRenderer } from '@lowcode/runtime'
 import { materialRegistry } from '../platform'
 import { DESIGNER_KEY, useDesigner } from './useDesigner'
+import './dialog.css'
 import Toolbar from './components/Toolbar.vue'
 import MaterialPanel from './components/MaterialPanel.vue'
 import Canvas from './components/Canvas.vue'
@@ -160,10 +161,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       center
       append-to-body
       destroy-on-close
-      class="lc-preview-dialog"
+      draggable
+      class="lc-preview-dialog lc-draggable-dialog"
       :fullscreen="state.device !== 'pc'"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
     >
       <template #header>
         <span class="lc-preview-title">预览</span>
@@ -195,7 +195,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       title="表单数据"
       width="560px"
       append-to-body
-      class="lc-form-data-dialog"
+      destroy-on-close
+      draggable
+      class="lc-form-data-dialog lc-draggable-dialog"
     >
       <el-input v-model="formDataJson" type="textarea" :rows="16" readonly />
       <template #footer>
