@@ -54,6 +54,20 @@ describe('上传映射', () => {
   })
 })
 
+describe('rich-editor 映射', () => {
+  it('生成 QuillEditor + v-model:content + CSS import', async () => {
+    const { code } = await generateVueSfc(
+      schemaWith([fieldNode('rich-editor', { placeholder: '请输入', disabled: true })]),
+    )
+    expect(code).toContain("import { QuillEditor } from '@vueup/vue-quill'")
+    expect(code).toContain("import '@vueup/vue-quill/dist/vue-quill.snow.css'")
+    expect(code).toContain('<QuillEditor')
+    expect(code).toContain('v-model:content="formData.rich_editor"')
+    expect(code).toContain('content-type="html"')
+    expect(code).toContain(':read-only="true"')
+  })
+})
+
 describe('data-table 映射', () => {
   it('生成 el-table + 列定义 + 表达式数据', async () => {
     const { code } = await generateVueSfc(

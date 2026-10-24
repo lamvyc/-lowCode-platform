@@ -2,7 +2,7 @@ import { el, type TemplateNode } from '../ast'
 import { isExpressionBinding, type PageNode } from '@lowcode/schema'
 import { rewriteExpression } from '../expressions'
 import { sanitizeIdentifier } from '../plan'
-import { boolAttr } from './helpers'
+import { bindAttr, boolAttr, staticAttr } from './helpers'
 import type { MappingContext, MappingRegistry } from './types'
 
 function str(value: unknown): string {
@@ -47,6 +47,25 @@ export function registerAdvancedMappings(registry: MappingRegistry): void {
 
   registry.register('picture-upload', uploadFactory(true))
   registry.register('file-upload', uploadFactory(false))
+
+  registry.register('rich-editor', {
+    tag: 'QuillEditor',
+    field: true,
+    model: 'content',
+    initialValue: () => '',
+    imports: [{ name: 'QuillEditor', from: '@vueup/vue-quill' }],
+    sideEffectImports: ['@vueup/vue-quill/dist/vue-quill.snow.css'],
+    attrs: (node) => {
+      const attrs: Record<string, string | true> = {
+        'content-type': 'html',
+        theme: 'snow',
+        toolbar: 'full',
+      }
+      Object.assign(attrs, staticAttr('placeholder', node.props.placeholder))
+      Object.assign(attrs, bindAttr('read-only', String(node.props.disabled === true)))
+      return attrs
+    },
+  })
 }
 
 /** 上传组件共用的生成逻辑 */
