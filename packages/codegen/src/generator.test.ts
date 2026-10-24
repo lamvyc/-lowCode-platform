@@ -188,6 +188,24 @@ describe('VueSfcGenerator', () => {
     expect(code).toContain(':key="index"')
   })
 
+  it('form functions 与三个表单事件进入生成物', async () => {
+    const schema = schemaWith([{ id: 'f1', name: 'a', type: 'input', props: { label: 'A' } }])
+    schema.settings = {
+      form: {
+        functions: 'function hello() { return 1 }',
+        onFormCreated: 'console.log(\'created\')',
+        onFormMounted: 'console.log(\'mounted\')',
+        onFormDataChange: 'console.log(fieldName, newValue)',
+      },
+    }
+    const { code } = await generateVueSfc(schema)
+    expect(code).toContain('function hello()')
+    expect(code).toContain("console.log('created')")
+    expect(code).toContain('onMounted(')
+    expect(code).toContain('watch(')
+    expect(code).toContain('onFormDataChange')
+  })
+
   it('生成的代码可被 @vue/compiler-sfc 解析', async () => {
     const { code } = await generateVueSfc(schemaWith([buttonNode(), staticTextNode()]))
     const { errors } = parse(code, { filename: 'page.vue' })

@@ -4,7 +4,7 @@ import * as prettierEstree from 'prettier/plugins/estree'
 import * as prettierHtml from 'prettier/plugins/html'
 import * as prettierPostcss from 'prettier/plugins/postcss'
 import * as prettierTypescript from 'prettier/plugins/typescript'
-import { isExpressionBinding, type PageNode, type PageSchema } from '@lowcode/schema'
+import { getFormSettings, isExpressionBinding, type PageNode, type PageSchema } from '@lowcode/schema'
 import { el, stringifyTemplate, type TemplateNode } from './ast'
 import {
   buildFormAttrs,
@@ -96,6 +96,14 @@ function applyColumnWidth(node: PageNode, target: TemplateNode): void {
   if (typeof width !== 'string' || width === '') return
   const existing = typeof target.attrs.style === 'string' ? target.attrs.style : ''
   target.attrs.style = existing ? `${existing}; width: ${width}` : `width: ${width}`
+}
+
+function indentCode(code: string, spaces = 2): string {
+  const pad = ' '.repeat(spaces)
+  return code
+    .split('\n')
+    .map((line) => (line.trim() === '' ? '' : pad + line))
+    .join('\n')
 }
 
 /** 应用 visible / loop 绑定到目标元素 */
@@ -278,8 +286,14 @@ export class VueSfcGenerator implements ICodeGenerator {
       setupLines.push(...lines)
     }
 
+    const formSettings = getFormSettings(schema.settings)
+    const needsWatch = Boolean(formSettings.onFormDataChange) && hasFields
+    const needsMounted = Boolean(formSettings.onFormMounted)
+
     const scriptLines: string[] = ['// 由低代码设计器生成']
     const vueImports = hasFields ? ['reactive', 'ref'] : ['ref']
+    if (needsWatch) vueImports.push('watch')
+    if (needsMounted) vueImports.push('onMounted')
     scriptLines.push(`import { ${vueImports.join(', ')} } from 'vue'`)
     if (elementPlusImports.size > 0) {
       scriptLines.push(
@@ -316,6 +330,32 @@ export class VueSfcGenerator implements ICodeGenerator {
     if (setupLines.length > 0) {
       scriptLines.push(setupLines.join('\n'))
     }
+
+    if (formSettings.functions) {
+      scriptLines.push(formSettings.functions)
+    }
+
+    if (formSettings.onFormCreated) {
+      scriptLines.push(
+        `try {\n${indentCode(formSettings.onFormCreated)}\n} catch (error) {\n  console.warn('[codegen] onFormCreated 执行失败', error)\n}`,
+      )
+    }
+
+    if (needsMounted) {
+      scriptLines.push(
+        `onMounted(() => {\n  try {\n${indentCode(formSettings.onFormMounted!, 4)}\n  } catch (error) {\n    console.warn('[codegen] onFormMounted 执行失败', error)\n  }\n})`,
+      )
+    }
+
+    if (needsWatch) {
+      for (const node of plan.fieldNodes) {
+        const key = plan.modelKeys.get(node.id) ?? modelKey(node)
+        scriptLines.push(
+          `watch(\n  () => ${form.modelName}.${key},\n  (newValue, oldValue) => {\n    try {\n      const fieldName = ${JSON.stringify(key)}\n      const formModel = ${form.modelName}\n${indentCode(formSettings.onFormDataChange!, 6)}\n    } catch (error) {\n      console.warn('[codegen] onFormDataChange 执行失败', error)\n    }\n  },\n)`,
+        )
+      }
+    }
+
     const script = scriptLines.join('\n')
 
     // ---- 样式 ----
