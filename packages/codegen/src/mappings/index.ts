@@ -1,5 +1,6 @@
 import { registerBasicMappings } from './basic'
 import { registerContainerMappings } from './containers'
+import { registerFieldMappings } from './fields'
 import { createMappingRegistry } from './registry'
 import type { MappingRegistry } from './types'
 
@@ -8,5 +9,6 @@ export function createDefaultRegistry(): MappingRegistry {
   const registry = createMappingRegistry()
   registerContainerMappings(registry)
   registerBasicMappings(registry)
+  registerFieldMappings(registry)
   return registry
 }
