@@ -181,3 +181,15 @@ describe('参考 variant-form 的表单模板', () => {
     expect(second.nodes.find((node) => node.type === 'input')?.props.label).toBe('发件人姓名')
   })
 })
+
+describe('页面模板的数据语义', () => {
+  it('数据列表页用 data-table，按钮用 label', () => {
+    const template = BUILTIN_TEMPLATES.find((item) => item.id === 'list')!
+    const schema = template.create()
+    expect(schema.nodes.find((node) => 'columns' in node.props)?.type).toBe('data-table')
+    const buttons = schema.nodes.filter((node) => node.type === 'button')
+    expect(buttons.length).toBeGreaterThan(0)
+    expect(buttons.every((node) => typeof node.props.label === 'string')).toBe(true)
+    expect(buttons.every((node) => node.props.text === undefined)).toBe(true)
+  })
+})

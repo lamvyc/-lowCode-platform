@@ -118,7 +118,7 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
           id: 'tpl_login_submit',
           name: 'submit',
           type: 'button',
-          props: { text: '登录', type: 'primary', size: 'default' },
+          props: { label: '登录', type: 'primary', size: 'default' },
           events: {
             click: [
               {
@@ -153,7 +153,7 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
           {
             id: 'tpl_list_table',
             name: 'userTable',
-            type: 'table',
+            type: 'data-table',
             props: {
               data: { type: 'expression', value: '$datasource.userList.data' },
               columns: [
@@ -169,7 +169,7 @@ export const BUILTIN_TEMPLATES: PageTemplate[] = [
             id: 'tpl_list_refresh',
             name: 'refreshList',
             type: 'button',
-            props: { text: '刷新列表', type: 'primary', size: 'default' },
+            props: { label: '刷新列表', type: 'primary', size: 'default' },
             events: {
               click: [
                 {

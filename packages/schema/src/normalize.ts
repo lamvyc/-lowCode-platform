@@ -59,6 +59,31 @@ function toLegacyDataSource(source: UnifiedDataSource): DataSource {
 }
 
 /**
+ * 节点级兼容归一化（不提升版本）：
+ * - 历史数据把数据表格写成 `table`（携带 columns/data）；runtime 的布局表格会忽略它们，
+ *   在 codegen 之前统一改回 `data-table`，让画布、预览、生成三处看到同一语义。
+ * - 旧按钮只写 `text`；编辑器补默认 `label` 时会把 text 遮掉，这里先补 label。
+ */
+function applyNodeCompat(schema: PageSchema): PageSchema {
+  for (const node of schema.nodes) {
+    if (
+      node.type === 'table' &&
+      (node.props?.columns !== undefined || node.props?.data !== undefined)
+    ) {
+      node.type = 'data-table'
+    }
+    if (
+      node.type === 'button' &&
+      (node.props?.label === undefined || node.props?.label === '') &&
+      node.props?.text !== undefined
+    ) {
+      node.props.label = node.props.text
+    }
+  }
+  return schema
+}
+
+/**
  * 页面 Schema 归一化：统一 Page（2.x）→ 旧版扁平视图（供 NodeTree / EventEngine /
  * Renderer 等既有引擎消费）。旧版输入原样校验返回（P5 兼容）。
  *
@@ -67,7 +92,7 @@ function toLegacyDataSource(source: UnifiedDataSource): DataSource {
  */
 export function normalizePageSchema(input: AnyPageSchema): PageSchema {
   if (!isSchemaEnvelope(input)) {
-    return parsePageSchema(input)
+    return applyNodeCompat(parsePageSchema(input))
   }
 
   const unified = input as UnifiedPageSchema
@@ -108,5 +133,5 @@ export function normalizePageSchema(input: AnyPageSchema): PageSchema {
     })),
     settings: spec.settings,
   }
-  return parsePageSchema(legacy)
+  return applyNodeCompat(parsePageSchema(legacy))
 }

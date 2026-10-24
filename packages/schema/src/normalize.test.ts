@@ -30,6 +30,10 @@ function makeLegacy() {
   }
 }
 
+function legacyWithNodes(nodes: Array<{ id: string; type: string; props: Record<string, unknown>; children?: string[] }>) {
+  return { ...makeLegacy(), nodes }
+}
+
 describe('统一 Page → 旧版运行时视图适配', () => {
   it('normalizePageSchema 原样通过旧版 PageSchema', () => {
     const legacy = makeLegacy()
@@ -184,5 +188,24 @@ describe('统一 Page → 旧版运行时视图适配', () => {
     expect(isStandardActionType('refresh')).toBe(true)
     expect(isStandardActionType('myPluginAction')).toBe(false)
     expect(isStandardActionType('')).toBe(false)
+  })
+
+  it('table 带 columns/data 时归一化为 data-table', () => {
+    const schema = normalizePageSchema(legacyWithNodes([
+      { id: 't1', type: 'table', props: { columns: [{ prop: 'name', label: '姓名' }], data: [] } },
+      { id: 't2', type: 'table', props: { border: true }, children: [] },
+    ]))
+    expect(schema.nodes[0].type).toBe('data-table')
+    expect(schema.nodes[1].type).toBe('table')
+  })
+
+  it('button 只有 text 时补成 label', () => {
+    const schema = normalizePageSchema(legacyWithNodes([
+      { id: 'b1', type: 'button', props: { text: '登录' } },
+      { id: 'b2', type: 'button', props: { label: '提交', text: '旧文案' } },
+    ]))
+    expect(schema.nodes[0].props.label).toBe('登录')
+    expect(schema.nodes[0].props.text).toBe('登录')
+    expect(schema.nodes[1].props.label).toBe('提交')
   })
 })
