@@ -37,6 +37,7 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `title` | 标题 | `input` | `Good things are coming...` |  |
 | `type` | 主题 | `select` | `info` |  选项：成功/警告/信息/错误 |
 | `description` | 辅助描述 | `textarea` | `` |  |
@@ -47,7 +48,6 @@
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `closeText` | 关闭时文字描述 | `input` | `` |  |
 | `center` | 文字居中 | `switch` | `True` |  |
 | `showIcon` | 显示图标 | `switch` | `False` |  |

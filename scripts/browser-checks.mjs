@@ -1526,6 +1526,82 @@ const CHECKS = [
   },
 
   {
+    name: 'action-params-input',
+    why: '动作参数是受控 el-input：此前只绑 :model-value + @change，而 el-input 每次按键后会把原生输入框重置回 modelValue，表现为"参数完全输不进去、永远是 {}"。这里在真实浏览器里验 输入 → 失焦规范化 → 确定 → 写回 node.events 全链路',
+    steps: [
+      { eval: GETCTX_EVAL() },
+      {
+        eval: `(async () => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const before = new Set([...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId))
+          ctx.insertMaterial('button')
+          await new Promise((r) => setTimeout(r, 500))
+          window.__t = [...document.querySelectorAll('.lc-canvas [data-node-id]')].map((e) => e.dataset.nodeId).find((x) => !before.has(x))
+          return window.__t || 'NO_NODE'
+        })()`,
+      },
+      {
+        eval: `(() => { const b = document.querySelector('.lc-event .el-button--primary'); if (b) b.scrollIntoView({ block: 'center' }); return !!b })()`,
+      },
+      { wait: 250 },
+      { click: '.lc-event .el-button--primary' },
+      { wait: 550 },
+      {
+        eval: `(() => { const b = document.querySelector('.lc-action-chain__add'); if (b) b.scrollIntoView({ block: 'center' }); return !!b })()`,
+      },
+      { wait: 250 },
+      { click: '.lc-action-chain__add' },
+      { wait: 350 },
+      {
+        eval: `(() => { const t = document.querySelector('.lc-action-chain textarea'); if (!t) return 'NO_TEXTAREA'; t.focus(); t.select(); return t.value })()`,
+      },
+      { type: '{"prop":"text","value":"hi"}' },
+      { wait: 250 },
+      {
+        label: '① 输入过程中文本不被回滚（历史 bug 的表现是仍是 {}）',
+        check: `(() => {
+          const t = document.querySelector('.lc-action-chain textarea')
+          return { ok: !!t && t.value.includes('"prop"'), detail: t ? t.value : null }
+        })()`,
+      },
+      { blur: true },
+      { wait: 250 },
+      {
+        label: '② 失焦后动作参数是合法 JSON 且内容正确',
+        check: `(() => {
+          const t = document.querySelector('.lc-action-chain textarea')
+          try {
+            const v = JSON.parse(t.value)
+            return { ok: v.prop === 'text' && v.value === 'hi', detail: t.value }
+          } catch (error) {
+            return { ok: false, detail: String(error) }
+          }
+        })()`,
+      },
+      {
+        eval: `(() => { const b = document.querySelector('.el-dialog__footer .el-button--primary'); if (b) b.scrollIntoView({ block: 'center' }); return !!b })()`,
+      },
+      { wait: 250 },
+      { click: '.el-dialog__footer .el-button--primary' },
+      { wait: 400 },
+      {
+        label: '③ 点击「确定」后参数写回 node.events.click[0].config',
+        check: `(() => {
+          ${GETCTX}
+          const ctx = __getCtx()
+          const node = ctx.engine.current.nodes.find((item) => item.id === window.__t)
+          const action = node && node.events && node.events.click && node.events.click[0]
+          return {
+            ok: !!action && action.config && action.config.prop === 'text' && action.config.value === 'hi',
+            detail: action || null,
+          }
+        })()`,
+      },
+    ],
+  },
+
+  {
     name: 'editor-history',
     why: '编辑器的撤销/重做与复制粘贴：每一步都会改 schema 并重建 RuntimeContext，涉及历史栈、选中态、运行时重建三者的配合。单测覆盖了引擎方法，但"真实操作后画布是否跟着回退/前进"没验过',
     steps: [

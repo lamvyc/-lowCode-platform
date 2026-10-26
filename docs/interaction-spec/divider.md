@@ -33,7 +33,9 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `label` | 分割线文案 | `label` | `` |  |
+| `columnWidth` | 组件宽度 | `radio-button` | `100%` |  选项：25%/50%/75%/100% |
 | `direction` | 方向 | `radio-button` | `horizontal` |  选项：水平/垂直 |
 | `contentPosition` | 文案位置 | `radio-button` | `center` | （仅当 `direction` = `horizontal` 时可见） 选项：左/中/右 |
 
@@ -42,8 +44,6 @@
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
-| `columnWidth` | 组件宽度 | `radio-button` | `100%` |  选项：25%/50%/75%/100% |
 
 ## 四、验收标准
 

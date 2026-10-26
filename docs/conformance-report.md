@@ -15,7 +15,7 @@
 | 缺失属性 | 0 |
 | 缺失事件 | 0 |
 | 缺失 UI 绑定 | 0 |
-| 已登记的有意偏离 | 69 |
+| 已登记的有意偏离 | 7 |
 
 ## 明细
 
@@ -54,9 +54,6 @@
 
 | 参考组件 | 类别 | 项目 | 原因 |
 | --- | --- | --- | --- |
-| 全部 | event | `onCreated` | 本平台不支持组件级生命周期钩子事件：节点事件是结构化动作链，只在真实 DOM 事件上触发；页面级初始化请用「表单设置 → onFormCreated」或规则引擎 mount 触发 |
-| 全部 | event | `onMounted` | 同上：组件挂载回调未纳入节点事件模型（参考实现直接拼装 Vue 组件 options） |
-| 全部 | event | `onValidate` | 画布不做字段即时校验：校验由 FormEngine + DataModel.validation 承担，字段面板的「校验规则」作为声明式元数据交给表单引擎 / 代码生成 |
 | grid | attr | `gridcolwidget:col-height` | 子节点由渲染器按 Schema 独立渲染，父容器无法向子组件传 prop；本平台用可继承的 CSS 变量把 colHeight 下传，并在 GridCol 上写成逐列 height —— 与参考的逐列高度语义等价，只是承载位置不同 |
 | button | attr | `staticcontentwrapper:display-style` | 本实现没有 static-content-wrapper 外壳，displayStyle 直接换算为按钮自身宽度（block → 100%） |
 | static-text | attr | `pre:style` | preWrap 用 div 的 white-space 表达，未使用 <pre> 元素（功能等价） |
@@ -66,7 +63,7 @@
 | checkbox | attr | `elcheckboxbutton:border` | Element Plus 的 el-checkbox-button 已移除 border 属性（仅 el-checkbox 支持） |
 | input | attr | `elbutton:class` | Element Plus 的按钮图标用 icon（组件）而非 class，本实现绑定为 :icon |
 
-共 23 个组件命中上述契约，逐组件命中明细见 `docs/conformance-report.json`。
+共 6 个组件命中上述契约，逐组件命中明细见 `docs/conformance-report.json`。
 
 ## 本仓库额外物料（信息性）
 

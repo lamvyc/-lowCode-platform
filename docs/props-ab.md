@@ -132,6 +132,9 @@ python3 scripts/props-ab.py 单行输入 单选项
 
 - `按钮` / `分隔线` 这类**静态内容**物料点不中（参考侧没有 `.el-form-item`），
   抽取器需要一个回退选择器才能覆盖。
-- 只比了"标签 + 控件类型"，**没比控件的可选值**（如「组件大小」的选项集合）、
-  默认值、以及分组归属。
+- 只比了"标签 + 控件类型"，**没比控件的可选值**（如「组件大小」的选项集合）与默认值。
+- **分组归属已不在本脚本里比**：参考的 `COMMON_PROPERTIES` / `ADVANCED_PROPERTIES` /
+  `EVENT_PROPERTIES` 三张注册表被解析成机器可读基线，由
+  `packages/materials/src/conformance/prop-groups.test.ts` 逐 widget 断言
+  （属性落在同一分区、事件一一对应），比 UI 抓取更稳定。
 - 参考侧依赖点击选中；表格/容器类物料的选中元素与字段不同。

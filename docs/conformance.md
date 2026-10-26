@@ -37,6 +37,12 @@ pnpm conformance
 `manifest.propConfigs` 里的每个属性，都必须在对应组件的 `defineProps` 中真实声明
 （否则面板会写到一个组件不认识的字段上，运行时静默失效）。
 
+还有一条**分组对齐**审计（`conformance/prop-groups.test.ts`）：
+属性面板的三个折叠区由参考的 `COMMON_PROPERTIES` / `ADVANCED_PROPERTIES` /
+`EVENT_PROPERTIES` 三张注册表逐项决定。审计把这三张表解析成机器可读基线，逐 widget 检查
+「通用设置 / 高级设置 / 事件设置」的归属是否与参考一致，以及事件属性是否一一对应
+（参考没有的事件，如 `select` 的 `onClear`，不得出现在事件设置里）。
+
 ## 三、怎么读报告
 
 ```text
@@ -62,15 +68,16 @@ pnpm conformance
 }
 ```
 
-当前登记的契约（11 条）分三类：
+当前登记的契约（8 条）分两类：
 
-1. **事件模型差异**（`*` 通配）：`onCreated` / `onMounted` / `onValidate` —— 本平台节点事件是结构化动作链，
-   不含组件生命周期与字段即时校验。
-2. **承载位置差异**：栅格 `colHeight`（本平台通过可继承的 CSS 变量下传为逐列 `height`，与参考语义一致）、按钮 `displayStyle`
+1. **承载位置差异**：栅格 `colHeight`（本平台通过可继承的 CSS 变量下传为逐列 `height`，与参考语义一致）、按钮 `displayStyle`
    （无 static-content-wrapper 外壳）、静态文本 `preWrap`（用 `white-space` 而非 `<pre>`）、
    富文本 `disabled`/`placeholder`（自研 contenteditable）。
-3. **上游 UI 库差异**（Element UI 2.x → Element Plus）：`radio-button`/`checkbox-button` 的 `border`
+2. **上游 UI 库差异**（Element UI 2.x → Element Plus）：`radio-button`/`checkbox-button` 的 `border`
    已移除、按钮图标用 `icon` 而非 class。
+
+> `onCreated` / `onMounted` / `onValidate` 不再登记为宽免：它们已按参考实现补齐为
+> `control: 'code'` 的事件类 `propConfig`，在「事件设置」里可见可编辑。
 
 `WAIVERS` 是**契约**而不是垃圾桶：登记一条就等于承认"这里和参考不同且我们知道原因"，
 新差异会因为测试失败而被拦住。

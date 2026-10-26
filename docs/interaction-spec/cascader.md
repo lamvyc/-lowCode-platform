@@ -70,19 +70,13 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `label` | 标签 | `label` | `` |  |
 | `required` | 必填字段 | `switch` | `False` |  |
 | `requiredHint` | 必填校验提示 | `input` | `` | （仅当 `required` = `True` 时可见） |
 | `modelValue` | 默认值 | `json` | `None` |  |
 | `placeholder` | 占位内容 | `input` | `请选择` |  |
 | `optionItems` | 选项（支持 children） | `json` | `[]` |  |
-
-### 高级设置
-
-| prop | 面板标签 | 控件 | 默认值 | 备注 |
-| --- | --- | --- | --- | --- |
-| `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `multiple` | 选项可多选 | `switch` | `False` |  |
 | `checkStrictly` | 可选任意一级 | `switch` | `False` |  |
 | `showAllLevels` | 显示完整路径 | `switch` | `True` |  |
@@ -95,10 +89,16 @@
 | `labelWidth` | 标签宽度 | `number` | `None` |  |
 | `labelHidden` | 隐藏字段标签 | `switch` | `False` |  |
 | `labelAlign` | 标签对齐 | `radio-button` | `left` |  选项：左/中/右 |
+| `columnWidth` | 组件列宽 | `input` | `` |  |
+
+### 高级设置
+
+| prop | 面板标签 | 控件 | 默认值 | 备注 |
+| --- | --- | --- | --- | --- |
+| `style` | 自定义CSS样式 | `style` | `None` |  |
 | `labelIconClass` | 标签Icon样式 | `input` | `` |  |
 | `labelIconPosition` | 图标位置 | `radio-button` | `rear` | （仅当 `labelIconClass` ≠ `` 时可见） 选项：前置/后置 |
 | `labelTooltip` | 标签文字提示 | `input` | `` |  |
-| `columnWidth` | 组件列宽 | `input` | `` |  |
 
 ## 四、验收标准
 

@@ -34,15 +34,15 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `text` | 文本内容 | `textarea` | `文本` |  |
+| `fontSize` | 字号 | `number` | `14` |  |
 
 ### 高级设置
 
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
-| `fontSize` | 字号 | `number` | `14` |  |
 | `color` | 文字颜色 | `color` | `` |  |
 | `bold` | 加粗 | `switch` | `False` |  |
 | `align` | 对齐 | `radio-button` | `left` |  选项：左/中/右 |

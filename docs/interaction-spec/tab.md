@@ -31,6 +31,7 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `panes` | 标签页 | `structure` | `None` |  |
 
 ### 高级设置
@@ -38,7 +39,6 @@
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `displayType` | 标签风格 | `radio-button` | `border-card` |  选项：卡片/下划线 |
 | `activeName` | 默认选中 | `input` | `` |  |
 

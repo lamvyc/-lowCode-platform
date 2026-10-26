@@ -47,17 +47,17 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `data` | 数据 | `expression` | `$datasource.userList.data` |  |
+| `border` | 边框 | `switch` | `True` |  |
 
 ### 高级设置
 
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `columns` | 列配置 | `json` | `[{'prop': 'name', 'label': '姓名', 'width': 120}, {'prop': 'age', 'label': '年龄', 'width': 80}]` |  |
 | `stripe` | 斑马纹 | `switch` | `True` |  |
-| `border` | 边框 | `switch` | `True` |  |
 
 ## 四、验收标准
 

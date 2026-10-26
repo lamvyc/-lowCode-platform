@@ -32,13 +32,13 @@ export const WIDGET_TYPE_ALIASES: Record<string, string> = {
 }
 
 /** 参考 option → 本仓库属性（全局重命名） */
-const GLOBAL_OPTION_ALIASES: Record<string, string> = {
+export const GLOBAL_OPTION_ALIASES: Record<string, string> = {
   defaultValue: 'modelValue',
   customClass: 'class',
 }
 
 /** 参考 option → 本仓库属性（逐 widget 重命名） */
-const WIDGET_OPTION_ALIASES: Record<string, Record<string, string>> = {
+export const WIDGET_OPTION_ALIASES: Record<string, Record<string, string>> = {
   // 按钮文案已改回与参考同名（`label`），这条别名不再需要
   'tab-pane': { name: 'paneName' },
 }
@@ -59,28 +59,8 @@ export interface ConformanceWaiver {
  * 这里只登记"已确认属于参考实现或上游 UI 库差异"的项，不能用来掩盖遗漏。
  */
 export const WAIVERS: ConformanceWaiver[] = [
-  // ---- 事件模型差异（对所有组件生效）----
-  {
-    widget: '*',
-    kind: 'event',
-    reference: 'onCreated',
-    reason:
-      '本平台不支持组件级生命周期钩子事件：节点事件是结构化动作链，只在真实 DOM 事件上触发；页面级初始化请用「表单设置 → onFormCreated」或规则引擎 mount 触发',
-  },
-  {
-    widget: '*',
-    kind: 'event',
-    reference: 'onMounted',
-    reason:
-      '同上：组件挂载回调未纳入节点事件模型（参考实现直接拼装 Vue 组件 options）',
-  },
-  {
-    widget: '*',
-    kind: 'event',
-    reference: 'onValidate',
-    reason:
-      '画布不做字段即时校验：校验由 FormEngine + DataModel.validation 承担，字段面板的「校验规则」作为声明式元数据交给表单引擎 / 代码生成',
-  },
+  // 注：onCreated / onMounted / onValidate 曾作为宽免项，现已按参考实现补齐为
+  // `control: 'code'` 的事件类 propConfig（事件设置里可见），因此不再需要宽免。
 
   // ---- 承载位置差异：参考把内部结构渲染在父模板里，本平台拆成子组件 ----
   {
@@ -195,7 +175,7 @@ export function loadMaterialComponentMap(
   return map
 }
 
-function mapOption(widgetType: string, referenceOption: string): string {
+export function mapOption(widgetType: string, referenceOption: string): string {
   return (
     WIDGET_OPTION_ALIASES[widgetType]?.[referenceOption] ??
     GLOBAL_OPTION_ALIASES[referenceOption] ??
@@ -277,9 +257,14 @@ export function auditConformance(input: AuditInput): ConformanceReport {
       missingOptions.push(`${option}${mapped === option ? '' : `（→${mapped}）`}`)
     }
 
-    const ourEventLabels = new Set(
-      (manifest.events ?? []).map((event) => event.label ?? event.name),
-    )
+    // 事件类 propConfig（onCreated / onMounted / onValidate 等代码型事件）
+    // 与 material.events 一起构成"已声明事件"的全集。
+    const ourEventLabels = new Set([
+      ...(manifest.events ?? []).map((event) => event.label ?? event.name),
+      ...manifest.propConfigs
+        .filter((config) => config.group === 'event')
+        .map((config) => config.name),
+    ])
     for (const event of widget.eventKeys) {
       if (ourEventLabels.has(event)) continue
       if (waiverFor(widget.type, 'event', event)) {

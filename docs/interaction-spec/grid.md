@@ -32,6 +32,7 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `columns` | 栅格列 | `structure` | `None` |  |
 | `gutter` | 栅格间隔(px) | `number` | `12` |  |
 | `colHeight` | 栅格列统一高度(px) | `number` | `None` |  |
@@ -41,7 +42,6 @@
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `justify` | 水平排列 | `select` | `start` |  选项：起始/居中/末尾/两端对齐/环绕 |
 
 ## 四、验收标准

@@ -111,7 +111,6 @@ const emit = defineEmits<{
   (e: 'change', value: string | number | boolean | Array<string | number | boolean>): void
   (e: 'focus', event: FocusEvent): void
   (e: 'blur', event: FocusEvent): void
-  (e: 'clear'): void
 }>()
 
 /** Element Plus 不接受空字符串尺寸，'' 统一转为 undefined */
@@ -187,7 +186,6 @@ const remoteMethod = computed(() =>
       @change="emit('change', $event)"
       @focus="emit('focus', $event)"
       @blur="emit('blur', $event)"
-      @clear="emit('clear')"
     >
       <ElOption
         v-for="option in mergedOptions"

@@ -44,6 +44,7 @@ pnpm verify:browser -- --url http://localhost:5174/ --only radio   # 只跑名�
 | `input-placeholder` | `placeholder` 默认是空串（参考实现如此，无兜底文案），设置后透传到原生 `input` |
 | `formitem-no-hint` | `requiredHint` / `validationHint` 是**校验失败时的错误文案**，不是常显提示 |
 | `validation-in-preview` | 预览态：空值失焦出现错误、填值后失焦清除过期错误（纯 UI 时序） |
+| `action-params-input` | 动作参数（受控 `el-input`）可输入：输入不被回滚、失焦规范化、确定后写回 `node.events` |
 | `drag-ghost-follows-pointer` | 拖拽浮层的三处观感问题：① 创建时落在 (0,0) 再被 60ms transition 补间到指针（「从左上角飘过来」）② 浮层带 `rotate(1.5deg)` 导致倾斜 ③ 屏蔽浏览器默认拖拽影像的 1×1 透明元素**未挂载**，被 Chrome 忽略（「浏览器小图标」）。逐条断言 |
 | `drop-at-bottom-appends` | 落点索引必须换算到 **schema children 空间**，否则隐藏兄弟（demo 的 `n_input`）会让落点整体偏移 |
 | `material-drag-to-top` | 物料拖入的顶部落点 |

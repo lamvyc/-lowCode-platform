@@ -33,6 +33,30 @@ packages/editor/src/designer/
 `PropConfig.group` 显式声明分区，缺省按控件类型推断（`event` / `events` → 事件设置，其余 → 通用设置）。
 空分区不渲染；默认展开「通用设置」与「事件设置」，与参考实现一致。
 
+三个折叠区**按参考实现的属性注册表逐项对齐**（`variant-form`
+`setting-panel/propertyRegister.js`）：
+
+| 本仓库分区 | 参考注册表 | 典型属性 |
+| --- | --- | --- |
+| 通用设置 | `COMMON_PROPERTIES` | `label` / `labelAlign` / `columnWidth` / `size` / `required` / `validation` / `readonly` / `disabled` / `clearable` / `multiple` / `uploadURL` / `class` … |
+| 高级设置 | `ADVANCED_PROPERTIES` | `min` / `max` / `precision` / `step` / `controlsPosition` / `minLength` / `maxLength` / `showWordLimit` / `prefixIcon` / `suffixIcon` / `switchWidth` / `activeText` / `range` / `vertical` / `plain` / `labelIconClass` / `labelIconPosition` / `labelTooltip` / `appendButton` … |
+| 事件设置 | `EVENT_PROPERTIES` | `onCreated` / `onMounted` / `onInput` / `onChange` / `onClick` / `onRemoteQuery` / `onBeforeUpload` / `onValidate` … |
+
+两条容易写错的规则：
+
+- **校验 / 尺寸 / 标签排版不是高级属性**：`validation`、`validationHint`、`size`、
+  `labelWidth`、`labelHidden`、`labelAlign`、`columnWidth` 在参考里都注册在
+  `COMMON_PROPERTIES`，因此归「通用设置」；字段类真正属于高级的只有
+  `labelIconClass` / `labelIconPosition` / `labelTooltip`，加上各组件自己的
+  `min` / `max` / `prefixIcon` / `switchWidth` / `plain` 等。
+- **事件设置与参考的事件属性一一对应**：物料 `events[].label` 用 `onXxx` 命名，
+  与参考 `EVENT_PROPERTIES` 的键一致；`onCreated` / `onMounted` / `onValidate`
+  是「代码型」事件，以 `control: 'code'` 的 `propConfig` 声明并归 `event` 分区。
+  参考没有的事件（如 `select` 的 `onClear`）不暴露。
+
+`packages/materials/src/conformance/prop-groups.test.ts` 把参考的三张注册表解析成
+机器可读基线，逐 widget 断言「属性分组归属」与「事件一一对应」，防止后续漂移。
+
 ### 2.2 控件与专用编辑器
 
 `PropConfig.control` 决定渲染的控件：
@@ -66,6 +90,8 @@ packages/editor/src/designer/
 点击「添加/编辑动作」打开对话框，用结构化方式编辑 `node.events[eventName]`（动作链）：
 
 - 每条动作：动作类型（`ActionKind`）、执行条件表达式、延迟、参数 JSON；
+- 「动作参数」是 JSON 文本：输入过程中保留本地草稿（否则受控 `el-input` 会把每次按键
+  回滚成旧值），JSON 合法时即时写回，失焦时校验并格式化为两空格缩进；
 - 支持新增 / 删除 / 上下移；空动作链视为解绑该事件；
 - 写回走 `EditorEngine.updateEvents`，进入撤销栈。
 
@@ -101,10 +127,10 @@ packages/editor/src/designer/
   propConfigs: [
     { name: 'name', label: '唯一名称', control: 'name', group: 'common' },
     { name: 'hidden', label: '隐藏', control: 'hidden', group: 'common' },
-    { name: 'max', label: '最大分值', control: 'number', group: 'common', range: { min: 1, max: 10 } },
+    { name: 'class', label: '自定义类名', control: 'custom-class', group: 'common' },
+    { name: 'max', label: '最大分值', control: 'number', group: 'advanced', range: { min: 1, max: 10 } },
     { name: 'allowHalf', label: '允许半星', control: 'switch', group: 'advanced' },
     { name: 'style', label: '自定义样式', control: 'style', group: 'advanced' },
-    { name: 'class', label: '自定义类名', control: 'custom-class', group: 'advanced' },
   ],
 }
 ```
@@ -114,5 +140,6 @@ packages/editor/src/designer/
 ## 五、验证
 
 - 单测：`props-config.test.ts`（分区 / 联动 / 样式转换 / JSON Schema 兜底）、`code.test.ts`（语法校验）、
-  `packages/schema/src/form-settings.test.ts`（默认值 / CSS 类名提取）、`editor-engine.test.ts`（表单设置历史合并与撤销）。
+  `packages/schema/src/form-settings.test.ts`（默认值 / CSS 类名提取）、`editor-engine.test.ts`（表单设置历史合并与撤销）、
+  `packages/materials/src/conformance/prop-groups.test.ts`（与参考的属性分组 / 事件属性对齐）。
 - 浏览器交互（无头 Chrome + CDP）：页签自动切换、分区渲染、选项增删、属性联动、样式即时生效、事件动作链写回与撤销、代码对话框语法拦截、表单 CSS 注入与回写。

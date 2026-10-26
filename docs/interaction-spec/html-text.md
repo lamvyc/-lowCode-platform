@@ -31,15 +31,15 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `htmlContent` | HTML 内容 | `code` | `<b>html text</b>` |  |
+| `columnWidth` | 宽度 | `input` | `` |  |
 
 ### 高级设置
 
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
-| `columnWidth` | 宽度 | `input` | `` |  |
 
 ## 四、验收标准
 

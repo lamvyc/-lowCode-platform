@@ -36,6 +36,7 @@
 | `name` | 唯一名称 | `name` | `None` |  |
 | `label` | 标签 | `label` | `` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `hideTitle` | 隐藏标题区 | `switch` | `False` |  |
 
 ### 高级设置
@@ -43,7 +44,6 @@
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `showCollapse` | 显示折叠按钮 | `switch` | `True` |  |
 | `collapsed` | 默认收起 | `switch` | `False` | （仅当 `showCollapse` = `True` 时可见） |
 | `width` | 卡片宽度 | `input` | `100%` |  |

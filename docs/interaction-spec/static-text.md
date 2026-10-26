@@ -34,18 +34,18 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `textContent` | 文本内容 | `textarea` | `static text` |  |
 | `textAlign` | 对齐 | `radio-button` | `left` |  选项：左/中/右 |
+| `fontSize` | 字号 | `input` | `13px` |  |
+| `preWrap` | 保留换行 | `switch` | `False` |  |
+| `columnWidth` | 宽度 | `input` | `` |  |
 
 ### 高级设置
 
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
-| `fontSize` | 字号 | `input` | `13px` |  |
-| `preWrap` | 保留换行 | `switch` | `False` |  |
-| `columnWidth` | 宽度 | `input` | `` |  |
 
 ## 四、验收标准
 

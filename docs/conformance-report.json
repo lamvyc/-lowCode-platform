@@ -138,9 +138,6 @@
         "columnWidth"
       ],
       "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate",
         "attr:elbutton:class"
       ]
     },
@@ -169,11 +166,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "number",
@@ -200,11 +193,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "radio",
@@ -232,9 +221,6 @@
         "columnWidth"
       ],
       "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate",
         "attr:elradiobutton:border"
       ]
     },
@@ -263,11 +249,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "select",
@@ -294,11 +276,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "time",
@@ -325,11 +303,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "time-range",
@@ -356,11 +330,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "date",
@@ -387,11 +357,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "date-range",
@@ -418,11 +384,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "switch",
@@ -446,11 +408,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "rate",
@@ -477,11 +435,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "color",
@@ -509,11 +463,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "slider",
@@ -543,11 +493,7 @@
         "size",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "static-text",
@@ -569,8 +515,6 @@
         "columnWidth"
       ],
       "waived": [
-        "event:onCreated",
-        "event:onMounted",
         "attr:pre:style"
       ]
     },
@@ -593,10 +537,7 @@
         "onMounted",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted"
-      ]
+      "waived": []
     },
     {
       "referenceType": "button",
@@ -618,8 +559,6 @@
         "columnWidth"
       ],
       "waived": [
-        "event:onCreated",
-        "event:onMounted",
         "attr:staticcontentwrapper:display-style"
       ]
     },
@@ -644,10 +583,7 @@
         "columnWidth",
         "direction"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted"
-      ]
+      "waived": []
     },
     {
       "referenceType": "picture-upload",
@@ -672,11 +608,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "file-upload",
@@ -701,11 +633,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     },
     {
       "referenceType": "rich-editor",
@@ -738,9 +666,6 @@
         "columnWidth"
       ],
       "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate",
         "attr:vueeditor:disabled",
         "attr:vueeditor:placeholder"
       ]
@@ -770,11 +695,7 @@
         "validationHint",
         "columnWidth"
       ],
-      "waived": [
-        "event:onCreated",
-        "event:onMounted",
-        "event:onValidate"
-      ]
+      "waived": []
     }
   ],
   "missingWidgets": [],
@@ -793,6 +714,6 @@
     "missingOptions": 0,
     "missingEvents": 0,
     "missingAttrs": 0,
-    "waived": 69
+    "waived": 7
   }
 }

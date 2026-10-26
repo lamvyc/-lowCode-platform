@@ -48,32 +48,32 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `label` | 标签 | `label` | `` |  |
 | `required` | 必填字段 | `switch` | `False` |  |
 | `requiredHint` | 必填校验提示 | `input` | `` | （仅当 `required` = `True` 时可见） |
 | `modelValue` | 默认值 | `switch` | `False` |  |
-| `switchWidth` | 开关宽度（像素） | `number` | `40` |  |
-
-### 高级设置
-
-| prop | 面板标签 | 控件 | 默认值 | 备注 |
-| --- | --- | --- | --- | --- |
-| `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
-| `activeText` | 开启时文字描述 | `input` | `` |  |
-| `inactiveText` | 关闭时文字描述 | `input` | `` |  |
-| `activeColor` | 开启时背景色 | `color` | `` |  |
-| `inactiveColor` | 关闭时背景色 | `color` | `` |  |
 | `disabled` | 禁用 | `switch` | `False` |  |
 | `validation` | 字段校验 | `select` | `` |  选项：无/数字/字母/字母+数字/手机号/邮箱/URL/不含中文 |
 | `validationHint` | 校验失败提示 | `input` | `` | （仅当 `validation` ≠ `` 时可见） |
 | `labelWidth` | 标签宽度 | `number` | `None` |  |
 | `labelHidden` | 隐藏字段标签 | `switch` | `False` |  |
 | `labelAlign` | 标签对齐 | `radio-button` | `left` |  选项：左/中/右 |
+| `columnWidth` | 组件列宽 | `input` | `` |  |
+
+### 高级设置
+
+| prop | 面板标签 | 控件 | 默认值 | 备注 |
+| --- | --- | --- | --- | --- |
+| `style` | 自定义CSS样式 | `style` | `None` |  |
+| `switchWidth` | 开关宽度（像素） | `number` | `40` |  |
+| `activeText` | 开启时文字描述 | `input` | `` |  |
+| `inactiveText` | 关闭时文字描述 | `input` | `` |  |
+| `activeColor` | 开启时背景色 | `color` | `` |  |
+| `inactiveColor` | 关闭时背景色 | `color` | `` |  |
 | `labelIconClass` | 标签Icon样式 | `input` | `` |  |
 | `labelIconPosition` | 图标位置 | `radio-button` | `rear` | （仅当 `labelIconClass` ≠ `` 时可见） 选项：前置/后置 |
 | `labelTooltip` | 标签文字提示 | `input` | `` |  |
-| `columnWidth` | 组件列宽 | `input` | `` |  |
 
 ## 四、验收标准
 

@@ -38,23 +38,23 @@
 | --- | --- | --- | --- | --- |
 | `name` | 唯一名称 | `name` | `None` |  |
 | `hidden` | 隐藏 | `hidden` | `None` |  |
+| `class` | 自定义类名 | `custom-class` | `None` |  |
 | `label` | 按钮文案 | `input` | `按钮` |  |
 | `type` | 按钮类型 | `select` | `` |  选项：默认/主要/成功/警告/危险/信息 |
 | `displayStyle` | 显示样式 | `radio-button` | `inline` |  选项：行内/块级 |
+| `size` | 组件大小 | `radio-button` | `default` |  选项：默认/大/小 |
+| `disabled` | 禁用 | `switch` | `False` |  |
+| `columnWidth` | 宽度 | `input` | `` |  |
 
 ### 高级设置
 
 | prop | 面板标签 | 控件 | 默认值 | 备注 |
 | --- | --- | --- | --- | --- |
 | `style` | 自定义CSS样式 | `style` | `None` |  |
-| `class` | 自定义类名 | `custom-class` | `None` |  |
-| `size` | 组件大小 | `radio-button` | `default` |  选项：默认/大/小 |
 | `plain` | 朴素按钮 | `switch` | `False` |  |
 | `round` | 圆角按钮 | `switch` | `False` |  |
 | `circle` | 圆形按钮 | `switch` | `False` | （仅当 `round` = `False` 时可见） |
 | `icon` | 按钮图标 | `input` | `` |  |
-| `disabled` | 禁用 | `switch` | `False` |  |
-| `columnWidth` | 宽度 | `input` | `` |  |
 
 ## 四、验收标准
 

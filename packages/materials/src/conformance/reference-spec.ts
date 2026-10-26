@@ -40,6 +40,28 @@ export interface ReferenceBoundAttr {
   option: string
 }
 
+/** 参考属性面板的三张注册表：基础 / 高级 / 事件 */
+export type ReferencePropertyGroup = 'common' | 'advanced' | 'event'
+
+/**
+ * 参考实现的属性分组基线。
+ *
+ * `variant-form` 的属性面板不是按 widget 声明顺序渲染的，而是遍历
+ * `propertyRegister.js` 里的 `COMMON_PROPERTIES` / `ADVANCED_PROPERTIES` /
+ * `EVENT_PROPERTIES` 三张表，再用 widget 的 options 键过滤。因此「某个属性
+ * 应该出现在哪个折叠区」完全由这三张表决定。
+ */
+export interface ReferencePropertyGroups {
+  /** 基础（COMMON_PROPERTIES），按注册顺序 */
+  common: string[]
+  /** 高级（ADVANCED_PROPERTIES），按注册顺序 */
+  advanced: string[]
+  /** 事件（EVENT_PROPERTIES），按注册顺序 */
+  event: string[]
+  /** option 名 → 分组 */
+  groupOf: Record<string, ReferencePropertyGroup>
+}
+
 export interface ReferenceWidgetSpec extends ReferenceWidgetRecord {
   /** 模板 + 公共 wrapper 中真正被读取的 option（功能性属性） */
   usedOptionKeys: string[]
@@ -58,6 +80,8 @@ export interface ReferenceSpec {
   widgets: ReferenceWidgetSpec[]
   /** form-item-wrapper 等公共外壳读取的 option（对所有 formItem 字段生效） */
   sharedOptionKeys: string[]
+  /** 属性面板分组基线；参考目录缺少 propertyRegister.js 时为空 */
+  propertyGroups?: ReferencePropertyGroups
 }
 
 const WIDGETS_CONFIG = 'components/form-designer/widget-panel/widgetsConfig.js'
@@ -167,6 +191,52 @@ function readIfExists(path: string): string {
   return existsSync(path) ? readFileSync(path, 'utf8') : ''
 }
 
+const PROPERTY_REGISTER = 'components/form-designer/setting-panel/propertyRegister.js'
+
+const PROPERTY_MAPS: Array<[ReferencePropertyGroup, string]> = [
+  ['common', 'COMMON_PROPERTIES'],
+  ['advanced', 'ADVANCED_PROPERTIES'],
+  ['event', 'EVENT_PROPERTIES'],
+]
+
+/** 取 `const MAP_NAME = { ... }` 的对象体（到行首的 `}` 为止） */
+function extractPropertyMapBody(source: string, name: string): string {
+  const start = source.indexOf(`const ${name} = {`)
+  if (start < 0) return ''
+  const open = source.indexOf('{', start)
+  const end = source.indexOf('\n}', open)
+  return end < 0 ? '' : source.slice(open + 1, end)
+}
+
+/** 解析参考实现的 propertyRegister.js（纯函数，便于单测） */
+export function parseReferencePropertyGroups(source: string): ReferencePropertyGroups {
+  const result: ReferencePropertyGroups = {
+    common: [],
+    advanced: [],
+    event: [],
+    groupOf: {},
+  }
+  for (const [group, mapName] of PROPERTY_MAPS) {
+    const body = extractPropertyMapBody(source, mapName)
+    for (const match of body.matchAll(/'([^']+)'\s*:\s*'([^']+)'/g)) {
+      const option = match[1]
+      result[group].push(option)
+      // 三张表理论上不重名；万一重名，以先登记的为准
+      if (!result.groupOf[option]) result.groupOf[option] = group
+    }
+  }
+  return result
+}
+
+/** 读取参考实现的属性分组基线；文件不存在时返回 undefined */
+export function loadReferencePropertyGroups(
+  sourceDir: string,
+): ReferencePropertyGroups | undefined {
+  const file = join(sourceDir, PROPERTY_REGISTER)
+  if (!existsSync(file)) return undefined
+  return parseReferencePropertyGroups(readFileSync(file, 'utf8'))
+}
+
 /** 组装参考实现规格 */
 export async function loadReferenceSpec(sourceDir: string): Promise<ReferenceSpec> {
   const records = await loadReferenceWidgets(sourceDir)
@@ -193,5 +263,10 @@ export async function loadReferenceSpec(sourceDir: string): Promise<ReferenceSpe
     }
   })
 
-  return { sourceDir, widgets, sharedOptionKeys }
+  return {
+    sourceDir,
+    widgets,
+    sharedOptionKeys,
+    propertyGroups: loadReferencePropertyGroups(sourceDir),
+  }
 }

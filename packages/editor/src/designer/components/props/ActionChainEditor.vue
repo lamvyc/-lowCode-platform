@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { ElButton, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { ActionKind, EventAction } from '@lowcode/schema'
 import { ACTION_CONFIG_HINTS, ACTION_KIND_OPTIONS, createAction } from '../../props-config'
@@ -26,6 +26,16 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: EventAction[]): void 
 
 const actions = computed<EventAction[]>(() => props.modelValue ?? [])
 
+/**
+ * 动作参数字段的本地草稿（key = action.id）。
+ *
+ * ⚠️ 为什么需要它：`el-input` 是受控组件——输入后会把原生输入框的值重置回
+ * `modelValue`。此前这里只写了 `:model-value` + `@change`（失焦才触发），
+ * 于是每次按键都被异步回滚，表现为**动作参数完全输不进去**（永远是 `{}`）。
+ * 现在输入过程中把文本留在本地草稿里，JSON 合法时再写回动作链。
+ */
+const configDrafts = ref<Record<string, string>>({})
+
 const signature = computed(() => {
   const params = (props.params ?? []).join(', ')
   return `${props.widgetName || 'widget'}.${props.eventName || 'onEvent'}(${params}) {`
@@ -44,6 +54,8 @@ function addAction(): void {
 }
 
 function removeAction(index: number): void {
+  const removed = actions.value[index]
+  if (removed) clearConfigDraft(removed, index)
   commit(actions.value.filter((_, current) => current !== index))
 }
 
@@ -64,15 +76,61 @@ function configHint(kind: ActionKind): string {
   return ACTION_CONFIG_HINTS[kind] ?? '{}'
 }
 
-function setConfig(index: number, text: string): void {
-  let parsed: Record<string, unknown>
+function actionKey(action: EventAction, index: number): string {
+  return action.id ?? `index:${index}`
+}
+
+/** 展示值：编辑中优先用草稿，否则用动作链里的配置（格式化 JSON） */
+function configDraft(action: EventAction, index: number): string {
+  return configDrafts.value[actionKey(action, index)] ?? configText(action)
+}
+
+function parseConfig(text: string): { ok: true; value: Record<string, unknown> } | { ok: false } {
   try {
-    parsed = text.trim() ? (JSON.parse(text) as Record<string, unknown>) : {}
+    const parsed: unknown = text.trim() ? JSON.parse(text) : {}
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false }
+    return { ok: true, value: parsed as Record<string, unknown> }
   } catch {
-    ElMessage.error('动作参数必须是合法 JSON')
+    return { ok: false }
+  }
+}
+
+function clearConfigDraft(action: EventAction, index: number): void {
+  const key = actionKey(action, index)
+  if (!(key in configDrafts.value)) return
+  const next = { ...configDrafts.value }
+  delete next[key]
+  configDrafts.value = next
+}
+
+/** 输入中：保留草稿（否则受控输入会被回滚），JSON 合法时即时写回 */
+function onConfigInput(action: EventAction, index: number, text: string): void {
+  const key = actionKey(action, index)
+  configDrafts.value = { ...configDrafts.value, [key]: text }
+  const parsed = parseConfig(text)
+  if (parsed.ok) patchAction(index, { config: parsed.value })
+}
+
+/** 失焦：校验并规范化；非法 JSON 保留草稿，方便继续修改 */
+function onConfigBlur(action: EventAction, index: number): void {
+  const key = actionKey(action, index)
+  const text = configDrafts.value[key]
+  if (text === undefined) return
+  const parsed = parseConfig(text)
+  if (!parsed.ok) {
+    ElMessage.error('动作参数必须是 JSON 对象，如 {"prop":"text","value":"新文案"}')
     return
   }
-  patchAction(index, { config: parsed })
+  patchAction(index, { config: parsed.value })
+  const next = { ...configDrafts.value }
+  delete next[key]
+  configDrafts.value = next
+}
+
+/** 切换动作类型：丢弃该动作的旧草稿，展示当前配置的格式化结果 */
+function setKind(action: EventAction, index: number, kind: ActionKind): void {
+  clearConfigDraft(action, index)
+  patchAction(index, { kind })
 }
 
 function setDelay(index: number, value: number | undefined): void {
@@ -95,7 +153,7 @@ function setDelay(index: number, value: number | undefined): void {
           class="lc-action__kind"
           size="small"
           :model-value="action.kind"
-          @update:model-value="(value: ActionKind) => patchAction(index, { kind: value })"
+          @update:model-value="(value: ActionKind) => setKind(action, index, value)"
         >
           <el-option
             v-for="option in ACTION_KIND_OPTIONS"
@@ -158,9 +216,10 @@ function setDelay(index: number, value: number | undefined): void {
         <el-input
           type="textarea"
           :rows="3"
-          :model-value="configText(action)"
+          :model-value="configDraft(action, index)"
           :placeholder="configHint(action.kind)"
-          @change="(value: string) => setConfig(index, value)"
+          @update:model-value="(value: string) => onConfigInput(action, index, value)"
+          @blur="onConfigBlur(action, index)"
         />
       </div>
     </div>
